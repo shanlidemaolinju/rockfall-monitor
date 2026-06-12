@@ -1,0 +1,218 @@
+{
+  "source": "nanning_naan_s1_demo",
+  "total_frames": 15701,
+  "fps": 25.0,
+  "elapsed_seconds": 20.1,
+  "alert_frames": [
+    {
+      "frame": 1,
+      "time_sec": 0.0,
+      "alert_level": "yellow",
+      "box_count": 4,
+      "max_conf": 0.98
+    },
+    {
+      "frame": 6,
+      "time_sec": 0.5,
+      "alert_level": "orange",
+      "box_count": 5,
+      "max_conf": 0.84
+    },
+    {
+      "frame": 11,
+      "time_sec": 1.0,
+      "alert_level": "red",
+      "box_count": 1,
+      "max_conf": 0.55
+    },
+    {
+      "frame": 16,
+      "time_sec": 1.5,
+      "alert_level": "blue",
+      "box_count": 4,
+      "max_conf": 0.68
+    },
+    {
+      "frame": 21,
+      "time_sec": 2.0,
+      "alert_level": "yellow",
+      "box_count": 4,
+      "max_conf": 0.88
+    },
+    {
+      "frame": 26,
+      "time_sec": 2.5,
+      "alert_level": "blue",
+      "box_count": 1,
+      "max_conf": 0.85
+    },
+    {
+      "frame": 31,
+      "time_sec": 3.0,
+      "alert_level": "blue",
+      "box_count": 4,
+      "max_conf": 0.78
+    },
+    {
+      "frame": 36,
+      "time_sec": 3.5,
+      "alert_level": "yellow",
+      "box_count": 1,
+      "max_conf": 0.95
+    },
+    {
+      "frame": 41,
+      "time_sec": 4.0,
+      "alert_level": "blue",
+      "box_count": 5,
+      "max_conf": 0.74
+    },
+    {
+      "frame": 46,
+      "time_sec": 4.5,
+      "alert_level": "blue",
+      "box_count": 1,
+      "max_conf": 0.95
+    },
+    {
+      "frame": 51,
+      "time_sec": 5.0,
+      "alert_level": "yellow",
+      "box_count": 2,
+      "max_conf": 0.51
+    },
+    {
+      "frame": 56,
+      "time_sec": 5.5,
+      "alert_level": "blue",
+      "box_count": 5,
+      "max_conf": 0.69
+    },
+    {
+      "frame": 61,
+      "time_sec": 6.0,
+      "alert_level": "orange",
+      "box_count": 3,
+      "max_conf": 0.82
+    },
+    {
+      "frame": 66,
+      "time_sec": 6.5,
+      "alert_level": "orange",
+      "box_count": 3,
+      "max_conf": 0.72
+    },
+    {
+      "frame": 71,
+      "time_sec": 7.0,
+      "alert_level": "orange",
+      "box_count": 1,
+      "max_conf": 0.75
+    },
+    {
+      "frame": 76,
+      "time_sec": 7.5,
+      "alert_level": "blue",
+      "box_count": 2,
+      "max_conf": 0.71
+    },
+    {
+      "frame": 81,
+      "time_sec": 8.0,
+      "alert_level": "orange",
+      "box_count": 1,
+      "max_conf": 0.65
+    },
+    {
+      "frame": 86,
+      "time_sec": 8.5,
+      "alert_level": "blue",
+      "box_count": 5,
+      "max_conf": 0.79
+    },
+    {
+      "frame": 91,
+      "time_sec": 9.0,
+      "alert_level": "blue",
+      "box_count": 2,
+      "max_conf": 0.81
+    },
+    {
+      "frame": 96,
+      "time_sec": 9.5,
+      "alert_level": "blue",
+      "box_count": 5,
+      "max_conf": 0.69
+    },
+    {
+      "frame": 101,
+      "time_sec": 10.0,
+      "alert_level": "yellow",
+      "box_count": 5,
+      "max_conf": 0.59
+    },
+    {
+      "frame": 106,
+      "time_sec": 10.5,
+      "alert_level": "yellow",
+      "box_count": 5,
+      "max_conf": 0.89
+    },
+    {
+      "frame": 111,
+      "time_sec": 11.0,
+      "alert_level": "red",
+      "box_count": 4,
+      "max_conf": 0.58
+    },
+    {
+      "frame": 116,
+      "time_sec": 11.5,
+      "alert_level": "red",
+      "box_count": 5,
+      "max_conf": 0.64
+    },
+    {
+      "frame": 121,
+      "time_sec": 12.0,
+      "alert_level": "yellow",
+      "box_count": 2,
+      "max_conf": 0.56
+    },
+    {
+      "frame": 126,
+      "time_sec": 12.5,
+      "alert_level": "red",
+      "box_count": 1,
+      "max_conf": 0.55
+    },
+    {
+      "frame": 131,
+      "time_sec": 13.0,
+      "alert_level": "orange",
+      "box_count": 2,
+      "max_conf": 0.81
+    },
+    {
+      "frame": 136,
+      "time_sec": 13.5,
+      "alert_level": "orange",
+      "box_count": 3,
+      "max_conf": 0.72
+    },
+    {
+      "frame": 141,
+      "time_sec": 14.0,
+      "alert_level": "red",
+      "box_count": 1,
+      "max_conf": 0.6
+    },
+    {
+      "frame": 146,
+      "time_sec": 14.5,
+      "alert_level": "blue",
+      "box_count": 3,
+      "max_conf": 0.92
+    }
+  ]
+}

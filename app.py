@@ -227,7 +227,7 @@ def render_sidebar():
         # ── 导航 ──
         page = st.radio(
             "导航菜单",
-            ["🎯 实时监测", "📋 预警记录", "📍 点位管理", "⚙️ 参数设置"],
+            ["🎬 预设演示", "🎯 实时监测", "📋 预警记录", "📍 点位管理", "⚙️ 参数设置"],
             label_visibility="collapsed",
         )
 
@@ -236,6 +236,211 @@ def render_sidebar():
         st.caption(f"数据目录: `{DATA_DIR}`")
 
     return page
+
+
+# ══════════════════════════════════════════════════════════════
+# 模块 0: 预设演示 (零等待)
+# ══════════════════════════════════════════════════════════════
+
+# 预定义演示场景 (与站点配置对应)
+DEMO_SCENES = {
+    "nanning_naan_s1": {
+        "title": "南宁那安快速路 1 号边坡",
+        "subtitle": "广西首府核心路段 — 晴天日间落石检测",
+        "icon": "🏙️",
+        "data_dir": "demo_data/nanning_naan_s1",
+        "site_id": "nanning_naan_s1",
+    },
+}
+
+
+def _load_demo_summary(scene_id: str) -> dict | None:
+    """加载预生成的演示摘要数据"""
+    import json as _json
+    scene = DEMO_SCENES.get(scene_id)
+    if not scene:
+        return None
+    summary_path = _THIS_DIR / scene["data_dir"] / "summary.json"
+    if not summary_path.exists():
+        return None
+    try:
+        with open(summary_path, "r", encoding="utf-8") as f:
+            return _json.load(f)
+    except Exception:
+        return None
+
+
+def page_demo_showcase():
+    """预设演示页面: 加载预计算结果, 零等待展示"""
+    st.header("🎬 预设演示")
+    st.caption("本地 GPU 预计算 + 云端零等待加载 — 完整落石检测演示")
+
+    # ── 场景选择卡片 ──
+    available = []
+    for sid, scene in DEMO_SCENES.items():
+        summary = _load_demo_summary(sid)
+        if summary is not None:
+            available.append((sid, scene, summary))
+
+    if not available:
+        st.info("📝 演示数据尚未生成。请在本地 GPU 环境运行 `python scripts/generate_demo.py` 生成演示数据。")
+        return
+
+    # 默认选第一个可用场景
+    if "demo_scene" not in st.session_state:
+        st.session_state.demo_scene = available[0][0]
+
+    # ── 场景卡片 ──
+    st.subheader("📍 演示场景")
+    cols = st.columns(min(len(available), 3))
+    for i, (sid, scene, summary) in enumerate(available):
+        with cols[i % 3]:
+            alerts = summary.get("alerts", {})
+            total_alerts = alerts.get("total_alert_frames", 0)
+            red = alerts.get("red", 0)
+            orange = alerts.get("orange", 0)
+
+            with st.container():
+                st.markdown(f"""
+                <div style="padding:1rem; border-radius:10px; border:2px solid {'#0d6efd' if st.session_state.demo_scene == sid else '#dee2e6'};
+                            background:{'#f0f7ff' if st.session_state.demo_scene == sid else '#ffffff'}; cursor:pointer; margin-bottom:0.5rem;">
+                    <b>{scene['icon']} {scene['title']}</b>
+                    <br><small>{scene['subtitle']}</small>
+                    <br><small>🔴{red} 🟠{orange} 🚨共{total_alerts}帧预警</small>
+                </div>
+                """, unsafe_allow_html=True)
+
+                if st.button(
+                    f"{'✅ ' if st.session_state.demo_scene == sid else ''}{'已选中' if st.session_state.demo_scene == sid else '选择此场景'}",
+                    key=f"demo_sel_{sid}",
+                    use_container_width=True,
+                ):
+                    st.session_state.demo_scene = sid
+                    st.rerun()
+
+    # ── 当前选中场景 ──
+    active_sid = st.session_state.demo_scene
+    active_scene = DEMO_SCENES.get(active_sid)
+    active_summary = _load_demo_summary(active_sid)
+
+    if not active_scene or not active_summary:
+        return
+
+    st.divider()
+    st.subheader(f"{active_scene['icon']} {active_scene['title']}")
+
+    # ── 统计卡片 ──
+    video = active_summary.get("video", {})
+    detection = active_summary.get("detection", {})
+    alerts = active_summary.get("alerts", {})
+    key_frames = active_summary.get("key_frames", [])
+
+    c0, c1, c2, c3, c4 = st.columns(5)
+    c0.metric("🎥 视频时长", f"{video.get('duration_sec', 0):.0f}s")
+    c1.metric("📹 总帧数", video.get("total_frames", 0))
+    c2.metric("🔍 推理帧数", detection.get("processed_frames", 0))
+    c3.metric("⚡ 推理耗时", f"{detection.get('elapsed_sec', 0):.0f}s")
+    c4.metric("🖥️ 设备", detection.get("device", "CPU"))
+
+    # 预警等级分布
+    st.divider()
+    st.subheader("📊 预警等级分布")
+
+    c1, c2, c3, c4, c5 = st.columns(5)
+    total_alerts = max(alerts.get("total_alert_frames", 1), 1)
+    c1.metric("🔴 红色 (Ⅰ级)", alerts.get("red", 0),
+              delta=f"{alerts.get('red', 0) / total_alerts * 100:.1f}%" if alerts.get('red') else None)
+    c2.metric("🟠 橙色 (Ⅱ级)", alerts.get("orange", 0),
+              delta=f"{alerts.get('orange', 0) / total_alerts * 100:.1f}%" if alerts.get('orange') else None)
+    c3.metric("🟡 黄色 (Ⅲ级)", alerts.get("yellow", 0),
+              delta=f"{alerts.get('yellow', 0) / total_alerts * 100:.1f}%" if alerts.get('yellow') else None)
+    c4.metric("🔵 蓝色 (Ⅳ级)", alerts.get("blue", 0),
+              delta=f"{alerts.get('blue', 0) / total_alerts * 100:.1f}%" if alerts.get('blue') else None)
+    c5.metric("📊 预警合计", alerts.get("total_alert_frames", 0))
+
+    # ── 图表 ──
+    if total_alerts > 0:
+        chart_data = pd.DataFrame({
+            "等级": ["🔴 红色", "🟠 橙色", "🟡 黄色", "🔵 蓝色"],
+            "帧数": [
+                alerts.get("red", 0),
+                alerts.get("orange", 0),
+                alerts.get("yellow", 0),
+                alerts.get("blue", 0),
+            ],
+        })
+        chart_data = chart_data[chart_data["帧数"] > 0]
+        st.bar_chart(chart_data.set_index("等级"), use_container_width=True)
+
+    # ── 关键帧图库 ──
+    if key_frames:
+        st.divider()
+        st.subheader("🖼️ 预警关键帧图库")
+        st.caption(f"共 {len(key_frames)} 张关键帧 (按预警严重程度排序)")
+
+        # 帧播放控制
+        if "demo_frame_idx" not in st.session_state:
+            st.session_state.demo_frame_idx = 0
+
+        c1, c2, c3 = st.columns([1, 3, 1])
+        with c1:
+            if st.button("⬅ 上一帧", use_container_width=True,
+                         disabled=st.session_state.demo_frame_idx == 0):
+                st.session_state.demo_frame_idx = max(0, st.session_state.demo_frame_idx - 1)
+                st.rerun()
+        with c3:
+            if st.button("下一帧 ➡", use_container_width=True,
+                         disabled=st.session_state.demo_frame_idx >= len(key_frames) - 1):
+                st.session_state.demo_frame_idx = min(len(key_frames) - 1, st.session_state.demo_frame_idx + 1)
+                st.rerun()
+
+        kf = key_frames[st.session_state.demo_frame_idx]
+        frame_path = _THIS_DIR / active_scene["data_dir"] / kf["thumbnail"]
+        if frame_path.exists():
+            lvl = kf["alert_level"]
+            st.image(
+                str(frame_path),
+                caption=f"帧 {kf['frame_idx']} | {ALERT_LABELS.get(lvl, lvl)} | "
+                        f"置信度 {kf['max_confidence']:.3f} | {kf['track_count']} 目标",
+                use_container_width=True,
+            )
+
+        # 帧缩略图条
+        st.caption(f"📌 第 {st.session_state.demo_frame_idx + 1} / {len(key_frames)} 帧 — 拖动滑块快速跳转")
+        new_idx = st.slider(
+            "快速跳转", 0, len(key_frames) - 1, st.session_state.demo_frame_idx,
+            label_visibility="collapsed",
+        )
+        if new_idx != st.session_state.demo_frame_idx:
+            st.session_state.demo_frame_idx = new_idx
+            st.rerun()
+
+        # 网格缩略图
+        with st.expander("📷 全部关键帧网格", expanded=False):
+            cols_per_row = 5
+            for i in range(0, len(key_frames), cols_per_row):
+                cols = st.columns(cols_per_row)
+                for j, kf_row in enumerate(key_frames[i:i + cols_per_row]):
+                    fp = _THIS_DIR / active_scene["data_dir"] / kf_row["thumbnail"]
+                    if fp.exists():
+                        cols[j].image(
+                            str(fp),
+                            caption=f"F{kf_row['frame_idx']} | {ALERT_LABELS.get(kf_row['alert_level'], kf_row['alert_level'])}",
+                            use_container_width=True,
+                        )
+
+    # ── 演示说明 ──
+    st.divider()
+    with st.expander("ℹ️ 关于本演示", expanded=False):
+        st.markdown(f"""
+        **加速比说明:**
+        - 原始视频 **{video.get('total_frames', '?')}** 帧
+        - 实际推理 **{detection.get('processed_frames', '?')}** 帧 (步长 {detection.get('stride', '?')})
+        - 加速比约 **{detection.get('stride', '?')}×** + GPU 本地推理
+        - 网页加载时间 **< 0.5 秒**
+
+        **完整模式:** 如需全量检测，请切换到「🎯 实时监测」上传视频，或部署到 GPU 服务器。
+        """)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -1044,7 +1249,9 @@ def main():
     page = render_sidebar()
 
     # 路由到各页面
-    if "实时监测" in page:
+    if "预设演示" in page:
+        page_demo_showcase()
+    elif "实时监测" in page:
         page_realtime_monitor()
     elif "预警记录" in page:
         page_alert_records()
