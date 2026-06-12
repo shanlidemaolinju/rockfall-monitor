@@ -282,6 +282,26 @@ def page_realtime_monitor():
                                        help="触发预警时通过 PushPlus 推送微信消息; "
                                             "需在 .env 中配置 PUSHPLUS_TOKEN")
 
+    # ── 演示模式参数 (CPU 优化) ──
+    with st.expander("⚡ 演示模式 (CPU 加速)", expanded=True):
+        st.caption("Streamlit Cloud 为纯 CPU 环境, 限制帧数保证演示速度。")
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            demo_max_frames = st.slider(
+                "最大推理帧数", min_value=30, max_value=500, value=150, step=10,
+                help="最多处理的帧数, 越小越快。演示建议 100-200 帧",
+            )
+        with c2:
+            demo_stride = st.slider(
+                "帧采样步长", min_value=1, max_value=10, value=3, step=1,
+                help="每隔 N 帧处理 1 帧 (1=全部处理, 3=隔3取1)。值越大越快",
+            )
+        with c3:
+            demo_img_size = st.selectbox(
+                "推理分辨率", options=[320, 416, 640], index=0,
+                help="320 最快, 640 最精确。CPU 建议 320",
+            )
+
     start_btn = st.button("▶ 开始检测", type="primary", use_container_width=True,
                           disabled=(not video_file and not camera_url))
 
@@ -309,6 +329,19 @@ def page_realtime_monitor():
         start_time = time.time()
 
         if is_file_mode:
+            # ── 临时覆盖推理尺寸 (演示加速) ──
+            _orig_img_size = detector.img_size
+            detector.img_size = demo_img_size
+
+            # ── 进度条 ──
+            progress_bar = st.progress(0.0)
+            status_text = st.empty()
+
+            def _progress_cb(current: int, total: int):
+                if total > 0:
+                    progress_bar.progress(min(current / total, 1.0))
+                status_text.text(f"🔍 推理中... 第 {current} 帧" + (f" / {total}" if total else ""))
+
             # ── 文件模式: detect_video() 一次性处理 ──
             with st.spinner(f"🔍 正在检测 `{source_name}` ..."):
                 result = detector.detect_video(
@@ -316,7 +349,15 @@ def page_realtime_monitor():
                     save_frames=save_frames_flag,
                     push_alerts=push_alerts_flag,
                     track=True,
+                    max_frames=demo_max_frames,
+                    stride=demo_stride,
+                    progress_callback=_progress_cb,
                 )
+
+            # 恢复原始设置
+            detector.img_size = _orig_img_size
+            progress_bar.progress(1.0)
+            status_text.text("✅ 检测完成")
 
             elapsed = time.time() - start_time
 

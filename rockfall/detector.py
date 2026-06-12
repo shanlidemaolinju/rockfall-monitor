@@ -426,8 +426,15 @@ class RockDetector:
         self, video_path: str, save_frames: bool = True,
         push_alerts: bool = True, track: bool = True,
         confirm_frames: int = 3, polygon: np.ndarray | None = None,
+        max_frames: int | None = None, stride: int = 1,
+        progress_callback=None,
     ) -> dict:
-        """对视频文件进行检测"""
+        """对视频文件进行检测
+
+        max_frames: 最大处理帧数 (None=全部, 用于演示限制)
+        stride:     帧采样步长 (1=每帧, 2=隔帧, ...)
+        progress_callback: 进度回调 (current, total) -> None
+        """
         source = str(video_path)
         cap = cv2.VideoCapture(source)
         if not cap.isOpened():
@@ -439,6 +446,8 @@ class RockDetector:
             save_frames=save_frames, push_alerts=push_alerts,
             track=track, confirm_frames=confirm_frames,
             polygon=polygon, is_live=False,
+            max_frames=max_frames, stride=stride,
+            progress_callback=progress_callback,
         )
         result = None
         try:
@@ -504,12 +513,18 @@ class RockDetector:
         track: bool, confirm_frames: int,
         polygon: np.ndarray | None, is_live: bool,
         render_to_web: bool = False,
+        max_frames: int | None = None,
+        stride: int = 1,
+        progress_callback=None,
     ) -> Generator[dict, None, None] | dict:
         """
         统一的视频/流处理引擎。
 
         文件模式: 收集所有结果后返回 dict
         流模式:   逐帧 yield dict
+
+        max_frames: 最大处理帧数 (None=全部)
+        stride:     帧采样步长 (1=每帧, 3=每3帧处理1帧)
         """
         fw = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         fh = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -528,6 +543,7 @@ class RockDetector:
         all_detections = []
         raw_dets: list = []
         frame_idx = 0
+        processed_count = 0  # 实际推理帧计数 (max_frames 用)
         disconnected = False
         reconnect_delay = CAMERA_RECONNECT_BASE
         reconnect_attempts = 0
@@ -560,6 +576,19 @@ class RockDetector:
             reconnect_attempts = 0
 
             frame_idx += 1
+
+            # ---- 帧采样步长 (stride > 1 时每隔 stride 帧处理一次) ----
+            if stride > 1 and frame_idx % stride != 0:
+                continue
+
+            # ---- 最大帧数限制 (演示模式) ----
+            if max_frames is not None and processed_count >= max_frames:
+                break
+            processed_count += 1
+
+            # ---- 进度回调 ----
+            if progress_callback is not None:
+                progress_callback(processed_count, max_frames or 0)
 
             # ---- 统一预处理: MOG2 + 跳帧决策 ----
             pp = self.preprocess_frame(frame)
