@@ -1,0 +1,19 @@
+# ============================================================
+# 落石检测系统 - Docker Compose (GPU)
+# ============================================================
+# 启动: docker compose -f docker/docker-compose.yml -f docker/docker-compose.gpu.yml up -d
+# 停止: docker compose -f docker/docker-compose.yml -f docker/docker-compose.gpu.yml down
+# ============================================================
+
+services:
+  rockfall_api:
+    build:
+      dockerfile: docker/Dockerfile.gpu
+    image: rockfall:gpu
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

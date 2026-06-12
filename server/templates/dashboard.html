@@ -1,0 +1,1508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>落石监测系统 — 公路自然灾害预警平台</title>
+<style>
+/* ══════════════════════════════════════════════════════════════
+   CSS 变量 & 基础 — 暗色响应式主题
+   ══════════════════════════════════════════════════════════════ */
+:root {
+  --bg: #0d1117;
+  --card: #161b22;
+  --border: #30363d;
+  --text: #c9d1d9;
+  --muted: #8b949e;
+  --red: #f85149;
+  --orange: #f0883e;
+  --yellow: #d29922;
+  --blue: #58a6ff;
+  --green: #3fb950;
+  --radius: 8px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* ── Header ── */
+header {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+header h1 { font-size: 1.1rem; font-weight: 600; white-space: nowrap; }
+.status-bar {
+  display: flex;
+  gap: 14px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  flex-wrap: wrap;
+  align-items: center;
+}
+.status-bar span { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.live-dot {
+  display: inline-block;
+  width: 9px; height: 9px;
+  background: var(--red);
+  border-radius: 50%;
+  animation: pulse 1.5s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* ── Tab 导航 ── */
+.tab-nav {
+  display: flex;
+  gap: 0;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 0 20px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.tab-nav button {
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 12px 18px;
+  font-size: 0.88rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.tab-nav button:hover { color: var(--text); }
+.tab-nav button.active {
+  color: var(--blue);
+  border-bottom-color: var(--blue);
+}
+
+/* ── Tab 内容区 ── */
+.tab-content { display: none; padding: 16px 20px; max-width: 1400px; margin: 0 auto; }
+.tab-content.active { display: block; }
+
+/* ── 卡片 ── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.card h2, .card h3 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 12px;
+}
+
+/* ── 网格布局 ── */
+.grid-2 { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.grid-sites { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+@media (max-width: 900px) {
+  .grid-2 { grid-template-columns: 1fr; }
+  .grid-4 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .grid-4 { grid-template-columns: 1fr 1fr; }
+  .grid-sites { grid-template-columns: 1fr; }
+  header h1 { font-size: 0.95rem; }
+  .tab-nav button { padding: 10px 12px; font-size: 0.8rem; }
+}
+
+/* ── 视频流 ── */
+#stream {
+  width: 100%;
+  border-radius: 4px;
+  background: #000;
+  min-height: 300px;
+}
+.stream-container { position: relative; }
+.stream-overlay {
+  position: absolute;
+  top: 8px; left: 8px;
+  background: rgba(0,0,0,.7);
+  color: var(--green);
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  pointer-events: none;
+}
+
+/* ── 统计行 ── */
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+}
+.stat-row:last-child { border-bottom: none; }
+.stat-val { font-weight: 600; font-size: 1rem; }
+.stat-val.red { color: var(--red); }
+.stat-val.orange { color: var(--orange); }
+.stat-val.yellow { color: var(--yellow); }
+.stat-val.blue { color: var(--blue); }
+.stat-val.green { color: var(--green); }
+
+.stat-card {
+  text-align: center;
+  padding: 12px 8px;
+  background: var(--bg);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+.stat-card .num { font-size: 1.6rem; font-weight: 700; }
+.stat-card .lbl { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
+.stat-card.red .num { color: var(--red); }
+.stat-card.orange .num { color: var(--orange); }
+.stat-card.yellow .num { color: var(--yellow); }
+.stat-card.blue .num { color: var(--blue); }
+
+/* ── 预警条目 ── */
+.alert-item {
+  padding: 7px 10px;
+  border-left: 3px solid var(--border);
+  margin-bottom: 5px;
+  font-size: 0.82rem;
+  background: var(--bg);
+  border-radius: 0 4px 4px 0;
+}
+.alert-item.red { border-left-color: var(--red); }
+.alert-item.orange { border-left-color: var(--orange); }
+.alert-item.yellow { border-left-color: var(--yellow); }
+.alert-item.blue { border-left-color: var(--blue); }
+.alert-item .time { color: var(--muted); font-size: 0.74rem; }
+.alert-item .tag {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  margin-left: 4px;
+}
+.tag.red { background: rgba(248,81,73,.2); color: var(--red); }
+.tag.orange { background: rgba(240,136,62,.2); color: var(--orange); }
+.tag.yellow { background: rgba(210,153,34,.2); color: var(--yellow); }
+.tag.blue { background: rgba(88,166,255,.2); color: var(--blue); }
+#alerts-feed { max-height: 420px; overflow-y: auto; }
+
+/* ── 预警记录表格 ── */
+.toolbar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.toolbar input, .toolbar select, .toolbar button {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.82rem;
+}
+.toolbar button {
+  cursor: pointer;
+  background: var(--card);
+  font-weight: 500;
+  transition: all 0.2s;
+}
+.toolbar button:hover { background: var(--border); }
+.toolbar button.primary { background: var(--blue); color: #fff; border-color: var(--blue); }
+.toolbar button.primary:hover { opacity: .85; }
+.alert-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.alert-table th {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 2px solid var(--border);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+.alert-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.alert-table tr:hover td { background: rgba(255,255,255,.02); }
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.pagination button {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+}
+.pagination button:disabled { opacity: .3; cursor: default; }
+.pagination button:hover:not(:disabled) { background: var(--border); }
+
+/* ── 点位卡片 ── */
+.site-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  transition: border-color 0.2s;
+}
+.site-card.active { border: 2px solid var(--blue); background: rgba(88,166,255,.05); }
+.site-card h3 { font-size: 0.9rem; margin-bottom: 4px; text-transform: none; color: var(--text); }
+.site-card .meta { font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
+.site-card .risk { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 0.7rem; font-weight: 600; }
+.risk.high { background: rgba(248,81,73,.2); color: var(--red); }
+.risk.medium { background: rgba(240,136,62,.2); color: var(--orange); }
+.risk.low { background: rgba(63,185,80,.2); color: var(--green); }
+.site-card button {
+  margin-top: 10px;
+  padding: 6px 16px;
+  border: 1px solid var(--blue);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--blue);
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all .2s;
+  width: 100%;
+}
+.site-card button:hover { background: var(--blue); color: #fff; }
+.site-card.active button { background: var(--blue); color: #fff; opacity: .7; cursor: default; }
+
+/* ── 参数设置 ── */
+.setting-group { margin-bottom: 18px; }
+.setting-group h3 { margin-bottom: 8px; }
+.setting-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 600px) { .setting-row { grid-template-columns: 1fr; } }
+.setting-item { margin-bottom: 10px; }
+.setting-item label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  margin-bottom: 4px;
+}
+.setting-item label .val { color: var(--blue); font-weight: 600; }
+.setting-item input[type=range] { width: 100%; accent-color: var(--blue); }
+.setting-item .hint { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
+
+.btn-row { display: flex; gap: 10px; margin-top: 16px; }
+.btn-row button {
+  padding: 8px 24px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all .2s;
+}
+.btn-primary { background: var(--blue); color: #fff; border-color: var(--blue); }
+.btn-primary:hover { opacity: .85; }
+.btn-secondary { background: var(--card); color: var(--text); }
+.btn-secondary:hover { background: var(--border); }
+
+/* ── Toast ── */
+#toast {
+  position: fixed;
+  top: 60px;
+  right: 20px;
+  z-index: 10000;
+  max-width: 360px;
+}
+.toast-msg {
+  padding: 10px 16px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  font-size: 0.84rem;
+  animation: slideIn .3s ease;
+  border: 1px solid;
+}
+.toast-msg.success { background: rgba(63,185,80,.15); border-color: var(--green); color: var(--green); }
+.toast-msg.error { background: rgba(248,81,73,.15); border-color: var(--red); color: var(--red); }
+.toast-msg.info { background: rgba(88,166,255,.15); border-color: var(--blue); color: var(--blue); }
+@keyframes slideIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* ── 弹窗 ── */
+.popup-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,.7);
+  z-index: 9999;
+  justify-content: center;
+  align-items: center;
+  animation: fadeIn .3s ease;
+}
+.popup-overlay.active { display: flex; }
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+.popup-box {
+  background: var(--card);
+  border: 3px solid var(--yellow);
+  border-radius: 12px;
+  padding: 24px 32px;
+  max-width: 460px;
+  width: 90%;
+  text-align: center;
+  animation: slideDown .4s ease;
+}
+@keyframes slideDown { from{transform:translateY(-60px);opacity:0} to{transform:translateY(0);opacity:1} }
+.popup-overlay.red .popup-box {
+  animation: slideDown .4s ease, borderBlink 1s infinite;
+  border-color: var(--red);
+}
+@keyframes borderBlink {
+  0%,100%{border-color:var(--red);box-shadow:0 0 24px rgba(248,81,73,.6)}
+  50%{border-color:#ff0;box-shadow:0 0 48px rgba(255,255,0,.8)}
+}
+.popup-overlay.orange .popup-box { border-color: var(--orange); }
+.popup-icon { font-size: 2.8rem; margin-bottom: 6px; }
+.popup-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 4px; }
+.popup-title.red { color: var(--red); }
+.popup-title.orange { color: var(--orange); }
+.popup-title.yellow { color: var(--yellow); }
+.popup-count { font-size: 2.2rem; font-weight: 800; margin: 6px 0; }
+.popup-count.red { color: var(--red); }
+.popup-count.orange { color: var(--orange); }
+.popup-count.yellow { color: var(--yellow); }
+.popup-detail { color: var(--muted); font-size: 0.85rem; margin-bottom: 8px; line-height: 1.5; }
+.popup-btn {
+  display: inline-block;
+  padding: 10px 32px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #fff;
+  margin-top: 6px;
+  transition: opacity .2s;
+}
+.popup-btn.red { background: var(--red); }
+.popup-btn.orange { background: var(--orange); }
+.popup-btn.yellow { background: var(--yellow); }
+.popup-btn:hover { opacity: .85; }
+
+/* ── 导出模态框 ── */
+.export-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,.7);
+  z-index: 9998;
+  justify-content: center;
+  align-items: center;
+}
+.export-overlay.active { display: flex; }
+.export-box {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 22px 26px;
+  max-width: 400px;
+  width: 90%;
+}
+.export-box h3 { font-size: 1rem; margin-bottom: 14px; text-transform: none; color: var(--text); }
+.export-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.export-row label { font-size: 0.82rem; color: var(--muted); min-width: 65px; }
+.export-row input, .export-row select {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.82rem;
+}
+.export-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+.export-info { font-size: 0.76rem; color: var(--muted); margin-top: 8px; text-align: center; }
+
+/* ── 声音开关 ── */
+.sound-toggle {
+  position: fixed;
+  bottom: 14px; right: 14px;
+  z-index: 100;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all .2s;
+}
+.sound-toggle:hover { color: var(--text); }
+.sound-toggle.muted { text-decoration: line-through; }
+
+/* ── 空态 ── */
+.empty-state {
+  text-align: center;
+  color: var(--muted);
+  padding: 28px 0;
+  font-size: 0.85rem;
+}
+
+/* ── 隐藏的配置 JSON 数据块 ── */
+#config-data { display: none; }
+
+/* ── 统计看板 ── */
+.stats-dashboard { margin-top: 14px; }
+.trend-chart { display: flex; align-items: flex-end; gap: 6px; height: 140px; padding: 8px 0; }
+.trend-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; }
+.trend-bar {
+  width: 100%;
+  max-width: 36px;
+  border-radius: 3px 3px 0 0;
+  min-height: 2px;
+  transition: height .3s;
+  position: relative;
+}
+.trend-bar .tip {
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.62rem;
+  color: var(--text);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity .2s;
+  pointer-events: none;
+}
+.trend-bar:hover .tip { opacity: 1; }
+.trend-bar.red { background: var(--red); }
+.trend-bar.orange { background: var(--orange); }
+.trend-bar.yellow { background: var(--yellow); }
+.trend-bar.blue { background: var(--blue); }
+.trend-label { font-size: 0.62rem; color: var(--muted); margin-top: 4px; }
+.gauge-ring {
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.2rem; font-weight: 700;
+  margin: 0 auto 8px;
+}
+.gauge-ring.good { border: 5px solid var(--green); color: var(--green); }
+.gauge-ring.warn { border: 5px solid var(--yellow); color: var(--yellow); }
+.gauge-ring.bad  { border: 5px solid var(--red); color: var(--red); }
+.gauge-label { font-size: 0.72rem; color: var(--muted); text-align: center; }
+
+/* ── 图片预览模态 ── */
+.image-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,.85);
+  z-index: 10001;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  cursor: pointer;
+}
+.image-overlay.active { display: flex; }
+.image-overlay img {
+  max-width: 92vw;
+  max-height: 82vh;
+  border-radius: 6px;
+  box-shadow: 0 4px 32px rgba(0,0,0,.6);
+}
+.image-overlay .img-caption {
+  color: var(--muted);
+  font-size: 0.82rem;
+  margin-top: 10px;
+}
+.image-overlay .img-close {
+  position: absolute;
+  top: 16px;
+  right: 24px;
+  font-size: 2rem;
+  color: #fff;
+  cursor: pointer;
+  z-index: 1;
+}
+
+/* ── 审核按钮 ── */
+.review-btn {
+  padding: 2px 7px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  font-size: 0.68rem;
+  cursor: pointer;
+  background: transparent;
+  margin-left: 4px;
+  transition: all .2s;
+}
+.review-btn.confirm { color: var(--green); border-color: var(--green); }
+.review-btn.confirm:hover, .review-btn.confirm.active { background: var(--green); color: #fff; }
+.review-btn.false-alarm { color: var(--red); border-color: var(--red); }
+.review-btn.false-alarm:hover, .review-btn.false-alarm.active { background: var(--red); color: #fff; }
+.review-badge {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.66rem;
+  font-weight: 600;
+}
+.review-badge.confirmed { background: rgba(63,185,80,.2); color: var(--green); }
+.review-badge.false_alarm { background: rgba(248,81,73,.2); color: var(--red); }
+.clickable { cursor: pointer; text-decoration: underline; color: var(--blue); }
+.clickable:hover { opacity: .8; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Header
+     ═══════════════════════════════════════════════════════════ -->
+<header>
+  <h1>⛰️ 落石监测系统</h1>
+  <div class="status-bar">
+    <span id="site-name">📍 --</span>
+    <span><span class="live-dot"></span> 实时</span>
+    <span id="clock">--</span>
+    <span id="device-info">🖥️ --</span>
+    <span id="sse-status" style="color:var(--green)">● SSE</span>
+    <span id="conn-status" style="color:var(--green)">● API</span>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Tab 导航
+     ═══════════════════════════════════════════════════════════ -->
+<nav class="tab-nav" id="tab-nav">
+  <button class="active" data-tab="monitor">📹 实时监测</button>
+  <button data-tab="records">📋 预警记录</button>
+  <button data-tab="sites">📍 点位管理</button>
+  <button data-tab="settings">⚙️ 参数设置</button>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Tab 1: 实时监测
+     ═══════════════════════════════════════════════════════════ -->
+<div class="tab-content active" id="tab-monitor">
+  <div class="grid-2">
+    <!-- 左侧: 视频流 -->
+    <div>
+      <div class="card stream-container">
+        <h2>📹 实时监测画面</h2>
+        <div class="stream-overlay" id="stream-label">● LIVE</div>
+        <img id="stream" src="/api/stream.mjpeg" alt="MJPEG"
+             onerror="this.style.display='none';document.getElementById('stream-offline').style.display='block';">
+        <div id="stream-offline" class="empty-state" style="display:none">
+          ⏳ 视频流暂不可用 — 请在桌面端启动检测<br>
+          <small>启动命令: python -m desktop.main</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧: 统计 + 预警 -->
+    <div>
+      <div class="card">
+        <h2>📊 今日检测统计</h2>
+        <div class="grid-4">
+          <div class="stat-card red"><div class="num" id="stat-red">0</div><div class="lbl">🔴 Ⅰ级·特别严重</div></div>
+          <div class="stat-card orange"><div class="num" id="stat-orange">0</div><div class="lbl">🟠 Ⅱ级·严重</div></div>
+          <div class="stat-card yellow"><div class="num" id="stat-yellow">0</div><div class="lbl">🟡 Ⅲ级·较重</div></div>
+          <div class="stat-card blue"><div class="num" id="stat-blue">0</div><div class="lbl">🔵 Ⅳ级·一般</div></div>
+        </div>
+        <div style="margin-top:10px;">
+          <div class="stat-row">
+            <span>今日检测总次数</span>
+            <span class="stat-val" id="stat-total">--</span>
+          </div>
+          <div class="stat-row">
+            <span>最近检出目标数</span>
+            <span class="stat-val" id="stat-count">--</span>
+          </div>
+          <div class="stat-row">
+            <span>最高置信度</span>
+            <span class="stat-val" id="stat-conf">--</span>
+          </div>
+          <div class="stat-row">
+            <span>最近预警等级</span>
+            <span class="stat-val green" id="stat-level">🟢 无</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>🚨 实时预警推送</h2>
+        <div id="alerts-feed"><div class="empty-state">等待预警事件...</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 统计看板 (全宽) -->
+  <div class="card stats-dashboard">
+    <h2>📈 预警统计看板 <span style="font-weight:400;font-size:0.75rem;color:var(--muted);margin-left:8px;" id="stats-range">近7天</span></h2>
+    <div class="grid-2">
+      <!-- 每日趋势图 -->
+      <div>
+        <h3 style="margin-bottom:4px;">📊 每日预警趋势</h3>
+        <div class="trend-chart" id="trend-chart"><div class="empty-state">加载中...</div></div>
+        <div style="display:flex;gap:16px;font-size:0.7rem;color:var(--muted);margin-top:4px;">
+          <span>🔴 Ⅰ级</span><span>🟠 Ⅱ级</span><span>🟡 Ⅲ级</span><span>🔵 Ⅳ级</span>
+        </div>
+      </div>
+      <!-- 误报率 + 等级分布 -->
+      <div>
+        <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;">
+          <div style="text-align:center;">
+            <h3 style="margin-bottom:4px;">🎯 误报率</h3>
+            <div class="gauge-ring good" id="gauge-ring">--</div>
+            <div class="gauge-label" id="gauge-detail"></div>
+          </div>
+          <div style="flex:1;min-width:120px;">
+            <h3 style="margin-bottom:4px;">📋 审核进度</h3>
+            <div class="stat-row"><span>✅ 确认真实</span><span class="stat-val green" id="stat-confirmed">--</span></div>
+            <div class="stat-row"><span>❌ 确认误报</span><span class="stat-val red" id="stat-falsealarm">--</span></div>
+            <div class="stat-row"><span>⏳ 待审核</span><span class="stat-val" id="stat-pending">--</span></div>
+            <div class="stat-row"><span>📊 近30天总计</span><span class="stat-val" id="stat-grand-total">--</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Tab 2: 预警记录
+     ═══════════════════════════════════════════════════════════ -->
+<div class="tab-content" id="tab-records">
+  <div class="card">
+    <div class="toolbar">
+      <label>起始</label>
+      <input type="date" id="rec-start">
+      <label>结束</label>
+      <input type="date" id="rec-end">
+      <label>等级</label>
+      <select id="rec-level">
+        <option value="">全部等级</option>
+        <option value="red">🔴 Ⅰ级·特别严重</option>
+        <option value="orange">🟠 Ⅱ级·严重</option>
+        <option value="yellow">🟡 Ⅲ级·较重</option>
+        <option value="blue">🔵 Ⅳ级·一般</option>
+      </select>
+      <button onclick="loadAlertPage(1)" style="margin-left:auto;">🔍 查询</button>
+      <button class="primary" onclick="showExportModal()">📥 导出 Excel</button>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="alert-table">
+        <thead>
+          <tr>
+            <th>ID</th><th>时间</th><th>预警等级</th><th>数量</th>
+            <th>置信度</th><th>直径(cm)</th><th>监测点位</th><th>推送状态</th><th>截图/审核</th>
+          </tr>
+        </thead>
+        <tbody id="rec-tbody"><tr><td colspan="9" class="empty-state">点击「查询」加载数据</td></tr></tbody>
+      </table>
+    </div>
+    <div class="pagination" id="rec-pagination"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Tab 3: 点位管理
+     ═══════════════════════════════════════════════════════════ -->
+<div class="tab-content" id="tab-sites">
+  <div id="sites-container"><div class="empty-state">加载中...</div></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Tab 4: 参数设置
+     ═══════════════════════════════════════════════════════════ -->
+<div class="tab-content" id="tab-settings">
+  <div class="card">
+    <div class="setting-group">
+      <h3>🎯 检测参数</h3>
+      <div class="setting-row">
+        <div class="setting-item">
+          <label>检测置信度阈值 <span class="val" id="val-confidence">0.30</span></label>
+          <input type="range" id="cfg-confidence" min="0.1" max="0.9" step="0.05" value="0.30" oninput="document.getElementById('val-confidence').textContent=this.value">
+          <div class="hint">YOLO 检测最低置信度</div>
+        </div>
+        <div class="setting-item">
+          <label>推理图像尺寸 <span class="val" id="val-imgsize">640</span></label>
+          <input type="range" id="cfg-imgsize" min="320" max="1280" step="32" value="640" oninput="document.getElementById('val-imgsize').textContent=this.value">
+          <div class="hint">越大越精确但越慢</div>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-item">
+          <label>最小运动区域(px) <span class="val" id="val-minarea">100</span></label>
+          <input type="range" id="cfg-minarea" min="50" max="2000" step="50" value="100" oninput="document.getElementById('val-minarea').textContent=this.value">
+          <div class="hint">MOG2 前景最小连通面积</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <h3>🚨 四级预警置信度阈值</h3>
+      <div class="hint" style="margin-bottom:8px;">对齐《公路自然灾害监测预警系统技术指南》第5.3节</div>
+      <div class="setting-row">
+        <div class="setting-item">
+          <label>🔵 Ⅳ级(蓝色)上限 <span class="val" id="val-bluehigh">0.50</span></label>
+          <input type="range" id="cfg-bluehigh" min="0.2" max="0.7" step="0.05" value="0.50" oninput="document.getElementById('val-bluehigh').textContent=this.value">
+          <div class="hint">置信度 ≥ 此值 → Ⅲ级黄色</div>
+        </div>
+        <div class="setting-item">
+          <label>🟡 Ⅲ级(黄色)上限 <span class="val" id="val-yellowhigh">0.70</span></label>
+          <input type="range" id="cfg-yellowhigh" min="0.4" max="0.85" step="0.05" value="0.70" oninput="document.getElementById('val-yellowhigh').textContent=this.value">
+          <div class="hint">置信度 ≥ 此值 → Ⅱ级橙色</div>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-item">
+          <label>🟠 Ⅱ级(橙色)上限 <span class="val" id="val-orangehigh">0.90</span></label>
+          <input type="range" id="cfg-orangehigh" min="0.6" max="0.99" step="0.05" value="0.90" oninput="document.getElementById('val-orangehigh').textContent=this.value">
+          <div class="hint">置信度 ≥ 此值 → Ⅰ级红色</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-primary" onclick="applySettings()">✅ 应用参数</button>
+      <button class="btn-secondary" onclick="resetSettings()">🔄 恢复默认</button>
+    </div>
+    <div id="settings-msg" style="margin-top:8px;font-size:0.82rem;"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     预警弹窗 (SSE 触发)
+     ═══════════════════════════════════════════════════════════ -->
+<div class="popup-overlay" id="popup-overlay">
+  <div class="popup-box">
+    <div class="popup-icon" id="popup-icon">⚠️</div>
+    <div class="popup-title" id="popup-title">预警</div>
+    <div class="popup-count" id="popup-count">--</div>
+    <div class="popup-detail" id="popup-detail"></div>
+    <button class="popup-btn" id="popup-btn" onclick="dismissPopup()">确认并关闭</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     导出模态框
+     ═══════════════════════════════════════════════════════════ -->
+<div class="export-overlay" id="export-overlay">
+  <div class="export-box">
+    <h3>📥 导出预警记录 (Excel)</h3>
+    <div class="export-row">
+      <label>起始日期</label>
+      <input type="date" id="export-start">
+    </div>
+    <div class="export-row">
+      <label>结束日期</label>
+      <input type="date" id="export-end">
+    </div>
+    <div class="export-row">
+      <label>预警等级</label>
+      <select id="export-level">
+        <option value="">全部等级</option>
+        <option value="red">🔴 Ⅰ级·特别严重</option>
+        <option value="orange">🟠 Ⅱ级·严重</option>
+        <option value="yellow">🟡 Ⅲ级·较重</option>
+        <option value="blue">🔵 Ⅳ级·一般</option>
+      </select>
+    </div>
+    <div class="export-info" id="export-info"></div>
+    <div class="export-actions">
+      <button class="btn-secondary" onclick="hideExportModal()">取消</button>
+      <button class="btn-primary" onclick="doExport()">下载 Excel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     图片预览模态框
+     ═══════════════════════════════════════════════════════════ -->
+<div class="image-overlay" id="image-overlay" onclick="closeImagePreview()">
+  <span class="img-close">&times;</span>
+  <img id="preview-img" src="" alt="预警截图" onclick="event.stopPropagation()">
+  <div class="img-caption" id="preview-caption"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Toast 消息容器
+     ═══════════════════════════════════════════════════════════ -->
+<div id="toast"></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     声音开关
+     ═══════════════════════════════════════════════════════════ -->
+<button class="sound-toggle" id="sound-toggle" onclick="toggleSound()" title="切换报警声音">
+  🔊 报警声音: 开
+</button>
+
+<!-- ═══════════════════════════════════════════════════════════
+     JavaScript
+     ═══════════════════════════════════════════════════════════ -->
+<script>
+// ============================================================
+// 全局状态
+// ============================================================
+let soundEnabled = true;
+let audioCtx = null;
+let currentPage = 1;
+let currentPageSize = 20;
+
+// ============================================================
+// 初始化
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  updateClock();
+  setInterval(updateClock, 1000);
+  initTabs();
+  refreshStats();
+  refreshAlerts();
+  loadStatistics();
+  connectSSE();
+  loadSites();
+  loadRuntimeConfig();
+  // 定时刷新
+  setInterval(refreshStats, 5000);
+  setInterval(refreshAlerts, 10000);
+  setInterval(loadStatistics, 60000); // 每分钟刷新统计
+  // 初始化日期选择器默认值
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7*24*3600*1000);
+  document.getElementById('rec-end').value = now.toISOString().slice(0,10);
+  document.getElementById('rec-start').value = weekAgo.toISOString().slice(0,10);
+  document.getElementById('export-end').value = now.toISOString().slice(0,10);
+  document.getElementById('export-start').value = weekAgo.toISOString().slice(0,10);
+});
+
+// ============================================================
+// 时钟
+// ============================================================
+function updateClock() {
+  document.getElementById('clock').textContent = new Date().toLocaleString('zh-CN');
+}
+
+// ============================================================
+// Tab 切换
+// ============================================================
+function initTabs() {
+  document.querySelectorAll('#tab-nav button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#tab-nav button').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      // 切换 Tab 时触发数据刷新
+      if (btn.dataset.tab === 'records') loadAlertPage(1);
+      if (btn.dataset.tab === 'sites') loadSites();
+      if (btn.dataset.tab === 'settings') loadRuntimeConfig();
+    });
+  });
+}
+
+// ============================================================
+// Toast 消息
+// ============================================================
+function showToast(msg, type='info') {
+  const el = document.getElementById('toast');
+  const div = document.createElement('div');
+  div.className = 'toast-msg ' + type;
+  div.textContent = msg;
+  el.appendChild(div);
+  setTimeout(() => div.remove(), 3500);
+}
+
+// ============================================================
+// 声音报警 (Web Audio API) — 四级分频
+// ============================================================
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playAlertSound(level) {
+  if (!soundEnabled) return;
+  try {
+    const ctx = getAudioCtx();
+    const now = ctx.currentTime;
+
+    if (level === 'red') {
+      // Ⅰ级红色: 尖锐急促双频交替 (8声)
+      for (let i = 0; i < 8; i++) {
+        const t = now + i * 0.22;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.value = i % 2 === 0 ? 880 : 660;
+        gain.gain.setValueAtTime(0.3, t);
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.18);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(t); osc.stop(t + 0.2);
+      }
+    } else if (level === 'orange') {
+      // Ⅱ级橙色: 中频三连音
+      for (let i = 0; i < 3; i++) {
+        const t = now + i * 0.35;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = 520;
+        gain.gain.setValueAtTime(0.25, t);
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(t); osc.stop(t + 0.32);
+      }
+    } else if (level === 'yellow') {
+      // Ⅲ级黄色: 温和单次提示音
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 440;
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(now); osc.stop(now + 0.55);
+    }
+  } catch(e) { console.warn('声音播放失败:', e); }
+}
+
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  const btn = document.getElementById('sound-toggle');
+  btn.textContent = soundEnabled ? '🔊 报警声音: 开' : '🔇 报警声音: 关';
+  if (!soundEnabled) btn.classList.add('muted'); else btn.classList.remove('muted');
+}
+
+// ============================================================
+// 弹窗
+// ============================================================
+function showPopup(alertData) {
+  const level = alertData.alert_level || 'yellow';
+  const overlay = document.getElementById('popup-overlay');
+  overlay.className = 'popup-overlay active ' + level;
+
+  const icons = { red:'🚨', orange:'🔶', yellow:'⚠️' };
+  document.getElementById('popup-icon').textContent = icons[level] || '⚠️';
+
+  const titles = { red:'Ⅰ级·特别严重预警', orange:'Ⅱ级·严重预警', yellow:'Ⅲ级·较重预警' };
+  const titleEl = document.getElementById('popup-title');
+  titleEl.textContent = titles[level] || '预警';
+  titleEl.className = 'popup-title ' + level;
+
+  const countEl = document.getElementById('popup-count');
+  countEl.textContent = alertData.count || 0;
+  countEl.className = 'popup-count ' + level;
+
+  let detail = '置信度: ' + (alertData.max_confidence || 0).toFixed(2);
+  if (alertData.rock_diameter_cm > 0) detail += ' | 落石直径约: ' + alertData.rock_diameter_cm + ' cm';
+  if (alertData.class_summary) detail += ' | 类别: ' + alertData.class_summary;
+  document.getElementById('popup-detail').textContent = detail;
+
+  const btn = document.getElementById('popup-btn');
+  btn.className = 'popup-btn ' + level;
+
+  // 声音: 红色/橙色强制播放, 黄色尊重设置
+  if (level === 'red' || level === 'orange') {
+    playAlertSound(level);
+  } else if (level === 'yellow' && soundEnabled) {
+    playAlertSound(level);
+  }
+}
+
+function dismissPopup() {
+  document.getElementById('popup-overlay').classList.remove('active');
+}
+
+// ============================================================
+// 导出 Excel
+// ============================================================
+function showExportModal() {
+  document.getElementById('export-overlay').classList.add('active');
+  // 异步加载预览
+  const start = document.getElementById('export-start').value;
+  const end = document.getElementById('export-end').value;
+  const level = document.getElementById('export-level').value;
+  fetch('/api/alerts/export/summary?start_date=' + start + '&end_date=' + end + '&alert_level=' + level)
+    .then(r => r.json())
+    .then(data => {
+      let info = '共 ' + (data.total || 0) + ' 条记录';
+      if (data.by_level && Object.keys(data.by_level).length > 0) {
+        const ln = { red:'🔴Ⅰ级', orange:'🟠Ⅱ级', yellow:'🟡Ⅲ级', blue:'🔵Ⅳ级' };
+        info += ' | ' + Object.entries(data.by_level).map(([k,v]) => (ln[k]||k)+':'+v).join(' ');
+      }
+      document.getElementById('export-info').textContent = info;
+    }).catch(() => {});
+}
+
+function hideExportModal() {
+  document.getElementById('export-overlay').classList.remove('active');
+}
+
+function doExport() {
+  const start = document.getElementById('export-start').value;
+  const end = document.getElementById('export-end').value;
+  const level = document.getElementById('export-level').value;
+  const params = new URLSearchParams();
+  if (start) params.set('start_date', start);
+  if (end) params.set('end_date', end);
+  if (level) params.set('alert_level', level);
+  window.location.href = '/api/alerts/export?' + params.toString();
+  showToast('Excel 下载已开始', 'success');
+  setTimeout(hideExportModal, 1200);
+}
+
+// ============================================================
+// SSE 实时预警
+// ============================================================
+function connectSSE() {
+  const es = new EventSource('/api/alerts/stream');
+  es.addEventListener('alert', function(e) {
+    try {
+      const data = JSON.parse(e.data);
+      console.log('[SSE] 预警:', data);
+      showPopup(data);
+      refreshStats();
+      refreshAlerts();
+    } catch(err) { console.error('[SSE] 解析失败:', err); }
+  });
+  es.onopen = function() {
+    document.getElementById('sse-status').textContent = '● SSE';
+    document.getElementById('sse-status').style.color = 'var(--green)';
+  };
+  es.onerror = function() {
+    document.getElementById('sse-status').textContent = '● SSE断';
+    document.getElementById('sse-status').style.color = 'var(--red)';
+    es.close();
+    setTimeout(connectSSE, 5000);
+  };
+}
+
+// ============================================================
+// 统计刷新
+// ============================================================
+async function refreshStats() {
+  try {
+    const r = await fetch('/api/stats');
+    const data = await r.json();
+    document.getElementById('stat-red').textContent = data.today_red || 0;
+    document.getElementById('stat-orange').textContent = data.today_orange || 0;
+    document.getElementById('stat-yellow').textContent = data.today_yellow || 0;
+    document.getElementById('stat-blue').textContent = data.today_blue || 0;
+    document.getElementById('stat-total').textContent = data.today_total || 0;
+    document.getElementById('stat-count').textContent = data.last_count ?? '--';
+    document.getElementById('stat-conf').textContent = data.last_conf != null ? data.last_conf.toFixed(2) : '--';
+
+    const levelEl = document.getElementById('stat-level');
+    const level = data.last_alert_level;
+    if (level && level !== 'green') {
+      const names = { red:'🔴 Ⅰ级·特别严重', orange:'🟠 Ⅱ级·严重', yellow:'🟡 Ⅲ级·较重', blue:'🔵 Ⅳ级·一般' };
+      levelEl.textContent = names[level] || level;
+      levelEl.className = 'stat-val ' + level;
+    } else {
+      levelEl.textContent = '🟢 无';
+      levelEl.className = 'stat-val green';
+    }
+    document.getElementById('conn-status').textContent = '● API';
+    document.getElementById('conn-status').style.color = 'var(--green)';
+  } catch(e) {
+    document.getElementById('conn-status').textContent = '● API断';
+    document.getElementById('conn-status').style.color = 'var(--red)';
+  }
+}
+
+// ============================================================
+// 预警 Feed 刷新
+// ============================================================
+async function refreshAlerts() {
+  try {
+    const r = await fetch('/api/alerts?limit=20');
+    const alerts = await r.json();
+    const container = document.getElementById('alerts-feed');
+    if (!alerts.length) {
+      container.innerHTML = '<div class="empty-state">暂无预警记录</div>';
+      return;
+    }
+    container.innerHTML = alerts.map(a => {
+      const lv = a.alert_level || 'green';
+      const ln = { red:'Ⅰ级·特别严重', orange:'Ⅱ级·严重', yellow:'Ⅲ级·较重', blue:'Ⅳ级·一般' };
+      const st = { recorded:'📝已记录', popup:'🔔已弹窗', sent:'✅已推送', pending:'⏳待推送', failed:'❌失败' };
+      const status = st[a.push_status] || a.push_status || '';
+      let detail = (a.count||0) + '个目标 | 置信度:' + (a.max_confidence||0).toFixed(2);
+      if (a.class_summary) detail += ' | ' + a.class_summary;
+      if (a.rock_diameter_cm > 0) detail += ' | ' + a.rock_diameter_cm + 'cm';
+      const imgLink = (a.saved_frame && a.saved_frame.length > 0)
+        ? ' <span class="clickable" onclick="previewImage(' + a.id + ')" title="查看截图">🖼️</span>'
+        : '';
+      const rv = a.review_status || '';
+      let reviewBadge = '';
+      if (rv === 'confirmed') reviewBadge = ' <span class="review-badge confirmed">✅真实</span>';
+      else if (rv === 'false_alarm') reviewBadge = ' <span class="review-badge false_alarm">❌误报</span>';
+      return '<div class="alert-item ' + lv + '">'
+        + '<div class="time">' + a.time + '<span class="tag ' + lv + '">' + (ln[lv]||lv) + '</span> ' + status + imgLink + reviewBadge + '</div>'
+        + '<div>' + detail + '</div>'
+        + '</div>';
+    }).join('');
+  } catch(e) {}
+}
+
+// ============================================================
+// 预警记录分页查询
+// ============================================================
+async function loadAlertPage(page) {
+  currentPage = page;
+  const start = document.getElementById('rec-start').value;
+  const end = document.getElementById('rec-end').value;
+  const level = document.getElementById('rec-level').value;
+  const params = new URLSearchParams({
+    page: page, page_size: currentPageSize,
+    start_date: start, end_date: end, alert_level: level,
+  });
+  try {
+    const r = await fetch('/api/alerts/paged?' + params);
+    const data = await r.json();
+    renderAlertTable(data.rows);
+    renderPagination(data);
+  } catch(e) {
+    document.getElementById('rec-tbody').innerHTML = '<tr><td colspan="8" class="empty-state">加载失败</td></tr>';
+  }
+}
+
+function renderAlertTable(rows) {
+  const tbody = document.getElementById('rec-tbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">无匹配记录</td></tr>';
+    return;
+  }
+  const ln = { red:'🔴 Ⅰ级', orange:'🟠 Ⅱ级', yellow:'🟡 Ⅲ级', blue:'🔵 Ⅳ级' };
+  const st = { recorded:'📝已记录', popup:'🔔已弹窗', sent:'✅已推送', pending:'⏳待推送', failed:'❌失败' };
+  tbody.innerHTML = rows.map(r => {
+    const lv = r.alert_level || '';
+    const hasImg = r.saved_frame && r.saved_frame.length > 0;
+    const rv = r.review_status || '';
+    let reviewHtml = '';
+    if (rv === 'confirmed') {
+      reviewHtml = '<span class="review-badge confirmed">✅ 真实</span>';
+    } else if (rv === 'false_alarm') {
+      reviewHtml = '<span class="review-badge false_alarm">❌ 误报</span>';
+    } else {
+      reviewHtml = '<button class="review-btn confirm" onclick="event.stopPropagation();reviewAlert(' + r.id + ',\'confirmed\')" title="确认真实落石">✅</button>'
+        + '<button class="review-btn false-alarm" onclick="event.stopPropagation();reviewAlert(' + r.id + ',\'false_alarm\')" title="标记为误报">❌</button>';
+    }
+    const imgCell = hasImg
+      ? '<span class="clickable" onclick="previewImage(' + r.id + ')" title="点击查看现场截图">🖼️ 查看</span>'
+      : '-';
+    return '<tr>'
+      + '<td>' + r.id + '</td>'
+      + '<td style="white-space:nowrap">' + (r.time||'') + '</td>'
+      + '<td>' + (ln[lv]||lv) + '</td>'
+      + '<td>' + (r.count||0) + '</td>'
+      + '<td>' + (r.max_confidence||0).toFixed(2) + '</td>'
+      + '<td>' + (r.rock_diameter_cm||0) + '</td>'
+      + '<td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + (r.monitoring_location||'') + '">' + (r.monitoring_location||'-') + '</td>'
+      + '<td>' + (st[r.push_status]||r.push_status||'-') + '</td>'
+      + '<td>' + imgCell + ' ' + reviewHtml + '</td>'
+      + '</tr>';
+  }).join('');
+}
+
+function renderPagination(data) {
+  const pg = document.getElementById('rec-pagination');
+  if (data.total_pages <= 1) {
+    pg.innerHTML = '<span>共 ' + data.total + ' 条</span>';
+    return;
+  }
+  let html = '<button ' + (data.page <= 1 ? 'disabled' : '') + ' onclick="loadAlertPage(' + (data.page-1) + ')">◀</button>';
+  html += '<span>' + data.page + ' / ' + data.total_pages + ' (共 ' + data.total + ' 条)</span>';
+  html += '<button ' + (data.page >= data.total_pages ? 'disabled' : '') + ' onclick="loadAlertPage(' + (data.page+1) + ')">▶</button>';
+  pg.innerHTML = html;
+}
+
+// ============================================================
+// 点位管理
+// ============================================================
+async function loadSites() {
+  try {
+    const r = await fetch('/api/sites');
+    const data = await r.json();
+    // 更新 header 点位名称
+    document.getElementById('site-name').textContent = '📍 ' + data.active_site.name;
+    document.getElementById('device-info').textContent = data.active_site.region || '';
+
+    const riskLabels = { high: '⚠️ 高风险', medium: '🔶 中风险', low: '🟢 低风险' };
+    const container = document.getElementById('sites-container');
+    container.innerHTML = '<div class="grid-sites">' + data.sites.map(s => {
+      const isActive = s.site_id === data.active_site_id;
+      return '<div class="site-card' + (isActive ? ' active' : '') + '">'
+        + '<h3>' + (isActive ? '✅ ' : '') + s.name + '</h3>'
+        + '<div class="meta">'
+        + '<span class="risk ' + (s.risk_level||'medium') + '">' + (riskLabels[s.risk_level]||s.risk_level) + '</span> '
+        + '| 📍 ' + s.region + '<br>'
+        + '🛣️ ' + (s.highway||'') + ' | 🏷️ ' + (s.stake_mark||'') + '<br>'
+        + '📝 ' + (s.description||'') + '<br>'
+        + '🌐 ' + (s.latitude||0).toFixed(3) + ', ' + (s.longitude||0).toFixed(3)
+        + '</div>'
+        + '<button ' + (isActive ? 'disabled' : 'onclick="switchSite(\'' + s.site_id + '\')"') + '>'
+        + (isActive ? '✅ 当前激活' : '📍 切换至此点位')
+        + '</button>'
+        + '</div>';
+    }).join('') + '</div>';
+  } catch(e) {
+    document.getElementById('sites-container').innerHTML = '<div class="empty-state">加载点位信息失败</div>';
+  }
+}
+
+async function switchSite(siteId) {
+  try {
+    const form = new FormData();
+    form.append('site_id', siteId);
+    const r = await fetch('/api/sites/switch', { method: 'POST', body: form });
+    const data = await r.json();
+    if (data.status === 'ok') {
+      showToast('已切换至: ' + data.active_site.name, 'success');
+      loadSites();
+      refreshStats();
+    } else {
+      showToast('切换失败', 'error');
+    }
+  } catch(e) {
+    showToast('切换失败: ' + e.message, 'error');
+  }
+}
+
+// ============================================================
+// 参数设置
+// ============================================================
+async function loadRuntimeConfig() {
+  try {
+    const r = await fetch('/api/config/runtime');
+    const cfg = await r.json();
+    // 更新滑块和显示值
+    setSlider('cfg-confidence', 'val-confidence', cfg.detection_confidence);
+    setSlider('cfg-imgsize', 'val-imgsize', cfg.detection_img_size);
+    setSlider('cfg-minarea', 'val-minarea', cfg.motion_min_area);
+    setSlider('cfg-bluehigh', 'val-bluehigh', cfg.alert_blue_high);
+    setSlider('cfg-yellowhigh', 'val-yellowhigh', cfg.alert_yellow_high);
+    setSlider('cfg-orangehigh', 'val-orangehigh', cfg.alert_orange_high);
+  } catch(e) { console.warn('加载配置失败:', e); }
+}
+
+function setSlider(sliderId, valId, value) {
+  const slider = document.getElementById(sliderId);
+  if (slider) slider.value = value;
+  const valEl = document.getElementById(valId);
+  if (valEl) valEl.textContent = value;
+}
+
+async function applySettings() {
+  const updates = {
+    detection_confidence: parseFloat(document.getElementById('cfg-confidence').value),
+    detection_img_size: parseInt(document.getElementById('cfg-imgsize').value),
+    motion_min_area: parseInt(document.getElementById('cfg-minarea').value),
+    alert_blue_high: parseFloat(document.getElementById('cfg-bluehigh').value),
+    alert_yellow_high: parseFloat(document.getElementById('cfg-yellowhigh').value),
+    alert_orange_high: parseFloat(document.getElementById('cfg-orangehigh').value),
+  };
+  try {
+    const r = await fetch('/api/config/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    const data = await r.json();
+    const msgEl = document.getElementById('settings-msg');
+    if (data.status === 'ok') {
+      msgEl.innerHTML = '<span style="color:var(--green)">✅ 参数已应用 (当前会话有效, 重启后恢复默认)</span>';
+      showToast('参数已更新', 'success');
+    } else {
+      msgEl.innerHTML = '<span style="color:var(--orange)">⚠️ 部分参数未应用: ' + JSON.stringify(data.skipped) + '</span>';
+    }
+    setTimeout(() => msgEl.innerHTML = '', 5000);
+  } catch(e) {
+    showToast('参数更新失败: ' + e.message, 'error');
+  }
+}
+
+async function resetSettings() {
+  // 从 /api/config/current 获取 .env 默认值并重置
+  try {
+    const r = await fetch('/api/config/current');
+    const cfg = await r.json();
+    // 使用 alert 阈值中的值
+    const blueRange = cfg.alert.four_level.blue.split('-');
+    const yellowRange = cfg.alert.four_level.yellow.split('-');
+    const orangeRange = cfg.alert.four_level.orange.split('-');
+    const updates = {
+      detection_confidence: cfg.detection.confidence,
+      detection_img_size: cfg.detection.img_size,
+      motion_min_area: 100,  // 默认值
+      alert_blue_high: parseFloat(blueRange[1]) || 0.5,
+      alert_yellow_high: parseFloat(yellowRange[1]) || 0.7,
+      alert_orange_high: parseFloat(orangeRange[1]) || 0.9,
+    };
+    const r2 = await fetch('/api/config/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    await loadRuntimeConfig();
+    showToast('已恢复默认参数', 'info');
+  } catch(e) {
+    // 降级: 直接设置默认值
+    const defaults = {
+      detection_confidence: 0.3, detection_img_size: 640, motion_min_area: 100,
+      alert_blue_high: 0.5, alert_yellow_high: 0.7, alert_orange_high: 0.9,
+    };
+    await fetch('/api/config/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(defaults),
+    });
+    await loadRuntimeConfig();
+    showToast('已恢复默认参数', 'info');
+  }
+}
+
+// ============================================================
+// 统计看板
+// ============================================================
+async function loadStatistics() {
+  try {
+    const r = await fetch('/api/statistics?days=7');
+    const data = await r.json();
+
+    // 每日趋势柱状图
+    renderTrendChart(data.daily_trends || []);
+
+    // 误报率
+    const fa = data.false_alarm || {};
+    const rate = (fa.false_alarm_rate || 0) * 100;
+    const ring = document.getElementById('gauge-ring');
+    ring.textContent = rate.toFixed(1) + '%';
+    ring.className = 'gauge-ring ' + (rate < 5 ? 'good' : rate < 15 ? 'warn' : 'bad');
+    document.getElementById('gauge-detail').textContent =
+      '已审核 ' + (fa.total_reviewed || 0) + ' 条 | 误报 ' + (fa.false_alarm || 0) + ' 条';
+
+    document.getElementById('stat-confirmed').textContent = fa.confirmed || 0;
+    document.getElementById('stat-falsealarm').textContent = fa.false_alarm || 0;
+    document.getElementById('stat-pending').textContent = fa.pending_review || 0;
+    document.getElementById('stat-grand-total').textContent = data.grand_total || 0;
+
+    document.getElementById('stats-range').textContent =
+      '近' + (data.daily_trends?.length || 7) + '天';
+  } catch(e) { console.warn('加载统计失败:', e); }
+}
+
+function renderTrendChart(trends) {
+  const container = document.getElementById('trend-chart');
+  if (!trends.length) {
+    container.innerHTML = '<div class="empty-state">暂无数据</div>';
+    return;
+  }
+  // 找最大值做缩放
+  let maxVal = 1;
+  trends.forEach(d => { maxVal = Math.max(maxVal, d.total || 0); });
+
+  container.innerHTML = trends.map(d => {
+    const hRed = maxVal > 0 ? (d.red / maxVal * 100) : 0;
+    const hOrange = maxVal > 0 ? (d.orange / maxVal * 100) : 0;
+    const hYellow = maxVal > 0 ? (d.yellow / maxVal * 100) : 0;
+    const hBlue = maxVal > 0 ? (d.blue / maxVal * 100) : 0;
+    const dateLabel = d.date.slice(5); // MM-DD
+    return '<div class="trend-bar-wrap">'
+      + '<div class="trend-bar red" style="height:' + hRed + '%"><span class="tip">' + d.red + '</span></div>'
+      + '<div class="trend-bar orange" style="height:' + hOrange + '%"><span class="tip">' + d.orange + '</span></div>'
+      + '<div class="trend-bar yellow" style="height:' + hYellow + '%"><span class="tip">' + d.yellow + '</span></div>'
+      + '<div class="trend-bar blue" style="height:' + hBlue + '%"><span class="tip">' + d.blue + '</span></div>'
+      + '<div class="trend-label">' + dateLabel + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+// ============================================================
+// 图片预览
+// ============================================================
+function previewImage(alertId) {
+  const overlay = document.getElementById('image-overlay');
+  const img = document.getElementById('preview-img');
+  const caption = document.getElementById('preview-caption');
+
+  img.src = '/api/alerts/' + alertId + '/image';
+  caption.textContent = '预警 #' + alertId + ' — 加载中...';
+  overlay.classList.add('active');
+
+  img.onload = function() {
+    caption.textContent = '预警 #' + alertId + ' — 现场截图';
+  };
+  img.onerror = function() {
+    caption.textContent = '预警 #' + alertId + ' — 截图不可用 (文件可能已被清理)';
+    img.src = '';
+  };
+}
+
+function closeImagePreview() {
+  document.getElementById('image-overlay').classList.remove('active');
+  document.getElementById('preview-img').src = '';
+}
+
+// ESC 关闭图片预览
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeImagePreview();
+    dismissPopup();
+    hideExportModal();
+  }
+});
+
+// ============================================================
+// 预警审核
+// ============================================================
+async function reviewAlert(alertId, status) {
+  const labels = { confirmed: '确认真实', false_alarm: '标记误报' };
+  const form = new FormData();
+  form.append('review_status', status);
+  form.append('note', '');
+  try {
+    const r = await fetch('/api/alerts/' + alertId + '/review', { method: 'POST', body: form });
+    const data = await r.json();
+    if (data.status === 'ok') {
+      showToast('预警 #' + alertId + ' 已' + (labels[status] || status), 'success');
+      // 刷新当前页
+      if (document.getElementById('tab-records').classList.contains('active')) {
+        loadAlertPage(currentPage);
+      }
+      loadStatistics();
+    } else {
+      showToast('审核失败: ' + (data.msg || ''), 'error');
+    }
+  } catch(e) {
+    showToast('审核请求失败', 'error');
+  }
+}
+</script>
+</body>
+</html>

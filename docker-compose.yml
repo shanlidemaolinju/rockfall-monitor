@@ -1,0 +1,57 @@
+# 落石监测系统 — Docker 一键部署
+# 启动: docker-compose up -d
+# 停止: docker-compose down
+# 日志: docker-compose logs -f
+
+version: "3.8"
+
+services:
+  rockfall:
+    build: .
+    container_name: rockfall
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # 持久化数据 (预警记录/截图/日志)
+      - ./data:/app/data
+      # 模型文件 (大文件挂载, 避免每次重建镜像)
+      - ./models:/app/models:ro
+      - ./FastSAM-x.pt:/app/FastSAM-x.pt:ro
+    env_file:
+      - .env
+    environment:
+      - WEB_HOST=0.0.0.0
+      - WEB_PORT=8000
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    # GPU 支持 (需要 nvidia-container-toolkit)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  # MySQL (可选 — 不启用则自动降级为 SQLite)
+  # mysql:
+  #   image: mysql:8.0
+  #   container_name: rockfall-mysql
+  #   restart: unless-stopped
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: root_password
+  #     MYSQL_DATABASE: rockfall
+  #     MYSQL_USER: rockfall
+  #     MYSQL_PASSWORD: rockfall_password
+  #   volumes:
+  #     - mysql_data:/var/lib/mysql
+  #   ports:
+  #     - "3306:3306"
+
+# volumes:
+#   mysql_data:

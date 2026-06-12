@@ -1,0 +1,38 @@
+# ============================================================
+# 落石检测系统 - Docker Compose
+# ============================================================
+# 启动: docker compose -f docker/docker-compose.yml up -d
+# 停止: docker compose -f docker/docker-compose.yml down
+# ============================================================
+
+services:
+  # ---- FastAPI 检测服务 ----
+  rockfall_api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: rockfall:latest
+    container_name: rockfall_api
+    ports:
+      - "8001:8000"
+    restart: always
+    volumes:
+      - ../data/results:/app/data/results
+      - ../models:/app/models:ro          # 模型只读挂载
+    env_file:
+      - ../.env
+    environment:
+      - TZ=Asia/Shanghai
+
+  # ---- Nginx 静态资源 + 反向代理 ----
+  rockfall_nginx:
+    image: nginx:1.27.0
+    container_name: rockfall_nginx
+    restart: always
+    ports:
+      - "8008:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../data/results:/results:ro

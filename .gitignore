@@ -1,0 +1,55 @@
+# ============================================================
+# Git 忽略规则 — 落石监测系统
+# ============================================================
+
+# ---- 大模型文件 (>50MB, 不适合 Git) ----
+FastSAM-x.pt
+models/sam_vit_b_01ec64.pth
+weights/clip/ViT-B-32.pt
+*.engine
+
+# ---- 小模型保留 (models/rock_best.pt ~6MB, 可提交) ----
+# 仅排除 models/ 下的大模型文件, 小模型正常提交
+
+# ---- 运行时数据 ----
+data/results/*
+data/uploads/*
+data/*.db
+data/*.jsonl
+data/*.jpg
+data/*.png
+!data/results/.gitkeep
+!data/uploads/.gitkeep
+data/mask_*.png
+
+# ---- 环境变量 (含敏感 Token, 绝不能提交) ----
+.env
+
+# ---- Python ----
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# ---- IDE ----
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ---- 测试缓存 ----
+.pytest_cache/
+
+# ---- OS ----
+Thumbs.db
+.DS_Store
+
+# ---- Docker 运行时 ----
+docker-compose.override.yml
+
+# ---- clip 模型缓存 (streamlit 环境) ----
+*.pt.cache

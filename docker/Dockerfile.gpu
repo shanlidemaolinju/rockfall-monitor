@@ -1,0 +1,25 @@
+# ============================================================
+# 落石检测系统 - GPU Docker 镜像
+# ============================================================
+# 构建: docker build -f docker/Dockerfile.gpu -t rockfall:gpu .
+# 运行: docker run --gpus all -p 8000:8000 --env-file .env rockfall:gpu
+# ============================================================
+
+FROM ultralytics/ultralytics:latest
+
+WORKDIR /app
+
+# 安装额外 Python 依赖 (ultralytics 镜像已含 torch + opencv)
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade -r requirements.txt
+
+# 复制全部源码
+COPY . .
+
+# 创建运行时目录
+RUN mkdir -p data/results data/uploads
+
+EXPOSE 8000
+
+# --workers 1 必须: YOLO 模型独占 GPU, 多 worker 导致显存翻倍 + MJPEG 帧不可见
+CMD ["uvicorn", "server.main:app", "--proxy-headers", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

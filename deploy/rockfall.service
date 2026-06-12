@@ -1,0 +1,35 @@
+[Unit]
+Description=落石监测系统 — 公路自然灾害监测预警平台
+Documentation=https://github.com/your-org/rockfall
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=rockfall
+Group=rockfall
+WorkingDirectory=/opt/rockfall
+EnvironmentFile=/opt/rockfall/.env
+Environment=PATH=/opt/rockfall/venv/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/opt/rockfall/venv/bin/uvicorn server.main:app --host 127.0.0.1 --port 8000 --workers 2
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+KillMode=mixed
+TimeoutStopSec=30
+
+# 安全加固
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/rockfall/data
+ReadOnlyPaths=/opt/rockfall/models /opt/rockfall/FastSAM-x.pt
+
+# 日志
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rockfall
+
+[Install]
+WantedBy=multi-user.target
