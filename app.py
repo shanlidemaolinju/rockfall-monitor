@@ -508,8 +508,7 @@ def page_demo_showcase():
         st.bar_chart(
             chart_data.set_index("Level"),
             use_container_width=True,
-            color=[ALERT_COLORS["red"], ALERT_COLORS["orange"],
-                   ALERT_COLORS["yellow"], ALERT_COLORS["blue"]][:len(chart_data)],
+            color=PRIMARY_BLUE,
         )
 
     with col_legend:
