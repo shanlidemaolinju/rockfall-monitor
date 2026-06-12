@@ -193,10 +193,6 @@ if "last_detection_source" not in st.session_state:
 def render_sidebar():
     """渲染侧边栏: 系统状态 + 导航"""
     with st.sidebar:
-        st.image(
-            "https://img.icons8.com/color/96/landslide.png" if False else None,
-            width=0,
-        )
         st.title("🪨 落石监测系统")
         st.caption("公路自然灾害监测预警平台")
 
