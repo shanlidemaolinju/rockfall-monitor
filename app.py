@@ -52,61 +52,131 @@ from rockfall.config import (
 # ══════════════════════════════════════════════════════════════
 
 st.set_page_config(
-    page_title="落石监测系统 — 公路自然灾害预警",
-    page_icon="🪨",
+    page_title="RockGuard — 公路落石灾害监测预警系统",
+    page_icon="::rock::",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 # ══════════════════════════════════════════════════════════════
-# 样式注入
+# 品牌 & 版本信息
 # ══════════════════════════════════════════════════════════════
 
+APP_NAME = "RockGuard"
+APP_VERSION = "v2.0.0"
+APP_SUBTITLE = "公路自然灾害监测预警平台"
+TEAM_NAME = "RockGuard Team"
+COPYRIGHT = "© 2026 RockGuard. All rights reserved."
+
+# ══════════════════════════════════════════════════════════════
+# 样式 & 配色 (科技蓝主色调)
+# ══════════════════════════════════════════════════════════════
+
+PRIMARY_BLUE = "#1565C0"
+PRIMARY_BLUE_LIGHT = "#E3F2FD"
+DARK_BG = "#0D1B2A"
+SURFACE_BG = "#F5F7FA"
+TEXT_PRIMARY = "#1B2838"
+TEXT_SECONDARY = "#5F6B7A"
+
 ALERT_COLORS = {
-    "red":    "#dc3545",
-    "orange": "#fd7e14",
-    "yellow": "#ffc107",
-    "blue":   "#0d6efd",
-    "green":  "#198754",
+    "red":    "#D32F2F",
+    "orange": "#E65100",
+    "yellow": "#F9A825",
+    "blue":   "#1565C0",
+    "green":  "#2E7D32",
+}
+
+ALERT_BG = {
+    "red":    "#FFEBEE",
+    "orange": "#FFF3E0",
+    "yellow": "#FFFDE7",
+    "blue":   "#E3F2FD",
+    "green":  "#E8F5E9",
 }
 
 ALERT_LABELS = {
-    "red":    "🔴 Ⅰ级·特别严重",
-    "orange": "🟠 Ⅱ级·严重",
-    "yellow": "🟡 Ⅲ级·较重",
-    "blue":   "🔵 Ⅳ级·一般",
-    "green":  "🟢 正常",
+    "red":    "I 级 · 特别严重",
+    "orange": "II 级 · 严重",
+    "yellow": "III 级 · 较重",
+    "blue":   "IV 级 · 一般",
+    "green":  "正常",
+}
+
+ALERT_ICONS = {
+    "red": "●", "orange": "●", "yellow": "●", "blue": "●", "green": "●",
 }
 
 ALERT_ORDER = {"green": 0, "blue": 1, "yellow": 2, "orange": 3, "red": 4}
 
-RISK_LABELS = {"high": "⚠️ 高风险", "medium": "🔶 中风险", "low": "🟢 低风险"}
+RISK_LABELS = {"high": "高风险", "medium": "中风险", "low": "低风险"}
 
-st.markdown("""
+st.markdown(f"""
 <style>
-    .alert-red { color: #dc3545; font-weight: bold; }
-    .alert-orange { color: #fd7e14; font-weight: bold; }
-    .alert-yellow { color: #ffc107; font-weight: bold; }
-    .alert-blue { color: #0d6efd; font-weight: bold; }
-    .alert-green { color: #198754; }
-    .site-card {
-        padding: 1rem;
-        border-radius: 8px;
-        border: 1px solid #dee2e6;
-        margin-bottom: 0.5rem;
-    }
-    .site-card.active {
-        border: 2px solid #0d6efd;
-        background: #f0f7ff;
-    }
-    .stat-card {
-        text-align: center;
-        padding: 0.75rem;
-        border-radius: 8px;
-        background: #f8f9fa;
-    }
-    .stat-value { font-size: 1.8rem; font-weight: bold; }
-    .stat-label { font-size: 0.8rem; color: #6c757d; }
+    /* === 全局 === */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    html, body, [class*="css"] {{ font-family: 'Inter', -apple-system, sans-serif; color: {TEXT_PRIMARY}; }}
+
+    /* === 品牌顶栏 === */
+    .brand-header {{
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0.75rem 1.25rem;
+        background: linear-gradient(135deg, {PRIMARY_BLUE} 0%, #0D47A1 100%);
+        border-radius: 10px; color: #fff; margin-bottom: 1rem;
+    }}
+    .brand-header .logo {{ font-size: 1.4rem; font-weight: 700; letter-spacing: 0.5px; }}
+    .brand-header .meta {{ font-size: 0.75rem; opacity: 0.85; text-align: right; }}
+    .brand-header .meta span {{ margin-left: 1rem; }}
+
+    /* === 预警等级标签 === */
+    .alert-badge {{
+        display: inline-block; padding: 0.15rem 0.6rem; border-radius: 4px;
+        font-size: 0.78rem; font-weight: 600;
+    }}
+    .alert-badge.red    {{ background: {ALERT_BG['red']};    color: {ALERT_COLORS['red']}; }}
+    .alert-badge.orange {{ background: {ALERT_BG['orange']}; color: {ALERT_COLORS['orange']}; }}
+    .alert-badge.yellow {{ background: {ALERT_BG['yellow']}; color: #F57F17; }}
+    .alert-badge.blue   {{ background: {ALERT_BG['blue']};   color: {ALERT_COLORS['blue']}; }}
+    .alert-badge.green  {{ background: {ALERT_BG['green']};  color: {ALERT_COLORS['green']}; }}
+
+    /* === 卡片容器 === */
+    .card {{
+        background: #fff; border: 1px solid #E3E8EF; border-radius: 10px;
+        padding: 1.25rem; margin-bottom: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }}
+    .card.active {{ border-color: {PRIMARY_BLUE}; box-shadow: 0 0 0 1px {PRIMARY_BLUE}20; }}
+
+    /* === KPI 指标卡 === */
+    .kpi-card {{
+        background: #fff; border: 1px solid #E3E8EF; border-radius: 10px;
+        padding: 1rem 1.25rem; text-align: center;
+    }}
+    .kpi-value {{ font-size: 1.7rem; font-weight: 700; color: {PRIMARY_BLUE}; line-height: 1.2; }}
+    .kpi-value.danger {{ color: {ALERT_COLORS['red']}; }}
+    .kpi-value.warning {{ color: {ALERT_COLORS['orange']}; }}
+    .kpi-label {{ font-size: 0.78rem; color: {TEXT_SECONDARY}; margin-top: 0.25rem; }}
+
+    /* === 场景选择卡 === */
+    .scene-card {{
+        padding: 1rem; border-radius: 10px; border: 2px solid #E3E8EF;
+        background: #fff; margin-bottom: 0.5rem; transition: all 0.15s;
+    }}
+    .scene-card:hover {{ border-color: {PRIMARY_BLUE}60; }}
+    .scene-card.selected {{ border-color: {PRIMARY_BLUE}; background: {PRIMARY_BLUE_LIGHT}; }}
+
+    /* === 状态指示器 === */
+    .status-dot {{
+        display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px;
+    }}
+    .status-dot.live {{ background: #4CAF50; animation: pulse 2s infinite; }}
+    .status-dot.idle {{ background: #9E9E9E; }}
+    @keyframes pulse {{ 0%, 100% {{ opacity: 1; }} 50% {{ opacity: 0.4; }} }}
+
+    /* === 数据表格 === */
+    .dataframe-container {{ border-radius: 8px; overflow: hidden; }}
+
+    /* === 分割线 === */
+    hr.divider {{ border: none; border-top: 1px solid #E3E8EF; margin: 1.5rem 0; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -191,20 +261,46 @@ if "last_detection_source" not in st.session_state:
 # ══════════════════════════════════════════════════════════════
 
 def render_sidebar():
-    """渲染侧边栏: 系统状态 + 导航"""
+    """渲染侧边栏: 品牌标识 + 系统状态 + 导航"""
     with st.sidebar:
-        st.title("🪨 落石监测系统")
-        st.caption("公路自然灾害监测预警平台")
+        # ── 品牌标识 ──
+        st.markdown(f"""
+        <div style="display:flex;align-items:center;gap:10px;padding:0.25rem 0 0.75rem 0;">
+            <div style="width:36px;height:36px;border-radius:8px;
+                        background:linear-gradient(135deg,{PRIMARY_BLUE},#0D47A1);
+                        display:flex;align-items:center;justify-content:center;
+                        color:#fff;font-weight:700;font-size:1.1rem;">R</div>
+            <div>
+                <div style="font-weight:700;font-size:1.1rem;color:{TEXT_PRIMARY};">{APP_NAME}</div>
+                <div style="font-size:0.7rem;color:{TEXT_SECONDARY};">{APP_SUBTITLE}</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-        # ── 设备信息 ──
+        # ── 设备状态指示 ──
         device_str, device_name = config_get_device()
-        gpu_icon = "🖥️" if device_str == "cpu" else "🎮"
-        st.info(f"{gpu_icon} 推理设备: **{device_name}**")
+        is_gpu = device_str.startswith("cuda")
+        st.markdown(f"""
+        <div style="display:flex;align-items:center;gap:8px;padding:0.5rem 0.75rem;
+                    background:{SURFACE_BG};border-radius:8px;margin-bottom:0.75rem;
+                    font-size:0.8rem;">
+            <span class="status-dot {'live' if is_gpu else 'idle'}"></span>
+            <span style="color:{TEXT_SECONDARY};">推理设备</span>
+            <span style="font-weight:600;color:{TEXT_PRIMARY};">{device_name[:24]}</span>
+        </div>
+        """, unsafe_allow_html=True)
 
         # ── 当前点位 ──
         try:
             site = get_active_site()
-            st.metric("📍 监测点位", site.name, delta=site.region)
+            st.markdown(f"""
+            <div style="padding:0.5rem 0.75rem;background:{PRIMARY_BLUE_LIGHT};border-radius:8px;
+                        border-left:3px solid {PRIMARY_BLUE};margin-bottom:0.75rem;">
+                <div style="font-size:0.7rem;color:{TEXT_SECONDARY};">监测点位</div>
+                <div style="font-weight:600;font-size:0.9rem;color:{PRIMARY_BLUE};">{site.name}</div>
+                <div style="font-size:0.72rem;color:{TEXT_SECONDARY};">{site.region}</div>
+            </div>
+            """, unsafe_allow_html=True)
         except Exception:
             pass
 
@@ -214,11 +310,21 @@ def render_sidebar():
             today = store.count_today_by_level()
             total_today = sum(today.values())
             if total_today > 0:
-                st.divider()
-                st.caption("📊 今日预警统计")
+                st.markdown(f"""<div style="font-size:0.7rem;color:{TEXT_SECONDARY};
+                    text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.25rem;">
+                    今日预警统计 &middot; {total_today} 条</div>""", unsafe_allow_html=True)
                 cols = st.columns(4)
-                for i, (lvl, emoji) in enumerate([("red", "🔴"), ("orange", "🟠"), ("yellow", "🟡"), ("blue", "🔵")]):
-                    cols[i].metric(emoji, today.get(lvl, 0))
+                for i, (lvl, color) in enumerate([
+                    ("red", ALERT_COLORS["red"]), ("orange", ALERT_COLORS["orange"]),
+                    ("yellow", ALERT_COLORS["yellow"]), ("blue", ALERT_COLORS["blue"]),
+                ]):
+                    count = today.get(lvl, 0)
+                    cols[i].markdown(f"""
+                    <div style="text-align:center;">
+                        <div style="font-size:1.1rem;font-weight:700;color:{color};">{count}</div>
+                        <div style="font-size:0.6rem;color:{TEXT_SECONDARY};">{lvl.upper()}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
         except Exception:
             pass
 
@@ -226,16 +332,39 @@ def render_sidebar():
 
         # ── 导航 ──
         page = st.radio(
-            "导航菜单",
-            ["🎬 预设演示", "🎯 实时监测", "📋 预警记录", "📍 点位管理", "⚙️ 参数设置"],
+            "",
+            ["Preset Demo", "Live Detection", "Alert Records", "Site Manager", "Settings"],
             label_visibility="collapsed",
+            format_func=lambda x: {
+                "Preset Demo": "    Preset Demo",
+                "Live Detection": "    Live Detection",
+                "Alert Records": "    Alert Records",
+                "Site Manager": "    Site Manager",
+                "Settings": "    Settings",
+            }[x],
         )
 
         st.divider()
-        st.caption(f"© 2026 落石监测系统 v1.0")
-        st.caption(f"数据目录: `{DATA_DIR}`")
 
-    return page
+        # ── 底部信息 ──
+        st.markdown(f"""
+        <div style="font-size:0.7rem;color:{TEXT_SECONDARY};">
+            {APP_NAME} {APP_VERSION}<br>
+            {TEAM_NAME}<br>
+            {COPYRIGHT}
+        </div>
+        """, unsafe_allow_html=True)
+
+        # 页面映射 (英文 → 中文 key)
+        page_map = {
+            "Preset Demo": "预设演示",
+            "Live Detection": "实时监测",
+            "Alert Records": "预警记录",
+            "Site Manager": "点位管理",
+            "Settings": "参数设置",
+        }
+
+    return page_map[page]
 
 
 # ══════════════════════════════════════════════════════════════
@@ -271,11 +400,21 @@ def _load_demo_summary(scene_id: str) -> dict | None:
 
 
 def page_demo_showcase():
-    """预设演示页面: 加载预计算结果, 零等待展示"""
-    st.header("🎬 预设演示")
-    st.caption("本地 GPU 预计算 + 云端零等待加载 — 完整落石检测演示")
+    """预设演示页面: 预计算结果零等待加载"""
+    # ── 品牌顶栏 ──
+    st.markdown(f"""
+    <div class="brand-header">
+        <div>
+            <div class="logo">{APP_NAME}</div>
+            <div style="font-size:0.8rem;opacity:0.85;">Preset Demo &middot; GPU Pre-computed</div>
+        </div>
+        <div class="meta">
+            <span>{APP_VERSION}</span><span>{TEAM_NAME}</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    # ── 场景选择卡片 ──
+    # ── 加载演示数据 ──
     available = []
     for sid, scene in DEMO_SCENES.items():
         summary = _load_demo_summary(sid)
@@ -283,42 +422,12 @@ def page_demo_showcase():
             available.append((sid, scene, summary))
 
     if not available:
-        st.info("📝 演示数据尚未生成。请在本地 GPU 环境运行 `python scripts/generate_demo.py` 生成演示数据。")
+        st.warning("Demo data not found. Run: python scripts/generate_demo.py")
         return
 
-    # 默认选第一个可用场景
     if "demo_scene" not in st.session_state:
         st.session_state.demo_scene = available[0][0]
 
-    # ── 场景卡片 ──
-    st.subheader("📍 演示场景")
-    cols = st.columns(min(len(available), 3))
-    for i, (sid, scene, summary) in enumerate(available):
-        with cols[i % 3]:
-            alerts = summary.get("alerts", {})
-            total_alerts = alerts.get("total_alert_frames", 0)
-            red = alerts.get("red", 0)
-            orange = alerts.get("orange", 0)
-
-            with st.container():
-                st.markdown(f"""
-                <div style="padding:1rem; border-radius:10px; border:2px solid {'#0d6efd' if st.session_state.demo_scene == sid else '#dee2e6'};
-                            background:{'#f0f7ff' if st.session_state.demo_scene == sid else '#ffffff'}; cursor:pointer; margin-bottom:0.5rem;">
-                    <b>{scene['icon']} {scene['title']}</b>
-                    <br><small>{scene['subtitle']}</small>
-                    <br><small>🔴{red} 🟠{orange} 🚨共{total_alerts}帧预警</small>
-                </div>
-                """, unsafe_allow_html=True)
-
-                if st.button(
-                    f"{'✅ ' if st.session_state.demo_scene == sid else ''}{'已选中' if st.session_state.demo_scene == sid else '选择此场景'}",
-                    key=f"demo_sel_{sid}",
-                    use_container_width=True,
-                ):
-                    st.session_state.demo_scene = sid
-                    st.rerun()
-
-    # ── 当前选中场景 ──
     active_sid = st.session_state.demo_scene
     active_scene = DEMO_SCENES.get(active_sid)
     active_summary = _load_demo_summary(active_sid)
@@ -326,121 +435,160 @@ def page_demo_showcase():
     if not active_scene or not active_summary:
         return
 
-    st.divider()
-    st.subheader(f"{active_scene['icon']} {active_scene['title']}")
-
-    # ── 统计卡片 ──
     video = active_summary.get("video", {})
     detection = active_summary.get("detection", {})
     alerts = active_summary.get("alerts", {})
     key_frames = active_summary.get("key_frames", [])
-
-    c0, c1, c2, c3, c4 = st.columns(5)
-    c0.metric("🎥 视频时长", f"{video.get('duration_sec', 0):.0f}s")
-    c1.metric("📹 总帧数", video.get("total_frames", 0))
-    c2.metric("🔍 推理帧数", detection.get("processed_frames", 0))
-    c3.metric("⚡ 推理耗时", f"{detection.get('elapsed_sec', 0):.0f}s")
-    c4.metric("🖥️ 设备", detection.get("device", "CPU"))
-
-    # 预警等级分布
-    st.divider()
-    st.subheader("📊 预警等级分布")
-
-    c1, c2, c3, c4, c5 = st.columns(5)
     total_alerts = max(alerts.get("total_alert_frames", 1), 1)
-    c1.metric("🔴 红色 (Ⅰ级)", alerts.get("red", 0),
-              delta=f"{alerts.get('red', 0) / total_alerts * 100:.1f}%" if alerts.get('red') else None)
-    c2.metric("🟠 橙色 (Ⅱ级)", alerts.get("orange", 0),
-              delta=f"{alerts.get('orange', 0) / total_alerts * 100:.1f}%" if alerts.get('orange') else None)
-    c3.metric("🟡 黄色 (Ⅲ级)", alerts.get("yellow", 0),
-              delta=f"{alerts.get('yellow', 0) / total_alerts * 100:.1f}%" if alerts.get('yellow') else None)
-    c4.metric("🔵 蓝色 (Ⅳ级)", alerts.get("blue", 0),
-              delta=f"{alerts.get('blue', 0) / total_alerts * 100:.1f}%" if alerts.get('blue') else None)
-    c5.metric("📊 预警合计", alerts.get("total_alert_frames", 0))
 
-    # ── 图表 ──
-    if total_alerts > 0:
+    # ── 第一行: 场景信息 + KPI 仪表盘 ──
+    st.markdown(f"""
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:0.75rem;">
+        <div style="width:4px;height:24px;background:{PRIMARY_BLUE};border-radius:2px;"></div>
+        <div style="font-weight:600;font-size:1rem;color:{TEXT_PRIMARY};">Scenario</div>
+        <div class="alert-badge green" style="font-size:0.7rem;">READY</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    c_left, c_right = st.columns([2, 3])
+
+    with c_left:
+        st.markdown(f"""
+        <div class="scene-card selected">
+            <div style="font-weight:600;font-size:0.95rem;color:{TEXT_PRIMARY};">{active_scene['title']}</div>
+            <div style="font-size:0.78rem;color:{TEXT_SECONDARY};margin-top:0.25rem;">{active_scene['subtitle']}</div>
+            <div style="margin-top:0.5rem;font-size:0.75rem;color:{TEXT_SECONDARY};">
+                Video: {video.get('file','')} &middot; {video.get('resolution','')} &middot; {video.get('fps',0)} fps
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with c_right:
+        k1, k2, k3, k4, k5 = st.columns(5)
+        with k1:
+            st.markdown(f"""<div class="kpi-card">
+                <div class="kpi-value">{video.get('total_frames', 0):,}</div>
+                <div class="kpi-label">Total Frames</div></div>""", unsafe_allow_html=True)
+        with k2:
+            st.markdown(f"""<div class="kpi-card">
+                <div class="kpi-value">{detection.get('elapsed_sec', 0):.1f}s</div>
+                <div class="kpi-label">Inference Time</div></div>""", unsafe_allow_html=True)
+        with k3:
+            st.markdown(f"""<div class="kpi-card">
+                <div class="kpi-value">{total_alerts}</div>
+                <div class="kpi-label">Alert Frames</div></div>""", unsafe_allow_html=True)
+        with k4:
+            st.markdown(f"""<div class="kpi-card">
+                <div class="kpi-value" style="color:{ALERT_COLORS['red']};">{alerts.get('red', 0)}</div>
+                <div class="kpi-label">Level I (Red)</div></div>""", unsafe_allow_html=True)
+        with k5:
+            st.markdown(f"""<div class="kpi-card">
+                <div class="kpi-value">{detection.get('device', 'GPU')[:16]}</div>
+                <div class="kpi-label">Device</div></div>""", unsafe_allow_html=True)
+
+    # ── 第二行: 预警等级分布 ──
+    st.markdown(f"""
+    <div style="display:flex;align-items:center;gap:12px;margin:1.25rem 0 0.75rem 0;">
+        <div style="width:4px;height:24px;background:{PRIMARY_BLUE};border-radius:2px;"></div>
+        <div style="font-weight:600;font-size:1rem;color:{TEXT_PRIMARY};">Alert Distribution</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col_chart, col_legend = st.columns([3, 1])
+
+    with col_chart:
         chart_data = pd.DataFrame({
-            "等级": ["🔴 红色", "🟠 橙色", "🟡 黄色", "🔵 蓝色"],
-            "帧数": [
-                alerts.get("red", 0),
-                alerts.get("orange", 0),
-                alerts.get("yellow", 0),
-                alerts.get("blue", 0),
+            "Level": ["I · Red", "II · Orange", "III · Yellow", "IV · Blue"],
+            "Frames": [
+                alerts.get("red", 0), alerts.get("orange", 0),
+                alerts.get("yellow", 0), alerts.get("blue", 0),
             ],
         })
-        chart_data = chart_data[chart_data["帧数"] > 0]
-        st.bar_chart(chart_data.set_index("等级"), use_container_width=True)
+        chart_data = chart_data[chart_data["Frames"] > 0]
+        st.bar_chart(
+            chart_data.set_index("Level"),
+            use_container_width=True,
+            color=[ALERT_COLORS["red"], ALERT_COLORS["orange"],
+                   ALERT_COLORS["yellow"], ALERT_COLORS["blue"]][:len(chart_data)],
+        )
 
-    # ── 关键帧图库 ──
+    with col_legend:
+        for lvl, color in [("red", ALERT_COLORS["red"]), ("orange", ALERT_COLORS["orange"]),
+                            ("yellow", ALERT_COLORS["yellow"]), ("blue", ALERT_COLORS["blue"])]:
+            count = alerts.get(lvl, 0)
+            pct = count / total_alerts * 100 if total_alerts > 0 else 0
+            st.markdown(f"""
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:0.5rem;">
+                <div style="width:12px;height:12px;border-radius:3px;background:{color};"></div>
+                <div style="flex:1;font-size:0.82rem;">{ALERT_LABELS[lvl]}</div>
+                <div style="font-weight:600;font-size:0.9rem;">{count}</div>
+                <div style="font-size:0.72rem;color:{TEXT_SECONDARY};">{pct:.0f}%</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # ── 第三行: 关键帧查看器 ──
     if key_frames:
-        st.divider()
-        st.subheader("🖼️ 预警关键帧图库")
-        st.caption(f"共 {len(key_frames)} 张关键帧 (按预警严重程度排序)")
+        st.markdown(f"""
+        <div style="display:flex;align-items:center;gap:12px;margin:1.25rem 0 0.75rem 0;">
+            <div style="width:4px;height:24px;background:{PRIMARY_BLUE};border-radius:2px;"></div>
+            <div style="font-weight:600;font-size:1rem;color:{TEXT_PRIMARY};">Key Frame Viewer</div>
+            <div style="font-size:0.78rem;color:{TEXT_SECONDARY};">{len(key_frames)} frames</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-        # 帧播放控制
         if "demo_frame_idx" not in st.session_state:
             st.session_state.demo_frame_idx = 0
 
-        c1, c2, c3 = st.columns([1, 3, 1])
-        with c1:
-            if st.button("⬅ 上一帧", use_container_width=True,
-                         disabled=st.session_state.demo_frame_idx == 0):
-                st.session_state.demo_frame_idx = max(0, st.session_state.demo_frame_idx - 1)
-                st.rerun()
-        with c3:
-            if st.button("下一帧 ➡", use_container_width=True,
-                         disabled=st.session_state.demo_frame_idx >= len(key_frames) - 1):
-                st.session_state.demo_frame_idx = min(len(key_frames) - 1, st.session_state.demo_frame_idx + 1)
-                st.rerun()
-
+        # 主图 + 控制
         kf = key_frames[st.session_state.demo_frame_idx]
         frame_path = _THIS_DIR / active_scene["data_dir"] / kf["thumbnail"]
-        if frame_path.exists():
-            lvl = kf["alert_level"]
-            st.image(
-                str(frame_path),
-                caption=f"帧 {kf['frame_idx']} | {ALERT_LABELS.get(lvl, lvl)} | "
-                        f"置信度 {kf['max_confidence']:.3f} | {kf['track_count']} 目标",
-                use_container_width=True,
-            )
+        lvl = kf["alert_level"]
 
-        # 帧缩略图条
-        st.caption(f"📌 第 {st.session_state.demo_frame_idx + 1} / {len(key_frames)} 帧 — 拖动滑块快速跳转")
-        new_idx = st.slider(
-            "快速跳转", 0, len(key_frames) - 1, st.session_state.demo_frame_idx,
-            label_visibility="collapsed",
-        )
-        if new_idx != st.session_state.demo_frame_idx:
-            st.session_state.demo_frame_idx = new_idx
-            st.rerun()
+        c_left, c_right = st.columns([4, 1])
 
-        # 网格缩略图
-        with st.expander("📷 全部关键帧网格", expanded=False):
-            cols_per_row = 5
-            for i in range(0, len(key_frames), cols_per_row):
-                cols = st.columns(cols_per_row)
-                for j, kf_row in enumerate(key_frames[i:i + cols_per_row]):
-                    fp = _THIS_DIR / active_scene["data_dir"] / kf_row["thumbnail"]
-                    if fp.exists():
-                        cols[j].image(
-                            str(fp),
-                            caption=f"F{kf_row['frame_idx']} | {ALERT_LABELS.get(kf_row['alert_level'], kf_row['alert_level'])}",
-                            use_container_width=True,
-                        )
+        with c_left:
+            if frame_path.exists():
+                st.image(str(frame_path), use_container_width=True)
 
-    # ── 演示说明 ──
-    st.divider()
-    with st.expander("ℹ️ 关于本演示", expanded=False):
-        st.markdown(f"""
-        **加速比说明:**
-        - 原始视频 **{video.get('total_frames', '?')}** 帧
-        - 实际推理 **{detection.get('processed_frames', '?')}** 帧 (步长 {detection.get('stride', '?')})
-        - 加速比约 **{detection.get('stride', '?')}×** + GPU 本地推理
-        - 网页加载时间 **< 0.5 秒**
+            # 缩略图条
+            cols = st.columns(min(len(key_frames), 15))
+            for i, kf_th in enumerate(key_frames[:15]):
+                fp_th = _THIS_DIR / active_scene["data_dir"] / kf_th["thumbnail"]
+                with cols[i]:
+                    is_current = i == st.session_state.demo_frame_idx
+                    if fp_th.exists():
+                        st.image(str(fp_th), use_container_width=True)
+                        if is_current:
+                            st.markdown(f"""<div style="height:2px;background:{PRIMARY_BLUE};
+                                border-radius:1px;margin-top:-8px;"></div>""", unsafe_allow_html=True)
 
-        **完整模式:** 如需全量检测，请切换到「🎯 实时监测」上传视频，或部署到 GPU 服务器。
-        """)
+        with c_right:
+            st.markdown(f"""
+            <div class="card">
+                <div style="font-size:0.7rem;color:{TEXT_SECONDARY};text-transform:uppercase;">Frame Info</div>
+                <div style="font-size:1.5rem;font-weight:700;color:{TEXT_PRIMARY};margin:0.25rem 0;">#{kf['frame_idx']}</div>
+                <div><span class="alert-badge {lvl}">{ALERT_LABELS.get(lvl, lvl)}</span></div>
+                <div style="margin-top:0.75rem;font-size:0.82rem;">
+                    <div>Confidence <b style="float:right;">{kf['max_confidence']:.3f}</b></div>
+                    <div>Targets <b style="float:right;">{kf['track_count']}</b></div>
+                    <div>Timestamp <b style="float:right;">{kf['time_sec']:.1f}s</b></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            st.button("Previous", key="demo_prev", use_container_width=True,
+                      disabled=st.session_state.demo_frame_idx == 0,
+                      on_click=lambda: st.session_state.update(
+                          demo_frame_idx=max(0, st.session_state.demo_frame_idx - 1)))
+            st.button("Next", key="demo_next", use_container_width=True,
+                      disabled=st.session_state.demo_frame_idx >= len(key_frames) - 1,
+                      on_click=lambda: st.session_state.update(
+                          demo_frame_idx=min(len(key_frames) - 1, st.session_state.demo_frame_idx + 1)))
+
+        # 滑块
+        st.slider("", 0, len(key_frames) - 1, st.session_state.demo_frame_idx,
+                  key="demo_slider", label_visibility="collapsed",
+                  on_change=lambda: st.session_state.update(demo_frame_idx=st.session_state.demo_slider))
 
 
 # ══════════════════════════════════════════════════════════════
@@ -449,8 +597,15 @@ def page_demo_showcase():
 
 def page_realtime_monitor():
     """实时监测页面: 上传视频 → 检测 → 结果显示"""
-    st.header("🎯 实时监测")
-    st.caption("上传监控视频, 运行落石检测, 查看标注结果与预警记录。")
+    st.markdown(f"""
+    <div class="brand-header">
+        <div>
+            <div class="logo">Live Detection</div>
+            <div style="font-size:0.8rem;opacity:0.85;">Upload video &middot; CPU inference &middot; Real-time results</div>
+        </div>
+        <div class="meta"><span>{APP_VERSION}</span></div>
+    </div>
+    """, unsafe_allow_html=True)
 
     detector = get_detector_or_stop()
     store = get_store()
@@ -668,68 +823,68 @@ def page_realtime_monitor():
         return
 
     st.divider()
-    st.subheader("📊 检测报告")
+    st.markdown(f"""
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:0.5rem;">
+        <div style="width:4px;height:24px;background:{PRIMARY_BLUE};border-radius:2px;"></div>
+        <div style="font-weight:600;font-size:1rem;color:{TEXT_PRIMARY};">Detection Report</div>
+    </div>
+    """, unsafe_allow_html=True)
 
     # 统计卡片
     total = results["total_frames"]
     alert_count = len(results["alert_frames"])
     alert_ratio = (alert_count / total * 100) if total > 0 else 0
 
-    # 按等级统计
     level_counts = {"red": 0, "orange": 0, "yellow": 0, "blue": 0, "green": 0}
     for fr in results["all_frames"]:
         lvl = fr.get("alert_level", "green")
         if lvl in level_counts:
             level_counts[lvl] += 1
 
+    # ── KPI 行 ──
     c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("📹 总帧数", total)
-    c2.metric("🎯 检测帧数", alert_count, delta=f"{alert_ratio:.1f}%" if alert_count > 0 else None)
-    c3.metric("🔴 红色预警", level_counts["red"])
-    c4.metric("🟠 橙色预警", level_counts["orange"])
-    c5.metric("🟡 黄色预警", level_counts["yellow"])
+    c1.metric("Total Frames", total)
+    c2.metric("Alert Frames", alert_count, delta=f"{alert_ratio:.1f}%" if alert_count > 0 else None)
+    c3.metric("Level I (Red)", level_counts["red"])
+    c4.metric("Level II (Orange)", level_counts["orange"])
+    c5.metric("Level III (Yellow)", level_counts["yellow"])
 
-    # 预警等级分布图
     if alert_count > 0:
         st.divider()
-        st.subheader("📈 预警等级分布")
-
         chart_data = pd.DataFrame({
-            "等级": ["🔴 红色", "🟠 橙色", "🟡 黄色", "🔵 蓝色"],
-            "帧数": [
-                level_counts["red"],
-                level_counts["orange"],
-                level_counts["yellow"],
-                level_counts["blue"],
+            "Level": ["I · Red", "II · Orange", "III · Yellow", "IV · Blue"],
+            "Frames": [
+                level_counts["red"], level_counts["orange"],
+                level_counts["yellow"], level_counts["blue"],
             ],
         })
-        chart_data = chart_data[chart_data["帧数"] > 0]
-
+        chart_data = chart_data[chart_data["Frames"] > 0]
         col_a, col_b = st.columns([1, 1])
         with col_a:
-            st.bar_chart(chart_data.set_index("等级"), use_container_width=True)
+            st.bar_chart(chart_data.set_index("Level"), use_container_width=True)
         with col_b:
-            # 时间线: 预警帧的时间分布
             if results["alert_frames"]:
                 tl_data = []
                 for fr in results["alert_frames"]:
                     tl_data.append({
-                        "帧": fr["frame_idx"],
-                        "时间(s)": fr.get("time_sec", fr["frame_idx"] / max(results.get("fps", 25), 1)),
-                        "等级": ALERT_LABELS.get(fr.get("alert_level", "yellow"), fr.get("alert_level", "")),
-                        "目标数": len(fr.get("tracks", [])),
+                        "Frame": fr["frame_idx"],
+                        "Time (s)": fr.get("time_sec", fr["frame_idx"] / max(results.get("fps", 25), 1)),
+                        "Level": fr.get("alert_level", "yellow"),
+                        "Targets": len(fr.get("tracks", [])),
                     })
                 tl_df = pd.DataFrame(tl_data)
-                st.scatter_chart(
-                    tl_df.set_index("时间(s)")[["目标数"]],
-                    use_container_width=True,
-                )
-                st.caption("预警帧时间分布 (X轴=秒, Y轴=检测目标数)")
+                st.scatter_chart(tl_df.set_index("Time (s)")[["Targets"]], use_container_width=True)
+                st.caption("Alert timeline: X = time (s), Y = detected targets")
 
     # 预警帧图库
     if alert_count > 0 and save_frames_flag:
         st.divider()
-        st.subheader("🖼️ 预警帧图库")
+        st.markdown(f"""
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:0.5rem;">
+            <div style="width:4px;height:24px;background:{PRIMARY_BLUE};border-radius:2px;"></div>
+            <div style="font-weight:600;font-size:1rem;color:{TEXT_PRIMARY};">Alert Frame Gallery</div>
+        </div>
+        """, unsafe_allow_html=True)
 
         # 只显示有预警的帧, 最多 20 张
         show_frames = results["alert_frames"][:20]
@@ -802,8 +957,15 @@ def page_realtime_monitor():
 
 def page_alert_records():
     """预警记录页面: 查询、筛选、导出历史预警"""
-    st.header("📋 预警记录")
-    st.caption("查询历史预警记录, 支持按日期、等级筛选, 一键导出。")
+    st.markdown(f"""
+    <div class="brand-header">
+        <div>
+            <div class="logo">Alert Records</div>
+            <div style="font-size:0.8rem;opacity:0.85;">History &middot; Filter &middot; Export</div>
+        </div>
+        <div class="meta"><span>{APP_VERSION}</span></div>
+    </div>
+    """, unsafe_allow_html=True)
 
     store = get_store()
 
@@ -837,11 +999,11 @@ def page_alert_records():
     # ── 今日统计卡片 ──
     today_counts = store.count_today_by_level()
     tc1, tc2, tc3, tc4, tc5 = st.columns(5)
-    tc1.metric("🔴 红色", today_counts.get("red", 0))
-    tc2.metric("🟠 橙色", today_counts.get("orange", 0))
-    tc3.metric("🟡 黄色", today_counts.get("yellow", 0))
-    tc4.metric("🔵 蓝色", today_counts.get("blue", 0))
-    tc5.metric("📊 合计", sum(today_counts.values()))
+    tc1.metric("Level I (Red)", today_counts.get("red", 0))
+    tc2.metric("Level II (Orange)", today_counts.get("orange", 0))
+    tc3.metric("Level III (Yellow)", today_counts.get("yellow", 0))
+    tc4.metric("Level IV (Blue)", today_counts.get("blue", 0))
+    tc5.metric("Total Today", sum(today_counts.values()))
 
     # ── 查询 ──
     start_str = date_range[0].strftime("%Y-%m-%d") if len(date_range) > 0 else ""
@@ -976,14 +1138,21 @@ def page_alert_records():
 
 def page_site_management():
     """点位管理页面: 查看/切换监测点位"""
-    st.header("📍 点位管理")
-    st.caption("管理多个监测点位, 每个点位独立存储报警记录。预设 4 个广西+东盟演示点位。")
+    st.markdown(f"""
+    <div class="brand-header">
+        <div>
+            <div class="logo">Site Manager</div>
+            <div style="font-size:0.8rem;opacity:0.85;">4 preset monitoring sites &middot; Guangxi + ASEAN region</div>
+        </div>
+        <div class="meta"><span>{APP_VERSION}</span></div>
+    </div>
+    """, unsafe_allow_html=True)
 
     active_site = get_active_site()
     all_sites = list_sites()
 
     # ── 当前激活点位 ──
-    st.subheader("✅ 当前激活点位")
+    st.subheader("Active Site")
     with st.container():
         _render_site_card(active_site, is_active=True, show_detail=True)
 
@@ -999,8 +1168,8 @@ def page_site_management():
 
     # ── 全部预设点位 ──
     st.divider()
-    st.subheader("📌 预设监测点位")
-    st.caption(f"共 {len(all_sites)} 个点位, 点击「切换至此点位」按钮激活。")
+    st.subheader("Preset Sites")
+    st.caption(f"{len(all_sites)} sites available. Click 'Activate' to switch.")
 
     cols = st.columns(2)
     for i, site in enumerate(all_sites):
@@ -1010,20 +1179,20 @@ def page_site_management():
 
             if not is_active:
                 if st.button(
-                    f"📍 切换至此点位",
+                    "Activate This Site",
                     key=f"switch_{site.site_id}",
                     use_container_width=True,
                 ):
                     try:
                         new_site = set_active_site(site.site_id)
-                        st.success(f"已切换至: {new_site.name}")
+                        st.success(f"Activated: {new_site.name}")
                         st.rerun()
                     except ValueError as e:
                         st.error(str(e))
 
     # ── ROI 配置 ──
     st.divider()
-    st.subheader("🎯 ROI 标定配置")
+    st.subheader("ROI Calibration")
 
     from rockfall.site_config import load_site_config
     roi_params, polygon, road_mask = load_site_config(active_site.site_id)
@@ -1069,8 +1238,15 @@ def _render_site_card(site: MonitoringSite, is_active: bool = False, show_detail
 
 def page_settings():
     """参数设置页面: 调整检测和预警阈值"""
-    st.header("⚙️ 参数设置")
-    st.caption("调整检测、预警和运动分析的阈值参数 (实时生效, 仅影响当前会话)。")
+    st.markdown(f"""
+    <div class="brand-header">
+        <div>
+            <div class="logo">Settings</div>
+            <div style="font-size:0.8rem;opacity:0.85;">Detection thresholds &middot; Alert levels &middot; Frame strategy</div>
+        </div>
+        <div class="meta"><span>{APP_VERSION}</span></div>
+    </div>
+    """, unsafe_allow_html=True)
 
     detector = get_detector_or_stop()
 
