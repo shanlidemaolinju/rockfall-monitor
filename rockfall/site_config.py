@@ -23,6 +23,7 @@ from dataclasses import dataclass, field, asdict
 from typing import Optional
 
 from .config import DATA_DIR
+from .config import MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE
 from .road_segmentation import ROIParams
 from .db_utils import is_mysql_available, get_pymysql
 
@@ -123,7 +124,6 @@ class SiteStore:
     """监测点位持久化 — MySQL 优先, SQLite 降级。线程安全。"""
 
     def __init__(self):
-        from .config import MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE
 
         self._lock = threading.RLock()
         # 后端探测
@@ -165,7 +165,6 @@ class SiteStore:
     # ---- 连接 ----
 
     def _mysql_conn(self):
-        from .config import MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE
         return get_pymysql().connect(
             host=MYSQL_HOST, port=MYSQL_PORT,
             user=MYSQL_USER, password=MYSQL_PASSWORD,
