@@ -1,6 +1,6 @@
-# 落石检测与预警系统
+# RockGuard — 公路落石灾害监测预警系统
 
-> 钦州监测点 — 基于 YOLOv8 + MOG2 运动检测 + SORT 多目标跟踪的实时落石监测方案
+> v2.2.0 · 基于 YOLOv8 + MOG2 运动检测 + SORT 多目标跟踪 + FastSAM 边坡分割
 
 ## 系统架构
 
@@ -63,23 +63,35 @@ rockfall-system/
 │       ├── main_window.py    #   主窗口布局
 │       └── video_widget.py   #   视频控件 (V4 异步架构)
 ├── server/                   # FastAPI Web 服务
-│   ├── main.py               #   API 路由
-│   ├── service.py            #   业务逻辑
-│   └── templates/
-│       └── dashboard.html    #   Web 仪表盘
-├── scripts/
-│   └── test_detection.py     #   功能测试脚本
+│   ├── main.py               #   API 路由 (2000+ 行)
+│   ├── service.py            #   业务逻辑层
+│   ├── schemas.py            #   Pydantic 数据模型
+│   └── templates/            #   前端页面模板
+├── web/                      # React + TypeScript SPA 前端
+│   ├── src/pages/            #   看板/地图/设置等页面
+│   └── ...
+├── desktop/                  # PyQt6 桌面应用
+│   ├── main.py               #   启动入口
+│   └── ui/                   #   界面组件
+├── scripts/                  # 运维/部署脚本
+│   ├── backup_db.sh          #   数据库备份
+│   ├── rollback.sh           #   部署回滚
+│   ├── setup_server.sh       #   服务器初始化
+│   └── ...
+├── tests/                    # 测试套件 (300+ 用例)
+├── docs/                     # 文档中心
+├── deploy/                   # 部署配置 (systemd/nginx)
 ├── docker/                   # Docker 部署
-│   ├── Dockerfile
-│   ├── docker-compose.yml
-│   └── nginx.conf
-├── models/
-│   └── rock_best.pt          # YOLOv8 模型权重
+├── alembic/                  # 数据库迁移
+├── models/                   # AI 模型文件
 ├── data/
-│   ├── rock.jpg              #   默认测试图片
 │   ├── results/              #   检测结果输出
-│   └── uploads/              #   上传文件暂存
-├── requirements.txt
+│   ├── uploads/              #   上传文件暂存
+│   └── debug/                #   调试图片
+├── pyproject.toml            #   项目元数据 (版本唯一来源)
+├── requirements.in           #   直接依赖声明
+├── requirements-lock.txt     #   锁定依赖 (pip-compile 生成)
+├── constraints.txt           #   pip 约束 (opencv 冲突)
 ├── .env.example              #   配置模板
 └── README.md
 ```
@@ -95,22 +107,23 @@ rockfall-system/
 | FastAPI | ≥ 0.115 |
 | Ultralytics | ≥ 8.3 |
 
-**GPU 加速**: 需要 CUDA  Toolkit + PyTorch CUDA 版本。RTX 4060 测试通过。
+**GPU 加速**: 需要 CUDA Toolkit + PyTorch CUDA 版本。RTX 4060 测试通过。
 
 ## 快速开始
 
 ### 1. 安装依赖
 
 ```bash
-# 创建虚拟环境
-conda create -n rockfall python=3.10
-conda activate rockfall
+# 创建虚拟环境 (推荐 Python 3.11)
+python -m venv venv
+source venv/bin/activate   # Windows: venv\Scripts\activate
 
-# 安装 PyTorch (CUDA 版本)
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+# 安装 PyTorch (CUDA 版本, GPU 用户)
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu129
 
-# 安装项目依赖
-pip install -r requirements.txt
+# 安装项目依赖 (二选一)
+pip install -c constraints.txt -r requirements-lock.txt   # 精确锁定版本 (生产推荐)
+pip install -e .                                           # 开发模式 (pyproject.toml)
 ```
 
 ### 2. 配置环境变量
@@ -173,12 +186,12 @@ docker-compose up -d
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
 | `DETECTION_CONFIDENCE` | 0.3 | YOLO 置信度阈值 |
-| `SKIP_IDLE` / `SKIP_ACTIVE` / `SKIP_CRITICAL` | 15 / 5 / 2 | 三级自适应跳帧间隔 |
+| `SKIP_IDLE` / `SKIP_ACTIVE` / `SKIP_CRITICAL` | 5 / 5 / 2 | 三级自适应跳帧间隔 |
 | `MOTION_SCORE_LOW` / `MOTION_SCORE_HIGH` | 0.01 / 0.1 | 运动显著性阈值 |
 | `ALERT_RED_CONFIDENCE` | 0.6 | 红色预警置信度 |
 | `ALERT_RED_AREA_RATIO` | 0.02 | 红色预警面积占比 (2%) |
 | `FALLING_Y_ACCEL_THRESHOLD` | 7.5 | 坠落加速度阈值 (px/frame²) |
-| `TRACK_MIN_CONFIRM` | 5 | 轨迹确认帧数 |
+| `TRACK_MIN_CONFIRM` | 3 | 轨迹确认帧数 (落石出现仅 3-5 帧) |
 | `MOG2_DETECT_SHADOWS` | false | 是否检测阴影 |
 | `CAMERA_RECONNECT_BASE` / `_MAX` | 5 / 30 | RTSP 断线重连参数 |
 
@@ -194,6 +207,36 @@ docker-compose up -d
 - **推送**: PushPlus 微信 API
 - **部署**: Docker + Nginx
 
+## 开发指南
+
+### 版本管理
+
+- 版本号**唯一来源**：[`rockfall/__init__.py`](rockfall/__init__.py) 的 `__version__ = "2.2.0"`
+- 所有模块（`server/main.py`、`sentry_init.py`、`metrics.py`、`app.py`、`pyproject.toml`）从 `__version__` 读取
+- 发版时只需修改一处，全项目同步
+
+### 依赖管理
+
+```bash
+# 1. 编辑直接依赖
+vim requirements.in
+
+# 2. 重新生成锁定文件 (Python 3.11)
+pip-compile -c constraints.txt requirements.in --output-file requirements-lock.txt
+
+# 3. 安装
+pip install -c constraints.txt -r requirements-lock.txt
+```
+
+- `requirements.in` — 直接依赖声明（手动编辑）
+- `requirements-lock.txt` — `pip-compile` 生成的精确锁定文件（不要手动编辑）
+- `constraints.txt` — pip 约束，解决 `opencv-python` / `opencv-python-headless` 冲突
+- `pyproject.toml` — 项目元数据和可选依赖
+
+### CI/CD
+
+GitHub Actions 自动执行：Ruff lint → Pyright 类型检查 → pytest (SQLite + MySQL) → 前端构建 → 部署到腾讯云。
+
 ## 文档
 
 | 文档 | 说明 |
@@ -203,7 +246,6 @@ docker-compose up -d
 | [USER_GUIDE.md](docs/USER_GUIDE.md) | 用户手册（Web SPA 看板、移动端 H5、API 文档、工单流转、比赛展示建议） |
 | [API.md](docs/API.md) | API 参考（端点列表、认证说明、项目结构） |
 | [DEPLOY.md](docs/DEPLOY.md) | 部署指南简明版（快速参考） |
-| [deploy.md](deploy.md) | Linux 服务器部署速查 |
 
 ## 许可证
 
