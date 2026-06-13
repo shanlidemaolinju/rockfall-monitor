@@ -1,0 +1,104 @@
+# ============================================================
+# 落石监测系统 — systemd 服务单元
+# ============================================================
+# 安装:
+#   sudo cp scripts/rockfall.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable rockfall
+#   sudo systemctl start rockfall
+#
+# 状态查看:
+#   sudo systemctl status rockfall
+#   sudo journalctl -u rockfall -f
+#
+# 重启:
+#   sudo systemctl restart rockfall
+# ============================================================
+
+[Unit]
+Description=Rockfall Detection System — 落石监测预警平台
+Documentation=https://github.com/your-org/rockfall-system
+After=network.target network-online.target
+Wants=network-online.target
+
+# 如果使用 MySQL，添加:
+# After=mysql.service
+# Requires=mysql.service
+
+[Service]
+Type=simple
+
+# 运行用户 (推荐使用专用非特权用户)
+User=rockfall
+Group=rockfall
+
+# 工作目录
+WorkingDirectory=/opt/rockfall
+
+# 环境变量 (从 .env 加载，或直接在此配置)
+EnvironmentFile=-/opt/rockfall/.env
+
+# 启动命令
+# 使用 --workers 1 因为内部已有 MOG2 多线程处理
+ExecStart=/opt/rockfall/.venv/bin/uvicorn server.main:app \
+    --host 0.0.0.0 \
+    --port 8000 \
+    --workers 1 \
+    --log-level info \
+    --access-log
+
+# 优雅关闭 (先 SIGTERM, 超时后 SIGKILL)
+ExecStop=/bin/kill -s TERM $MAINPID
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# 崩溃自动重启
+Restart=on-failure
+RestartSec=5s
+
+# 防止无限重启循环 (10 秒内重启超过 3 次则停止)
+StartLimitBurst=3
+StartLimitInterval=10s
+
+# 安全加固 (可选)
+NoNewPrivileges=yes
+PrivateTmp=yes
+# full: /usr 和 /boot 只读; strict 还会锁 /etc, 可能导致 DNS/SSL 异常
+ProtectSystem=full
+ProtectHome=yes
+ReadWritePaths=/opt/rockfall/data /opt/rockfall/data/results /opt/rockfall/data/uploads /data/backups
+ReadOnlyPaths=/opt/rockfall/models
+# 如果需要访问 /dev 下的摄像头设备:
+# DeviceAllow=/dev/video0 rw
+
+# 资源限制
+LimitNOFILE=65536
+LimitNPROC=4096
+MemoryHigh=4G
+MemoryMax=6G
+CPUQuota=200%
+
+# 日志 (自动写入 journald)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rockfall
+
+# ════════════════════════════════════════════════════
+# Journald 日志保留策略（编辑 /etc/systemd/journald.conf）:
+#   MaxRetentionSec=30day
+#   MaxFileSec=1week
+#   SystemMaxUse=500M
+#
+# Logrotate 配置（JSONL 文件轮转）:
+#   sudo cp deploy/rockfall-logrotate.conf /etc/logrotate.d/rockfall
+#   sudo logrotate -d /etc/logrotate.d/rockfall  # 测试语法
+#   sudo logrotate -f /etc/logrotate.d/rockfall  # 手动强制执行
+# ════════════════════════════════════════════════════
+
+# 环境变量默认值 (可选, 会被 EnvironmentFile 覆盖)
+Environment=PYTHONUNBUFFERED=1
+Environment=TZ=Asia/Shanghai
+
+[Install]
+WantedBy=multi-user.target

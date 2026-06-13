@@ -1,0 +1,16 @@
+# ============================================================
+# pip 约束文件 — 解决传递依赖冲突
+# ============================================================
+# 使用方式:
+#   pip install -c constraints.txt -r requirements-lock.txt
+# 或编译锁定文件时:
+#   pip-compile -c constraints.txt requirements.in -o requirements-lock.txt
+#
+# 说明:
+#   opencv-python 与 opencv-python-headless 提供相同的 cv2 模块,
+#   两者共存时后安装者覆盖前者。ultralytics 依赖 opencv-python,
+#   但我们显式依赖 opencv-python-headless（无GUI, 适合服务器）。
+#   此处将其锁定为与 headless 相同版本, 确保 headless 最后安装并生效。
+# ============================================================
+
+opencv-python==4.13.0.92

@@ -99,9 +99,6 @@ class VideoCaptureWidget(QtWidgets.QWidget):
                 self.detector._active_skip = pp['skip']
                 raw_dets = self.detector.detect_frame(frame, pp['box_mask'], pp['fg'])
                 self._pending_dets.append((self._frame_n, raw_dets))
-                if self._frame_n % (pp['skip']*100) == 0:
-                    try: import torch; torch.cuda.empty_cache()
-                    except: pass
 
             dets = []; stale = []
             for di, dl in self._pending_dets:
@@ -179,27 +176,34 @@ class VideoCaptureWidget(QtWidgets.QWidget):
         self._pending_dets.clear()
         self._fps_n = 0; self._fps_t0 = time.time(); self._current_fps = 0.0
         self._last_alert_time = 0.0
-        if self.cap is not None: _safe_release(self.cap)
+        # 彻底释放旧 VideoCapture (防止句柄泄漏)
+        old_cap = self.cap
+        if old_cap is not None:
+            _safe_release(old_cap)
+            self.cap = None
+        # 创建新 VideoCapture 对象 (不复用已释放的对象)
         if self.source_type == "rtsp":
-            self.cap.open(self.source_path, cv2.CAP_FFMPEG)
-            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        else: self.cap.open(self.source_path if self.source_path else 0)
+            new_cap = cv2.VideoCapture(self.source_path, cv2.CAP_FFMPEG)
+            new_cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        else:
+            new_cap = cv2.VideoCapture(self.source_path if self.source_path else 0)
+        self.cap = new_cap
         self._reconnect_delay = min(int(self._reconnect_delay*CAMERA_RECONNECT_BACKOFF), CAMERA_RECONNECT_MAX)
-        if self.cap.isOpened():
+        if new_cap.isOpened():
             self._reconnect_attempts = 0; self._reconnect_delay = CAMERA_RECONNECT_BASE
             self._build_roi_mask()
             self.detector.init_stream_state(self.frame_w, self.frame_h, self.roi_mask)
             self.detector._road_mask = self._road_mask
             self.tracker.reset()
             self.log_message.emit("视频源已恢复")
-            fps = self.cap.get(cv2.CAP_PROP_FPS) or 25
+            fps = new_cap.get(cv2.CAP_PROP_FPS) or 25
             self._timer.start(int(1000/fps))
         else:
             self._reconnect_attempts += 1
             if self._reconnect_attempts > CAMERA_RECONNECT_MAX_ATTEMPTS:
-                self.log_message.emit(f"重连失败({CAMERA_RECONNECT_MAX_ATTEMPTS}次)")
+                self.log_message.emit(f"重连失败({CAMERA_RECONNECT_MAX_ATTEMPTS}次), 请运维人员检查视频源: {self.source_path}")
                 self._finished = True; return
-            self.log_message.emit(f"重连失败, {self._reconnect_delay}s后重试")
+            self.log_message.emit(f"重连失败, {self._reconnect_delay}s后重试 (第{self._reconnect_attempts}次)")
             QtCore.QTimer.singleShot(int(self._reconnect_delay*1000), self._try_reconnect)
 
     def _display_frame(self, frame_bgr):
@@ -292,7 +296,6 @@ class VideoCaptureWidget(QtWidgets.QWidget):
                         f"缓存ROI分辨率不匹配({saved_w}x{saved_h}!={orig_w}x{orig_h}), 重新检测...")
             if not roi_valid:
                 self._auto_detect_road(cap, source_type)
-                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
 
         if self._road_mask is None: self._build_roi_mask()
         self.detector.init_stream_state(self.frame_w, self.frame_h, self.roi_mask)
@@ -401,101 +404,127 @@ class VideoCaptureWidget(QtWidgets.QWidget):
         自动检测公路区域，生成边坡 ROI。
 
         优先级: FastSAM → 传统CV → 默认多边形兜底
+
+        重要: 使用独立临时 VideoCapture 读取帧, 避免影响主 cap 的位置。
+        FLV 等容器不支持 cap.set(CAP_PROP_POS_FRAMES, ...) 回退,
+        在主 cap 上读取帧后无法回到第0帧, 导致 MOG2 初始化异常。
         """
         is_live = source_type in ("rtsp", "webcam")
         fw, fh = self.frame_w, self.frame_h
 
-        # ========== L1: FastSAM分割（替代旧SAM独立进程） ==========
-        road_mask = None
+        # 使用临时 cap 读取帧, 主 cap 位置不受影响
+        tmp_cap = self._open_temp_cap(source_type)
+        if tmp_cap is None:
+            self.log_message.emit("[ROI] 无法打开临时视频源")
+            self.polygon = RockDetector._default_polygon(fw, fh)
+            self._build_roi_mask()
+            return
+
         try:
-            self._road_mask, self.roi_mask = auto_segment_from_cap(
-                cap, fw, fh, sample_num=3,
-            )
-            road_pct = (self._road_mask > 0).sum() / (fw * fh) * 100
-            self.log_message.emit(
-                f"[FastSAM] 道路{road_pct:.0f}% (mask)")
-            road_mask = self._road_mask
-        except Exception as e:
-            self.log_message.emit(f"[FastSAM] 异常: {e}")
-
-        # ========== L2: 传统CV备选 ==========
-        if road_mask is None:
-            self.log_message.emit("[ROI] FastSAM不可用, 切传统CV...")
+            # ========== L1: FastSAM分割 ==========
+            road_mask = None
             try:
-                roi_masks = []
-                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                for _ in range(10):
-                    ret, frame = cap.read()
-                    if not ret:
-                        break
-                    if frame.shape[1] != fw or frame.shape[0] != fh:
-                        frame = cv2.resize(frame, (fw, fh))
-                    roi_masks.append(generate_roi(frame))
-                if roi_masks:
-                    fused = np.median(np.stack(roi_masks, axis=0), axis=0).astype(np.uint8)
-                    fused = cv2.morphologyEx(fused, cv2.MORPH_CLOSE,
-                        cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (25, 25)))
-                    fused = cv2.morphologyEx(fused, cv2.MORPH_OPEN,
-                        cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11)))
-                    self.roi_mask = fused
-                    self._road_mask = 255 - fused
-                    road_mask = self._road_mask
+                self._road_mask, self.roi_mask = auto_segment_from_cap(
+                    tmp_cap, fw, fh, sample_num=3,
+                )
+                road_pct = (self._road_mask > 0).sum() / (fw * fh) * 100
+                self.log_message.emit(
+                    f"[FastSAM] 道路{road_pct:.0f}% (mask)")
+                road_mask = self._road_mask
             except Exception as e:
-                self.log_message.emit(f"[ROI] 传统CV异常: {e}")
+                self.log_message.emit(f"[FastSAM] 异常: {e}")
 
-        # ========== L3: 默认多边形兜底 ==========
-        if road_mask is None:
-            self.log_message.emit("[ROI] 使用默认ROI (手动框选可覆盖)")
-            self.polygon = RockDetector._default_polygon(fw, fh)
-            self._build_roi_mask()
-            # 注意: L3 默认兜底不保存 — 下次加载会重新尝试 FastSAM
-            if not is_live:
-                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            return
+            # ========== L2: 传统CV备选 ==========
+            if road_mask is None:
+                self.log_message.emit("[ROI] FastSAM不可用, 切传统CV...")
+                try:
+                    roi_masks = []
+                    tmp_cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                    for _ in range(10):
+                        ret, frame = tmp_cap.read()
+                        if not ret:
+                            break
+                        if frame.shape[1] != fw or frame.shape[0] != fh:
+                            frame = cv2.resize(frame, (fw, fh))
+                        roi_masks.append(generate_roi(frame))
+                    if roi_masks:
+                        fused = np.median(np.stack(roi_masks, axis=0), axis=0).astype(np.uint8)
+                        fused = cv2.morphologyEx(fused, cv2.MORPH_CLOSE,
+                            cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (25, 25)))
+                        fused = cv2.morphologyEx(fused, cv2.MORPH_OPEN,
+                            cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11)))
+                        self.roi_mask = fused
+                        self._road_mask = 255 - fused
+                        road_mask = self._road_mask
+                except Exception as e:
+                    self.log_message.emit(f"[ROI] 传统CV异常: {e}")
 
-        # ========== 轮廓提取 + 质量守卫 ==========
-        road_pct = (self._road_mask > 0).sum() / (fw * fh) * 100
-        slope_pct = (self.roi_mask > 0).sum() / (fw * fh) * 100
+            # ========== L3: 默认多边形兜底 ==========
+            if road_mask is None:
+                self.log_message.emit("[ROI] 使用默认ROI (手动框选可覆盖)")
+                self.polygon = RockDetector._default_polygon(fw, fh)
+                self._build_roi_mask()
+                return
 
-        if road_pct > 95 or slope_pct < 5:
+            # ========== 轮廓提取 + 质量守卫 ==========
+            road_pct = (self._road_mask > 0).sum() / (fw * fh) * 100
+            slope_pct = (self.roi_mask > 0).sum() / (fw * fh) * 100
+
+            if road_pct > 95 or slope_pct < 5:
+                self.log_message.emit(
+                    f"[ROI] 质量异常(道路{road_pct:.0f}%), 使用默认ROI")
+                self.polygon = RockDetector._default_polygon(fw, fh)
+                self._build_roi_mask()
+                return
+
+            contours, _ = cv2.findContours(self.roi_mask, cv2.RETR_EXTERNAL,
+                                           cv2.CHAIN_APPROX_SIMPLE)
+            self.polygons = []
+            poly_area_pct = 0
+            if contours:
+                for cnt in sorted(contours, key=cv2.contourArea, reverse=True):
+                    if cv2.contourArea(cnt) < fw * fh * 0.03:
+                        break
+                    if len(self.polygons) >= 3:
+                        break
+                    poly_area_pct += cv2.contourArea(cnt) / (fw * fh) * 100
+                    eps = 0.003 * cv2.arcLength(cnt, True)
+                    poly = cv2.approxPolyDP(cnt, eps, True).squeeze(1)
+                    if poly.ndim == 1:
+                        poly = poly.reshape(-1, 2)
+                    if not np.array_equal(poly[0], poly[-1]):
+                        poly = np.vstack([poly, poly[0:1]])
+                    self.polygons.append(poly)
+            if self.polygons:
+                self.polygon = self.polygons[0]
+            else:
+                self.polygon = RockDetector._default_polygon(fw, fh)
+                self.polygons = [self.polygon]
+
+            self._road_pct = road_pct
             self.log_message.emit(
-                f"[ROI] 质量异常(道路{road_pct:.0f}%), 使用默认ROI")
-            self.polygon = RockDetector._default_polygon(fw, fh)
-            self._build_roi_mask()
-            if not is_live:
-                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            return
+                f"[ROI] {len(self.polygon)}顶点 边坡框{poly_area_pct:.0f}% 道路{road_pct:.0f}%")
+            self._save_roi()
+        finally:
+            _safe_release(tmp_cap)
 
-        contours, _ = cv2.findContours(self.roi_mask, cv2.RETR_EXTERNAL,
-                                       cv2.CHAIN_APPROX_SIMPLE)
-        self.polygons = []
-        poly_area_pct = 0
-        if contours:
-            for cnt in sorted(contours, key=cv2.contourArea, reverse=True):
-                if cv2.contourArea(cnt) < fw * fh * 0.03:
-                    break
-                if len(self.polygons) >= 3:
-                    break
-                poly_area_pct += cv2.contourArea(cnt) / (fw * fh) * 100
-                eps = 0.003 * cv2.arcLength(cnt, True)
-                poly = cv2.approxPolyDP(cnt, eps, True).squeeze(1)
-                if poly.ndim == 1:
-                    poly = poly.reshape(-1, 2)
-                if not np.array_equal(poly[0], poly[-1]):
-                    poly = np.vstack([poly, poly[0:1]])
-                self.polygons.append(poly)
-        if self.polygons:
-            self.polygon = self.polygons[0]
+    def _open_temp_cap(self, source_type: str) -> cv2.VideoCapture | None:
+        """
+        打开一个独立的临时 VideoCapture, 用于 ROI 检测读取帧。
+
+        与主 cap 完全隔离, 避免 FLV 等不支持 seeking 的容器影响主播放位置。
+        """
+        if source_type == "rtsp":
+            cap = cv2.VideoCapture(self.source_path, cv2.CAP_FFMPEG)
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        elif source_type == "webcam":
+            cap = cv2.VideoCapture(self.source_path if self.source_path else 0)
         else:
-            self.polygon = RockDetector._default_polygon(fw, fh)
-            self.polygons = [self.polygon]
-
-        self._road_pct = road_pct
-        self.log_message.emit(
-            f"[ROI] {len(self.polygon)}顶点 边坡框{poly_area_pct:.0f}% 道路{road_pct:.0f}%")
-        self._save_roi()
-        if not is_live:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            cap = cv2.VideoCapture(str(self.source_path))
+        if not cap.isOpened():
+            _safe_release(cap)
+            return None
+        return cap
 
     def redo_detection(self):
         if self.cap is None or self.source_type is None:

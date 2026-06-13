@@ -1,0 +1,86 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rockfall-detection"
+version = "2.2.0"
+description = "落石监测系统 — 公路自然灾害监测预警平台"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Rockfall Detection Team"}
+]
+keywords = ["rockfall", "detection", "yolo", "monitoring", "highway"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    # YOLO + FastSAM 模型推理
+    "ultralytics>=8.3.0",
+    # 计算机视觉 (headless 版适配云/服务器部署)
+    "opencv-python-headless>=4.10.0",
+    # 数值计算
+    "numpy>=1.26.0",
+    # PyTorch (CPU 版, 跨平台兼容)
+    "torch>=2.0.0",
+    # 配置管理
+    "python-dotenv>=1.0.0",
+    # HTTP 客户端 (PushPlus 推送)
+    "requests>=2.28.0",
+    # MySQL 数据库 (可选, 不配置则使用 SQLite)
+    "pymysql>=1.1.0",
+    # Web 服务 (FastAPI)
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "python-multipart>=0.0.9",
+    "jinja2>=3.1.0",
+    # Streamlit Web 封装
+    "streamlit>=1.40.0",
+    "pandas>=2.0.0",
+    # 性能监控 (CPU / 内存)
+    "psutil>=5.9.0",
+    # 科学计算 (SORT 匈牙利算法)
+    "scipy>=1.10.0",
+    # Excel 导出
+    "openpyxl>=3.1.0",
+    # Prometheus 监控指标暴露
+    "prometheus-client>=0.21.0",
+    # Sentry 错误监控 (可选, 无 DSN 时静默跳过)
+    "sentry-sdk[fastapi]>=2.0.0",
+    # 安全: 加密配置 + JWT
+    "cryptography>=42.0.0",
+]
+
+[project.optional-dependencies]
+gpu = [
+    "onnx>=1.16.0",
+    "onnxruntime-gpu>=1.18.0",
+    # TensorRT — 需按 NVIDIA 官方文档安装:
+    #   pip install tensorrt
+    # 或从 https://docs.nvidia.com/deeplearning/tensorrt/install-guide/index.html 获取
+]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=5.0.0",
+    "alembic>=1.14.0",
+    "pip-tools>=7.4.0",
+]
+desktop = [
+    "PyQt6>=6.7.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["rockfall*", "server*", "desktop*"]
+
+[tool.setuptools.package-data]
+rockfall = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

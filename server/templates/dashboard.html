@@ -271,6 +271,7 @@ header h1 { font-size: 1.1rem; font-weight: 600; white-space: nowrap; }
   transition: border-color 0.2s;
 }
 .site-card.active { border: 2px solid var(--blue); background: rgba(88,166,255,.05); }
+.site-card.disabled { opacity: 0.55; border-style: dashed; }
 .site-card h3 { font-size: 0.9rem; margin-bottom: 4px; text-transform: none; color: var(--text); }
 .site-card .meta { font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
 .site-card .risk { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 0.7rem; font-weight: 600; }
@@ -407,6 +408,70 @@ header h1 { font-size: 1.1rem; font-weight: 600; white-space: nowrap; }
 .popup-btn.orange { background: var(--orange); }
 .popup-btn.yellow { background: var(--yellow); }
 .popup-btn:hover { opacity: .85; }
+
+/* ── 点位编辑模态框 ── */
+.site-modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,.75);
+  z-index: 9998;
+  justify-content: center;
+  align-items: center;
+  animation: fadeIn .2s ease;
+}
+.site-modal-overlay.active { display: flex; }
+.site-modal-box {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px 28px;
+  max-width: 600px;
+  width: 94%;
+  max-height: 85vh;
+  overflow-y: auto;
+  animation: slideDown .3s ease;
+}
+.site-modal-box h3 { margin: 0 0 14px 0; font-size: 1rem; }
+.site-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+}
+.site-form-grid label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.82rem;
+  color: var(--muted);
+  gap: 2px;
+}
+.site-form-grid input, .site-form-grid select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 6px 8px;
+  font-size: 0.84rem;
+  margin-top: 2px;
+}
+.site-form-grid input:focus, .site-form-grid select:focus {
+  border-color: var(--blue);
+  outline: none;
+}
+.site-card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.site-card-actions button {
+  flex: 1;
+  padding: 5px 8px !important;
+  font-size: 0.72rem !important;
+}
+.site-card-actions .btn-edit { border-color: var(--blue); color: var(--blue); }
+.site-card-actions .btn-edit:hover { background: var(--blue); color: #fff; }
+.site-card-actions .btn-delete { border-color: var(--red); color: var(--red); }
+.site-card-actions .btn-delete:hover { background: var(--red); color: #fff; }
 
 /* ── 导出模态框 ── */
 .export-overlay {
@@ -575,6 +640,65 @@ header h1 { font-size: 1.1rem; font-weight: 600; white-space: nowrap; }
 .review-badge.false_alarm { background: rgba(248,81,73,.2); color: var(--red); }
 .clickable { cursor: pointer; text-decoration: underline; color: var(--blue); }
 .clickable:hover { opacity: .8; }
+
+/* ── 视频上传 + 进度条 ── */
+.upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 40px 20px;
+  text-align: center;
+  transition: border-color .2s, background .2s;
+  cursor: pointer;
+}
+.upload-zone:hover, .upload-zone.dragover {
+  border-color: var(--blue);
+  background: rgba(88,166,255,.05);
+}
+.upload-zone .icon { font-size: 2.5rem; margin-bottom: 8px; }
+.upload-zone .hint { font-size: 0.78rem; color: var(--muted); margin-top: 6px; }
+.upload-zone input[type=file] { display: none; }
+
+.progress-container { margin-top: 16px; display: none; }
+.progress-container.active { display: block; }
+.progress-bar-outer {
+  width: 100%;
+  height: 10px;
+  background: var(--bg);
+  border-radius: 5px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+.progress-bar-inner {
+  height: 100%;
+  background: linear-gradient(90deg, var(--blue), var(--green));
+  border-radius: 5px;
+  transition: width .2s ease;
+  width: 0%;
+}
+.progress-bar-inner.error { background: var(--red); }
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.task-history { margin-top: 20px; }
+.task-history h3 { font-size: 0.9rem; color: var(--muted); margin-bottom: 8px; }
+.task-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--bg);
+  border-radius: 4px;
+  margin-bottom: 4px;
+  font-size: 0.78rem;
+}
+.task-item .task-name { color: var(--text); flex: 1; }
+.task-item .task-status { margin-left: 12px; white-space: nowrap; }
+.task-item .task-status.done { color: var(--green); }
+.task-item .task-status.fail { color: var(--red); }
+.task-item .task-status.running { color: var(--blue); }
 </style>
 </head>
 <body>
@@ -602,6 +726,7 @@ header h1 { font-size: 1.1rem; font-weight: 600; white-space: nowrap; }
   <button data-tab="records">📋 预警记录</button>
   <button data-tab="sites">📍 点位管理</button>
   <button data-tab="settings">⚙️ 参数设置</button>
+  <button data-tab="videodetect">🎬 视频检测</button>
 </nav>
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -733,6 +858,10 @@ header h1 { font-size: 1.1rem; font-weight: 600; white-space: nowrap; }
      Tab 3: 点位管理
      ═══════════════════════════════════════════════════════════ -->
 <div class="tab-content" id="tab-sites">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <h3 style="margin:0;">📍 监测点位列表</h3>
+    <button class="btn-primary" onclick="showSiteModal()" style="padding:8px 18px;font-size:0.85rem;">+ 新增点位</button>
+  </div>
   <div id="sites-container"><div class="empty-state">加载中...</div></div>
 </div>
 
@@ -797,6 +926,66 @@ header h1 { font-size: 1.1rem; font-weight: 600; white-space: nowrap; }
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
+     Tab 5: 视频检测 (异步 + WebSocket 进度推送)
+     ═══════════════════════════════════════════════════════════ -->
+<div class="tab-content" id="tab-videodetect">
+  <div class="card">
+    <h2>🎬 上传视频检测</h2>
+    <p style="color:var(--muted);font-size:0.82rem;margin-bottom:16px;">
+      上传视频文件进行落石检测。支持 mp4/avi/mov/mkv 格式，最大 2GB。
+      检测任务在后台执行，通过 WebSocket 实时推送进度。
+    </p>
+
+    <!-- 上传区域 -->
+    <div class="upload-zone" id="upload-zone"
+         onclick="document.getElementById('video-file-input').click()">
+      <div class="icon">📁</div>
+      <div style="font-size:0.95rem;">点击选择视频文件 或拖拽文件到此处</div>
+      <div class="hint" id="upload-hint">支持 mp4 / avi / mov / mkv</div>
+      <input type="file" id="video-file-input" accept="video/*"
+             onchange="onVideoFileSelected(event)">
+    </div>
+
+    <!-- 选项 -->
+    <div style="margin-top:12px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+      <label style="font-size:0.82rem;color:var(--muted);display:flex;align-items:center;gap:4px;">
+        <input type="checkbox" id="opt-save-frames" checked> 保存检测帧截图
+      </label>
+      <label style="font-size:0.82rem;color:var(--muted);display:flex;align-items:center;gap:4px;">
+        <input type="checkbox" id="opt-push-alerts"> 推送预警通知
+      </label>
+      <span style="font-size:0.78rem;color:var(--muted);">
+        监测点位:
+        <select id="opt-camera-id" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 6px;border-radius:3px;">
+          <option value="default">默认点位</option>
+        </select>
+      </span>
+    </div>
+
+    <!-- 进度条 -->
+    <div class="progress-container" id="progress-container">
+      <div class="progress-bar-outer">
+        <div class="progress-bar-inner" id="progress-bar-inner"></div>
+      </div>
+      <div class="progress-info">
+        <span id="progress-pct">0%</span>
+        <span id="progress-frames">--</span>
+        <span id="progress-status">等待开始...</span>
+      </div>
+    </div>
+
+    <!-- 检测结果摘要 -->
+    <div id="task-result" style="margin-top:12px;display:none;"></div>
+
+    <!-- 历史任务 -->
+    <div class="task-history" id="task-history" style="display:none;">
+      <h3>📋 最近任务</h3>
+      <div id="task-history-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
      预警弹窗 (SSE 触发)
      ═══════════════════════════════════════════════════════════ -->
 <div class="popup-overlay" id="popup-overlay">
@@ -848,6 +1037,72 @@ header h1 { font-size: 1.1rem; font-weight: 600; white-space: nowrap; }
   <span class="img-close">&times;</span>
   <img id="preview-img" src="" alt="预警截图" onclick="event.stopPropagation()">
   <div class="img-caption" id="preview-caption"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     点位编辑模态框
+     ═══════════════════════════════════════════════════════════ -->
+<div class="site-modal-overlay" id="site-modal-overlay" onclick="if(event.target===this) hideSiteModal()">
+  <div class="site-modal-box">
+    <h3 id="site-modal-title">➕ 新增监测点位</h3>
+    <form id="site-form" onsubmit="saveSite(event)" style="max-height:70vh;overflow-y:auto;padding-right:4px;">
+      <input type="hidden" id="site-edit-id" value="">
+      <div class="site-form-grid">
+        <label>点位ID <span style="color:var(--red)">*</span>
+          <input type="text" id="sf-site-id" required placeholder="如: gl_ys_s5" pattern="[a-zA-Z0-9_-]+" title="仅允许字母、数字、下划线和连字符">
+        </label>
+        <label>点位名称 <span style="color:var(--red)">*</span>
+          <input type="text" id="sf-name" required placeholder="如: 桂林阳朔高速 5 号边坡">
+        </label>
+        <label>地理位置
+          <input type="text" id="sf-location" placeholder="报警推送中显示的位置名称">
+        </label>
+        <label>所属区域
+          <input type="text" id="sf-region" placeholder="如: 广西·桂林">
+        </label>
+        <label>纬度
+          <input type="number" id="sf-latitude" step="0.001" placeholder="22.817">
+        </label>
+        <label>经度
+          <input type="number" id="sf-longitude" step="0.001" placeholder="108.366">
+        </label>
+        <label>所属公路
+          <input type="text" id="sf-highway" placeholder="如: G75 兰海高速">
+        </label>
+        <label>桩号
+          <input type="text" id="sf-stake-mark" placeholder="如: K1952+300">
+        </label>
+        <label>风险等级
+          <select id="sf-risk-level">
+            <option value="high">⚠️ 高风险</option>
+            <option value="medium" selected>🔶 中风险</option>
+            <option value="low">🟢 低风险</option>
+          </select>
+        </label>
+        <label>摄像头地址 (RTSP/HTTP)
+          <input type="text" id="sf-camera-url" placeholder="rtsp://... 或留空">
+        </label>
+        <label>是否启用
+          <select id="sf-is-active">
+            <option value="1" selected>✅ 启用</option>
+            <option value="0">❌ 停用</option>
+          </select>
+        </label>
+      </div>
+      <label style="display:block;margin-top:8px;">点位描述
+        <textarea id="sf-description" rows="2" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:6px;font-size:0.82rem;" placeholder="点位描述信息..."></textarea>
+      </label>
+      <label style="display:block;margin-top:8px;">报警接收人 (JSON数组)
+        <textarea id="sf-alert-contacts" rows="2" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:6px;font-size:0.78rem;font-family:monospace;" placeholder='[{"name":"张三","phone":"13800001111","email":"zhang@example.com"}]'></textarea>
+        <div class="hint" style="margin-top:2px;">可选。格式: [{"name":"姓名","phone":"手机号","email":"邮箱"}]</div>
+      </label>
+      <div class="btn-row" style="margin-top:14px;">
+        <button type="submit" class="btn-primary" id="site-save-btn">💾 保存</button>
+        <button type="button" class="btn-secondary" onclick="hideSiteModal()">取消</button>
+        <button type="button" class="btn-secondary" id="site-delete-btn" style="display:none;color:var(--red);border-color:var(--red);" onclick="deleteSiteConfirm()">🗑️ 删除</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -1249,7 +1504,6 @@ async function loadSites() {
   try {
     const r = await fetch('/api/sites');
     const data = await r.json();
-    // 更新 header 点位名称
     document.getElementById('site-name').textContent = '📍 ' + data.active_site.name;
     document.getElementById('device-info').textContent = data.active_site.region || '';
 
@@ -1257,22 +1511,31 @@ async function loadSites() {
     const container = document.getElementById('sites-container');
     container.innerHTML = '<div class="grid-sites">' + data.sites.map(s => {
       const isActive = s.site_id === data.active_site_id;
-      return '<div class="site-card' + (isActive ? ' active' : '') + '">'
-        + '<h3>' + (isActive ? '✅ ' : '') + s.name + '</h3>'
+      const isDisabled = s.is_active === false;
+      const cardClass = isActive ? ' active' : (isDisabled ? ' disabled' : '');
+      return '<div class="site-card' + cardClass + '">'
+        + '<h3>' + (isActive ? '✅ ' : (isDisabled ? '⏸️ ' : '')) + s.name
+        + (isDisabled ? ' <span style="font-size:0.7rem;color:var(--red);">[已停用]</span>' : '')
+        + ' <span style="font-size:0.7rem;color:var(--muted);">(' + s.site_id + ')</span></h3>'
         + '<div class="meta">'
         + '<span class="risk ' + (s.risk_level||'medium') + '">' + (riskLabels[s.risk_level]||s.risk_level) + '</span> '
         + '| 📍 ' + s.region + '<br>'
         + '🛣️ ' + (s.highway||'') + ' | 🏷️ ' + (s.stake_mark||'') + '<br>'
         + '📝 ' + (s.description||'') + '<br>'
         + '🌐 ' + (s.latitude||0).toFixed(3) + ', ' + (s.longitude||0).toFixed(3)
+        + (s.camera_url ? '<br>📹 ' + s.camera_url.substring(0,40) + (s.camera_url.length>40?'...':'') : '')
         + '</div>'
-        + '<button ' + (isActive ? 'disabled' : 'onclick="switchSite(\'' + s.site_id + '\')"') + '>'
-        + (isActive ? '✅ 当前激活' : '📍 切换至此点位')
+        + '<button ' + ((isActive || isDisabled) ? 'disabled' : 'onclick="switchSite(\'' + s.site_id + '\')"') + '>'
+        + (isActive ? '✅ 当前激活' : (isDisabled ? '⏸️ 已停用' : '📍 切换至此点位'))
         + '</button>'
+        + '<div class="site-card-actions">'
+        + '<button class="btn-edit" onclick="editSite(\'' + s.site_id + '\')">✏️ 编辑</button>'
+        + '<button class="btn-delete" ' + (isActive ? 'disabled title="不能删除当前激活的点位"' : 'onclick="deleteSiteConfirm(\'' + s.site_id + '\')"') + '>🗑️ 删除</button>'
+        + '</div>'
         + '</div>';
     }).join('') + '</div>';
   } catch(e) {
-    document.getElementById('sites-container').innerHTML = '<div class="empty-state">加载点位信息失败</div>';
+    document.getElementById('sites-container').innerHTML = '<div class="empty-state">加载点位信息失败: ' + e.message + '</div>';
   }
 }
 
@@ -1291,6 +1554,126 @@ async function switchSite(siteId) {
     }
   } catch(e) {
     showToast('切换失败: ' + e.message, 'error');
+  }
+}
+
+// ---- 点位 CRUD 模态框 ----
+
+function showSiteModal(siteData) {
+  const isEdit = !!siteData;
+  document.getElementById('site-modal-title').textContent = isEdit ? '✏️ 编辑监测点位' : '➕ 新增监测点位';
+  document.getElementById('site-edit-id').value = isEdit ? siteData.site_id : '';
+  document.getElementById('site-delete-btn').style.display = isEdit ? '' : 'none';
+
+  // 编辑模式下锁定 site_id
+  const idField = document.getElementById('sf-site-id');
+  idField.readOnly = isEdit;
+  idField.style.opacity = isEdit ? '0.6' : '1';
+
+  document.getElementById('sf-site-id').value = isEdit ? siteData.site_id : '';
+  document.getElementById('sf-name').value = isEdit ? siteData.name : '';
+  document.getElementById('sf-location').value = isEdit ? (siteData.location || '') : '';
+  document.getElementById('sf-region').value = isEdit ? (siteData.region || '') : '';
+  document.getElementById('sf-latitude').value = isEdit ? (siteData.latitude || 0) : '';
+  document.getElementById('sf-longitude').value = isEdit ? (siteData.longitude || 0) : '';
+  document.getElementById('sf-highway').value = isEdit ? (siteData.highway || '') : '';
+  document.getElementById('sf-stake-mark').value = isEdit ? (siteData.stake_mark || '') : '';
+  document.getElementById('sf-risk-level').value = isEdit ? (siteData.risk_level || 'medium') : 'medium';
+  document.getElementById('sf-camera-url').value = isEdit ? (siteData.camera_url || '') : '';
+  document.getElementById('sf-is-active').value = isEdit ? (siteData.is_active !== false ? '1' : '0') : '1';
+  document.getElementById('sf-description').value = isEdit ? (siteData.description || '') : '';
+  document.getElementById('sf-alert-contacts').value = isEdit && siteData.alert_contacts
+    ? JSON.stringify(siteData.alert_contacts, null, 2) : '';
+
+  document.getElementById('site-modal-overlay').classList.add('active');
+}
+
+function hideSiteModal() {
+  document.getElementById('site-modal-overlay').classList.remove('active');
+  document.getElementById('site-form').reset();
+}
+
+async function editSite(siteId) {
+  try {
+    const r = await fetch('/api/sites');
+    const data = await r.json();
+    const site = data.sites.find(s => s.site_id === siteId);
+    if (site) showSiteModal(site);
+    else showToast('未找到点位: ' + siteId, 'error');
+  } catch(e) {
+    showToast('加载点位信息失败: ' + e.message, 'error');
+  }
+}
+
+async function saveSite(event) {
+  event.preventDefault();
+  const editId = document.getElementById('site-edit-id').value;
+  const isEdit = !!editId;
+
+  const payload = {
+    site_id: document.getElementById('sf-site-id').value.trim(),
+    name: document.getElementById('sf-name').value.trim(),
+    location: document.getElementById('sf-location').value.trim(),
+    region: document.getElementById('sf-region').value.trim(),
+    latitude: parseFloat(document.getElementById('sf-latitude').value) || 0,
+    longitude: parseFloat(document.getElementById('sf-longitude').value) || 0,
+    highway: document.getElementById('sf-highway').value.trim(),
+    stake_mark: document.getElementById('sf-stake-mark').value.trim(),
+    risk_level: document.getElementById('sf-risk-level').value,
+    camera_url: document.getElementById('sf-camera-url').value.trim(),
+    is_active: document.getElementById('sf-is-active').value === '1',
+    description: document.getElementById('sf-description').value.trim(),
+  };
+
+  // 解析 alert_contacts JSON
+  const contactsStr = document.getElementById('sf-alert-contacts').value.trim();
+  if (contactsStr) {
+    try { payload.alert_contacts = JSON.parse(contactsStr); }
+    catch(e) { showToast('报警接收人 JSON 格式错误: ' + e.message, 'error'); return; }
+  }
+
+  try {
+    let r;
+    if (isEdit) {
+      // 编辑时不需要再传 site_id
+      delete payload.site_id;
+      r = await fetch('/api/sites/' + encodeURIComponent(editId), {
+        method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
+      });
+    } else {
+      r = await fetch('/api/sites', {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
+      });
+    }
+
+    if (r.ok) {
+      const result = await r.json();
+      showToast(isEdit ? '点位已更新: ' + result.site.name : '点位已创建: ' + result.site.name, 'success');
+      hideSiteModal();
+      loadSites();
+    } else {
+      const err = await r.json();
+      showToast('保存失败: ' + (err.detail || r.statusText), 'error');
+    }
+  } catch(e) {
+    showToast('保存失败: ' + e.message, 'error');
+  }
+}
+
+async function deleteSiteConfirm(siteId) {
+  if (!confirm('确定要删除点位 "' + siteId + '" 吗？此操作不可撤销。')) return;
+
+  try {
+    const r = await fetch('/api/sites/' + encodeURIComponent(siteId), { method: 'DELETE' });
+    if (r.ok) {
+      showToast('已删除点位: ' + siteId, 'success');
+      loadSites();
+    } else {
+      const err = await r.json();
+      showToast('删除失败: ' + (err.detail || r.statusText), 'error');
+    }
+  } catch(e) {
+    showToast('删除失败: ' + e.message, 'error');
   }
 }
 
@@ -1502,6 +1885,207 @@ async function reviewAlert(alertId, status) {
   } catch(e) {
     showToast('审核请求失败', 'error');
   }
+}
+
+// ============================================================
+// 视频检测 — 异步上传 + WebSocket 进度推送
+// ============================================================
+const VIDEO_TASK_HISTORY = [];
+
+function onVideoFileSelected(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  uploadVideo(file);
+}
+
+// 拖拽支持
+(function() {
+  const zone = document.getElementById('upload-zone');
+  if (!zone) return;
+  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('video/')) uploadVideo(file);
+    else showToast('请选择视频文件', 'error');
+  });
+})();
+
+async function uploadVideo(file) {
+  const maxSize = 2 * 1024 * 1024 * 1024; // 2GB
+  if (file.size > maxSize) {
+    showToast('文件过大，最大支持 2GB', 'error');
+    return;
+  }
+
+  const form = new FormData();
+  form.append('file', file);
+  form.append('save_frames', document.getElementById('opt-save-frames').checked);
+  form.append('push_alerts', document.getElementById('opt-push-alerts').checked);
+  form.append('camera_id', document.getElementById('opt-camera-id').value);
+
+  // 显示上传中
+  const hint = document.getElementById('upload-hint');
+  hint.textContent = '上传中...';
+
+  try {
+    const r = await fetch('/detect/video?sync=false', { method: 'POST', body: form });
+    const data = await r.json();
+    hint.textContent = file.name;
+
+    if (data.task_id) {
+      // 展示进度条
+      showProgress(data.task_id);
+      // 连接 WebSocket
+      connectTaskWebSocket(data.task_id);
+      // 更新文件名显示
+      document.getElementById('upload-hint').textContent = '已提交: ' + file.name;
+    } else {
+      showToast('提交检测任务失败', 'error');
+      hint.textContent = '支持 mp4 / avi / mov / mkv';
+    }
+  } catch(e) {
+    showToast('上传失败: ' + e.message, 'error');
+    hint.textContent = '支持 mp4 / avi / mov / mkv';
+  }
+}
+
+function showProgress(taskId) {
+  const container = document.getElementById('progress-container');
+  container.classList.add('active');
+  document.getElementById('progress-bar-inner').className = 'progress-bar-inner';
+  document.getElementById('progress-pct').textContent = '0%';
+  document.getElementById('progress-frames').textContent = 'task: ' + taskId.slice(0, 8) + '...';
+  document.getElementById('progress-status').textContent = '检测中...';
+  document.getElementById('task-result').style.display = 'none';
+}
+
+let _activeWs = null;
+
+function connectTaskWebSocket(taskId) {
+  // 关闭之前的连接
+  if (_activeWs) {
+    try { _activeWs.close(); } catch(e) {}
+  }
+
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = protocol + '//' + location.host + '/ws/tasks/' + taskId;
+  const ws = new WebSocket(wsUrl);
+  _activeWs = ws;
+
+  ws.onopen = () => {
+    console.log('[WS] 已连接到任务进度: ' + taskId);
+  };
+
+  ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+
+    if (data.status === 'not_found') {
+      document.getElementById('progress-status').textContent = '任务不存在';
+      return;
+    }
+
+    // 更新进度条
+    const pct = data.progress || 0;
+    const bar = document.getElementById('progress-bar-inner');
+    bar.style.width = pct + '%';
+    document.getElementById('progress-pct').textContent = pct.toFixed(1) + '%';
+    document.getElementById('progress-frames').textContent =
+      '帧 ' + (data.current_frame || 0) + ' / ' + (data.total_frames || '?');
+
+    if (data.status === 'processing') {
+      document.getElementById('progress-status').textContent =
+        '检测中 (' + pct.toFixed(0) + '%)';
+    } else if (data.status === 'completed') {
+      document.getElementById('progress-status').textContent = '✅ 检测完成';
+      bar.classList.add('completed');
+      showTaskResult(data.result);
+      addTaskHistory(taskId, 'completed', data.result);
+      ws.close();
+    } else if (data.status === 'failed') {
+      document.getElementById('progress-status').textContent = '❌ 检测失败';
+      bar.classList.add('error');
+      document.getElementById('task-result').style.display = 'block';
+      document.getElementById('task-result').innerHTML =
+        '<div class="toast-msg error">' + (data.error || '未知错误') + '</div>';
+      addTaskHistory(taskId, 'failed', null);
+      ws.close();
+    }
+  };
+
+  ws.onerror = () => {
+    document.getElementById('progress-status').textContent = '⚠️ WebSocket 连接失败，请手动刷新';
+    // 降级为轮询
+    fallbackPolling(taskId);
+  };
+
+  ws.onclose = () => {
+    _activeWs = null;
+  };
+}
+
+function fallbackPolling(taskId) {
+  const poll = setInterval(async () => {
+    try {
+      const r = await fetch('/api/tasks/' + taskId);
+      const data = await r.json();
+      if (data.status === 'completed' || data.status === 'failed') {
+        clearInterval(poll);
+        const bar = document.getElementById('progress-bar-inner');
+        bar.style.width = data.status === 'completed' ? '100%' : '0%';
+        document.getElementById('progress-pct').textContent =
+          data.status === 'completed' ? '100%' : '--';
+        document.getElementById('progress-status').textContent =
+          data.status === 'completed' ? '✅ 检测完成' : '❌ 检测失败';
+        if (data.result) showTaskResult(data.result);
+        addTaskHistory(taskId, data.status, data.result);
+      }
+    } catch(e) {
+      clearInterval(poll);
+    }
+  }, 2000);
+}
+
+function showTaskResult(result) {
+  if (!result) return;
+  const div = document.getElementById('task-result');
+  div.style.display = 'block';
+
+  const total = result.detections ? result.detections.length : 0;
+  const frames_with = result.frames_with_detections || total;
+  const alerts = result.detections
+    ? result.detections.filter(d => d.alert_level && d.alert_level !== 'green').length
+    : 0;
+
+  div.innerHTML = `
+    <div style="background:rgba(63,185,80,.1);border:1px solid var(--green);border-radius:var(--radius);padding:12px;">
+      <strong style="color:var(--green);">✅ 检测完成</strong>
+      <div style="font-size:0.82rem;color:var(--muted);margin-top:4px;">
+        总帧数: ${result.total_frames || '--'} | 检出帧: ${frames_with} | 预警帧: ${alerts}
+        ${result.resolution ? ' | 分辨率: ' + result.resolution : ''}
+      </div>
+    </div>`;
+}
+
+function addTaskHistory(taskId, status, result) {
+  VIDEO_TASK_HISTORY.unshift({ taskId, status, result, time: new Date().toLocaleTimeString() });
+  if (VIDEO_TASK_HISTORY.length > 20) VIDEO_TASK_HISTORY.length = 20;
+
+  const div = document.getElementById('task-history');
+  div.style.display = 'block';
+  const list = document.getElementById('task-history-list');
+  list.innerHTML = VIDEO_TASK_HISTORY.map(t => {
+    const cls = t.status === 'completed' ? 'done' : 'fail';
+    const label = t.status === 'completed' ? '✅' : '❌';
+    const frameInfo = t.result ? (t.result.frames_with_detections || '--') : '--';
+    return `<div class="task-item">
+      <span class="task-name">${t.taskId.slice(0, 8)}... <small style="color:var(--muted)">${t.time}</small></span>
+      <span style="color:var(--muted);font-size:0.72rem;">检出 ${frameInfo} 帧</span>
+      <span class="task-status ${cls}">${label}</span>
+    </div>`;
+  }).join('');
 }
 </script>
 </body>

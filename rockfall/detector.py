@@ -13,6 +13,7 @@
 依赖: rockfall.config, rockfall.notifier, rockfall.tracker, rockfall.logger
 """
 
+import gc
 import threading
 import time
 import warnings
@@ -35,7 +36,7 @@ from ultralytics import YOLO
 warnings.filterwarnings("ignore", category=FutureWarning, module="ultralytics.nn.tasks")
 
 from .config import (
-    MODEL_PATH, RESULTS_DIR,
+    MODEL_PATH, get_active_model_path, RESULTS_DIR,
     DETECTION_CONFIDENCE, DETECTION_IMG_SIZE,
     MOTION_MIN_AREA, IMAGE_URL_BASE,
     # 四级预警置信度阈值
@@ -57,14 +58,17 @@ from .config import (
     MOG2_HISTORY, MOG2_VAR_THRESHOLD, MOG2_DETECT_SHADOWS,
     MOG2_LEARNING_RATE, MOG2_MORPH_KERNEL, MOG2_RESET_IDLE_FRAMES,
     LIGHT_CHANGE_THRESHOLD, LIGHT_CHANGE_LR_FACTOR,
-    USE_CUDA_PREPROCESS,
+    USE_CUDA_PREPROCESS, ROI_CROP_ENABLED,
+    RING_BUFFER_SIZE, RING_BUFFER_JPEG_QUALITY,
     EDGE_ENHANCE_ENABLED, EDGE_ENHANCE_ALPHA, EDGE_ENHANCE_INTERVAL,
     TFD_ENABLED, TFD_IOU_THRESHOLD, TFD_MORPH_KERNEL, TFD_THRESHOLD,
     MOG2_FILTER_ENABLED,
     SAHI_ENABLED, SAHI_SLICE_SIZE, SAHI_OVERLAP_RATIO, SAHI_MERGE_IOU,
+    SAHI_MAX_SLICES,
     FUSION_ENABLED, FUSION_MOTION_WEIGHT,
     TEMPORAL_ENABLED, TEMPORAL_WINDOW, TEMPORAL_IOU,
     TENSORRT_ENABLED, TENSORRT_MODEL_PATH,
+    RuntimeConfig,
     get_device,
 )
 from .notifier import send_alert, send_alert_async, dispatch_alert_async
@@ -72,6 +76,7 @@ from .tracker import RockTracker
 from .edge_enhance import EdgeEnhancer
 from .motion_detect import ThreeFrameDiff, filter_detections_by_motion, filter_detections_by_mog2_center
 from .sahi import SAHISlicer, sahi_inference
+from .frame_buffer import FrameRingBuffer
 from .fusion import fuse_confidence, TemporalFilter
 from .logger import log_event
 
@@ -113,24 +118,36 @@ class AlertContext:
 
 
 class RockDetector:
-    """落石检测器 — 统一流水线 (服务端+桌面端共用)"""
+    """落石检测器 — 统一流水线 (服务端+桌面端共用)
+
+    支持多模型热切换: 按监测点位 (site_id) 和时段自动选择模型。
+    优先级: 点位专用模型 > 时段模型 > 全局默认模型 > TensorRT 引擎。
+    """
 
     _model_cache: dict[str, YOLO] = {}
 
-    def __init__(self):
+    def __init__(self, site_id: str = ""):
         # 设备检测: CUDA GPU > CPU, 显式传递避免 YOLO 内部 auto 的不确定性
         self._device_str, self._device_name = get_device()
+        self._site_id = site_id
 
-        # TensorRT 优先: 如果启用且 engine 文件存在则加载, 否则回退 .pt
-        model_path = str(MODEL_PATH)
+        # 多模型热切换: 按点位+时段解析模型路径
+        from .config import resolve_model_path, TENSORRT_ENABLED, TENSORRT_MODEL_PATH
+        model_path = str(resolve_model_path(site_id))
         if TENSORRT_ENABLED and Path(TENSORRT_MODEL_PATH).exists():
             model_path = TENSORRT_MODEL_PATH
         elif not Path(model_path).exists():
-            raise FileNotFoundError(f"模型文件不存在: {model_path}")
+            raise FileNotFoundError(f"模型文件不存在: {model_path} (site={site_id or 'default'})")
 
         if model_path not in RockDetector._model_cache:
             RockDetector._model_cache[model_path] = YOLO(model_path)
+            from .logger import log_event
+            model_name = Path(model_path).name
+            log_event("system", level="INFO",
+                      msg=f"模型已加载: {model_name} (site={site_id or 'default'}, "
+                          f"device={self._device_name})")
         self.model = RockDetector._model_cache[model_path]
+        self._active_model_path = model_path
 
         # SAHI 在 CPU 上自动禁用 (分块推理在 CPU 上极慢, 毫无实时性)
         if SAHI_ENABLED and self._device_str == "cpu":
@@ -142,6 +159,12 @@ class RockDetector:
         self.confidence = DETECTION_CONFIDENCE
         self.img_size = DETECTION_IMG_SIZE
         self.min_area = MOTION_MIN_AREA
+
+        # GPU 显存管理
+        self._inference_count = 0          # 累计推理帧计数 (用于周期性显存回收)
+        self._gpu_cleanup_interval = 200   # 每 200 帧推理后主动 gc + empty_cache
+        self._gpu_mem_soft_limit_mb = 4096 # GPU 显存软上限 (MB), 超限自动降分辨率/跳帧
+        self._auto_reduce_resolution = False  # 标记是否已自动降分辨率
 
         # 四级预警阈值 (实例级, 支持桌面端滑块实时调节)
         self.alert_blue_conf_high = ALERT_BLUE_CONFIDENCE_HIGH     # blue/yellow 分界
@@ -156,11 +179,39 @@ class RockDetector:
         """
         初始化流水线状态。每个视频源调用一次。
         调用后 preprocess_frame() 和 detect_frame() 可用。
+
+        所有参数优先从 RuntimeConfig 读取 (支持热更新后流重连生效)。
         """
         self._fw = fw
         self._fh = fh
         self._roi_mask = roi_mask
         self._roi_pixels = np.count_nonzero(roi_mask) if roi_mask is not None else (fw * fh)
+
+        # 从 RuntimeConfig 读取可热更新的参数 (回退到模块级常量)
+        mog2_history = int(RuntimeConfig.get("MOG2_HISTORY", MOG2_HISTORY))
+        mog2_var = int(RuntimeConfig.get("MOG2_VAR_THRESHOLD", MOG2_VAR_THRESHOLD))
+        mog2_lr = float(RuntimeConfig.get("MOG2_LEARNING_RATE", MOG2_LEARNING_RATE))
+        mog2_kernel = int(RuntimeConfig.get("MOG2_MORPH_KERNEL", MOG2_MORPH_KERNEL))
+        mog2_reset = int(RuntimeConfig.get("MOG2_RESET_IDLE_FRAMES", MOG2_RESET_IDLE_FRAMES))
+        light_thresh = float(RuntimeConfig.get("LIGHT_CHANGE_THRESHOLD", LIGHT_CHANGE_THRESHOLD))
+        light_lr_factor = float(RuntimeConfig.get("LIGHT_CHANGE_LR_FACTOR", LIGHT_CHANGE_LR_FACTOR))
+        edge_alpha = float(RuntimeConfig.get("EDGE_ENHANCE_ALPHA", EDGE_ENHANCE_ALPHA))
+        edge_interval = int(RuntimeConfig.get("EDGE_ENHANCE_INTERVAL", EDGE_ENHANCE_INTERVAL))
+        fusion_weight = float(RuntimeConfig.get("FUSION_MOTION_WEIGHT", FUSION_MOTION_WEIGHT))
+        tfd_iou = float(RuntimeConfig.get("TFD_IOU_THRESHOLD", TFD_IOU_THRESHOLD))
+        tfd_thresh = int(RuntimeConfig.get("TFD_THRESHOLD", TFD_THRESHOLD))
+        temporal_win = int(RuntimeConfig.get("TEMPORAL_WINDOW", TEMPORAL_WINDOW))
+        temporal_iou = float(RuntimeConfig.get("TEMPORAL_IOU", TEMPORAL_IOU))
+
+        # 存储到实例供 preprocess_frame 使用
+        self._mog2_history = mog2_history
+        self._mog2_var = mog2_var
+        self._mog2_lr = mog2_lr
+        self._mog2_kernel = mog2_kernel
+        self._mog2_reset_idle = mog2_reset
+        self._light_change_thresh = light_thresh
+        self._light_change_lr_factor = light_lr_factor
+        self._roi_crop_enabled = RuntimeConfig.get("ROI_CROP_ENABLED", ROI_CROP_ENABLED)
 
         # CUDA 预处理: 尝试启用 GPU MOG2 + GPU Sobel
         self._cuda_preprocess = False
@@ -168,42 +219,60 @@ class RockDetector:
             try:
                 if cv2.cuda.getCudaEnabledDeviceCount() > 0:
                     self._cuda_preprocess = True
-                    print("[CUDA预处理] GPU MOG2 + Sobel 已启用")
+                    log_event("system", msg="GPU MOG2 + Sobel 已启用 (CUDA预处理)")
             except Exception:
                 pass
 
         if self._cuda_preprocess:
             self._bg_sub = cv2.cuda.createBackgroundSubtractorMOG2(
-                history=MOG2_HISTORY, varThreshold=MOG2_VAR_THRESHOLD,
+                history=mog2_history, varThreshold=mog2_var,
                 detectShadows=MOG2_DETECT_SHADOWS,
             )
         else:
             self._bg_sub = cv2.createBackgroundSubtractorMOG2(
-                history=MOG2_HISTORY, varThreshold=MOG2_VAR_THRESHOLD,
+                history=mog2_history, varThreshold=mog2_var,
                 detectShadows=MOG2_DETECT_SHADOWS,
             )
 
         self._edge_enhancer = EdgeEnhancer(
-            enabled=EDGE_ENHANCE_ENABLED, alpha=EDGE_ENHANCE_ALPHA,
-            interval=EDGE_ENHANCE_INTERVAL,
+            enabled=EDGE_ENHANCE_ENABLED, alpha=edge_alpha,
+            interval=edge_interval,
             cuda_available=self._cuda_preprocess,
         )
         self._tfd = ThreeFrameDiff(
-            threshold=TFD_THRESHOLD, morph_kernel=TFD_MORPH_KERNEL,
+            threshold=tfd_thresh, morph_kernel=TFD_MORPH_KERNEL,
             enabled=TFD_ENABLED,
         )
         self._sahi_slicer = SAHISlicer(
             slice_size=SAHI_SLICE_SIZE, overlap_ratio=SAHI_OVERLAP_RATIO,
             merge_iou=SAHI_MERGE_IOU, enabled=self._sahi_enabled,
+            max_slices=SAHI_MAX_SLICES,
         )
         self._temporal_filter = TemporalFilter(
-            window=TEMPORAL_WINDOW, iou_threshold=TEMPORAL_IOU,
+            window=temporal_win, iou_threshold=temporal_iou,
             enabled=TEMPORAL_ENABLED,
         )
         self._consecutive_idle = 0
         self._active_skip = 1  # 当前实际跳帧间隔, 1=无跳帧
         self._prev_brightness = -1.0
+        self._frame_buffer = FrameRingBuffer(
+            maxlen=RING_BUFFER_SIZE, jpeg_quality=RING_BUFFER_JPEG_QUALITY,
+        )
         self._stream_ready = True
+
+        # --- 状态日志：ROI 裁剪 ---
+        if self._roi_crop_enabled and self._roi_mask is not None:
+            roi_pct = self._roi_pixels / (fw * fh) * 100
+            log_event("system", level="INFO",
+                      msg=f"ROI cropping enabled — ROI covers {roi_pct:.1f}% of frame, "
+                          f"estimated MOG2 pixel reduction ~{100 - roi_pct:.0f}%")
+        elif self._roi_crop_enabled:
+            log_event("system", level="WARN",
+                      msg="ROI cropping enabled but no ROI mask loaded — "
+                          "falling back to full-frame MOG2")
+        else:
+            log_event("system", level="INFO",
+                      msg="ROI cropping disabled (full-frame MOG2 processing)")
 
     def preprocess_frame(self, frame: np.ndarray) -> dict:
         """
@@ -219,21 +288,26 @@ class RockDetector:
         cur_brightness = float(np.mean(gray))
         light_change = (
             self._prev_brightness >= 0 and
-            abs(cur_brightness - self._prev_brightness) > LIGHT_CHANGE_THRESHOLD
+            abs(cur_brightness - self._prev_brightness) > self._light_change_thresh
         )
         self._prev_brightness = cur_brightness
 
         # 自适应学习率: 长时间无运动 → 临时提高学习率快速适应环境变化
         # 但若本帧检测到运动, 立即用低学习率重新应用, 避免落石被快速融入背景
-        was_high_lr = self._consecutive_idle >= MOG2_RESET_IDLE_FRAMES
-        lr = 0.1 if was_high_lr else MOG2_LEARNING_RATE
+        was_high_lr = self._consecutive_idle >= self._mog2_reset_idle
+        lr = 0.1 if was_high_lr else self._mog2_lr
 
         if light_change:
-            lr *= LIGHT_CHANGE_LR_FACTOR
+            lr *= self._light_change_lr_factor
 
-        k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (MOG2_MORPH_KERNEL, MOG2_MORPH_KERNEL))
-        fg = self._mog2_apply(frame, lr)
-        self._postprocess_fg(fg, k)
+        k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (self._mog2_kernel, self._mog2_kernel))
+
+        # ROI 裁剪优化: 仅对 ROI 边界矩形区域做 MOG2，减少 40-60% 像素处理量
+        if self._roi_crop_enabled and self._roi_mask is not None:
+            fg = self._mog2_apply_roi_crop(frame, lr, k)
+        else:
+            fg = self._mog2_apply(frame, lr)
+            self._postprocess_fg(fg, k)
 
         # 降采样找轮廓 (1/4 分辨率, ~16x 加速), fg 保持全分辨率供下游使用
         ds = 4
@@ -259,18 +333,24 @@ class RockDetector:
             # 若本帧在高学习率模式下检出运动, 用低学习率重新应用 MOG2
             # 防止落石被 lr=0.1 快速融入背景导致后续漏检
             if was_high_lr:
-                fg = self._mog2_apply(frame, MOG2_LEARNING_RATE)
-                self._postprocess_fg(fg, k)
+                if self._roi_crop_enabled and self._roi_mask is not None:
+                    fg = self._mog2_apply_roi_crop(frame, self._mog2_lr, k)
+                else:
+                    fg = self._mog2_apply(frame, self._mog2_lr)
+                    self._postprocess_fg(fg, k)
         else:
             self._consecutive_idle += 1
 
-        # 三级跳帧
+        # 三级跳帧 (每帧从 RuntimeConfig 读取, 支持热更新无需重启)
+        skip_idle = RuntimeConfig.get("SKIP_IDLE", SKIP_IDLE)
+        skip_active = RuntimeConfig.get("SKIP_ACTIVE", SKIP_ACTIVE)
+        skip_critical = RuntimeConfig.get("SKIP_CRITICAL", SKIP_CRITICAL)
         if motion_score < MOTION_SCORE_LOW:
-            skip = SKIP_IDLE
+            skip = skip_idle
         elif motion_score < MOTION_SCORE_HIGH:
-            skip = SKIP_ACTIVE
+            skip = skip_active
         else:
-            skip = SKIP_CRITICAL
+            skip = skip_critical
 
         return {
             'fg': fg, 'motion_score': motion_score, 'has_motion': has_motion,
@@ -284,14 +364,101 @@ class RockDetector:
         return self._bg_sub.apply(frame, learningRate=lr)
 
     def _postprocess_fg(self, fg: np.ndarray, kernel):
-        """前景后处理: 阴影去除 + 形态学 + ROI 裁剪"""
+        """前景后处理: 阴影去除 + 形态学 + ROI 裁剪。
+
+        ROI 裁剪模式下跳过 ROI 掩码（已在裁剪时隐式完成）。
+        """
         if MOG2_DETECT_SHADOWS:
             fg[fg == 127] = 0
-        # 使用 fg[:] = ... 保证修改作用于调用者的数组
         fg[:] = cv2.morphologyEx(fg, cv2.MORPH_OPEN, kernel)
         fg[:] = cv2.morphologyEx(fg, cv2.MORPH_CLOSE, kernel)
-        if self._roi_mask is not None:
+        if self._roi_mask is not None and not self._roi_crop_enabled:
             cv2.bitwise_and(fg, fg, mask=self._roi_mask, dst=fg)
+
+    def _get_roi_bbox(self) -> tuple[int, int, int, int] | None:
+        """获取 ROI mask 的边界矩形。若 ROI 为空或全覆盖则返回 None。"""
+        if self._roi_mask is None:
+            return None
+        ys, xs = np.where(self._roi_mask > 0)
+        if len(ys) == 0:
+            return None
+        return (xs.min(), ys.min(), xs.max() + 1, ys.max() + 1)
+
+    def _mog2_apply_roi_crop(self, frame: np.ndarray, lr: float,
+                              kernel) -> np.ndarray:
+        """ROI 裁剪 MOG2: 仅对 ROI 边界矩形区域做背景减除, 结果映射回全帧。
+
+        减少 ~40-60% MOG2 处理像素量（边坡 ROI 通常只占画面 40-50%）。
+        """
+        bbox = self._get_roi_bbox()
+        if bbox is None:
+            # 无有效 ROI → 回退全帧 MOG2
+            fg = self._mog2_apply(frame, lr)
+            self._postprocess_fg(fg, kernel)
+            return fg
+
+        rx1, ry1, rx2, ry2 = bbox
+        # 裁剪 ROI 区域
+        crop = frame[ry1:ry2, rx1:rx2]
+        # MOG2 前景分割（仅 ROI 区域）
+        fg_crop = self._mog2_apply(crop, lr)
+        # ROI 内后处理（不含 ROI 掩码，因为裁剪本身已限定区域）
+        # 阴影去除 + 形态学
+        if MOG2_DETECT_SHADOWS:
+            fg_crop[fg_crop == 127] = 0
+        fg_crop = cv2.morphologyEx(fg_crop, cv2.MORPH_OPEN, kernel)
+        fg_crop = cv2.morphologyEx(fg_crop, cv2.MORPH_CLOSE, kernel)
+        # 在 ROI 区域内应用原始 mask 裁剪（双保险）
+        crop_roi = self._roi_mask[ry1:ry2, rx1:rx2]
+        cv2.bitwise_and(fg_crop, fg_crop, mask=crop_roi, dst=fg_crop)
+        # 映射回全帧坐标
+        fg = np.zeros((self._fh, self._fw), dtype=np.uint8)
+        fg[ry1:ry2, rx1:rx2] = fg_crop
+        return fg
+
+    def _cleanup_gpu_memory(self, force: bool = False):
+        """周期性 GPU 显存回收 + 软上限检测 + GPU 过热降频检查"""
+        self._inference_count += 1
+
+        if not force and self._inference_count % self._gpu_cleanup_interval != 0:
+            return
+
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                # 检查显存使用量, 超软上限时自动降分辨率或增加跳帧
+                allocated_mb = torch.cuda.memory_allocated() / (1024 ** 2)
+                if allocated_mb > self._gpu_mem_soft_limit_mb:
+                    if not self._auto_reduce_resolution and self.img_size > 320:
+                        old_size = self.img_size
+                        self.img_size = max(320, self.img_size // 2)
+                        self._auto_reduce_resolution = True
+                        log_event("system", level="WARN",
+                                  msg=f"GPU显存超限 ({allocated_mb:.0f}MB > {self._gpu_mem_soft_limit_mb}MB), "
+                                      f"自动降分辨率: {old_size} → {self.img_size}")
+                elif self._auto_reduce_resolution and allocated_mb < self._gpu_mem_soft_limit_mb * 0.5:
+                    # 显存压力解除, 恢复原始分辨率
+                    self.img_size = DETECTION_IMG_SIZE
+                    self._auto_reduce_resolution = False
+
+                # 检查 GPU 过热自愈标记
+                try:
+                    from rockfall.health import get_health
+                    if get_health()._gpu_throttled:
+                        # GPU 过热 → 降低推理分辨率, 减少发热
+                        if not self._auto_reduce_resolution and self.img_size > 320:
+                            old_size = self.img_size
+                            self.img_size = max(320, self.img_size // 2)
+                            self._auto_reduce_resolution = True
+                            log_event("system", level="WARN",
+                                      msg=f"GPU过热保护: 自动降分辨率 {old_size} → {self.img_size}")
+                except Exception:
+                    pass
+
+            gc.collect()
+        except Exception:
+            gc.collect()
 
     def detect_frame(
         self, frame: np.ndarray,
@@ -342,16 +509,22 @@ class RockDetector:
                         for b in r.boxes:
                             x1, y1, x2, y2 = b.xyxy[0].int().tolist()
                             raw_dets.append([x1, y1, x2, y2, b.conf[0].item(), int(b.cls[0].item())])
-                # 同步 CUDA 流, 确保推理结果在继续处理前已就绪
+                # 立即释放 YOLO 推理结果 (GPU 张量), 防止显存累积
                 del results
+
+            # 周期性 GPU 显存回收 (每 200 帧 gc + empty_cache)
+            self._cleanup_gpu_memory()
         except Exception as e:
             log_event("system", level="ERROR", msg=f"YOLO推理失败: {e}")
+            # 推理异常时也尝试回收显存 (可能残留部分分配的张量)
+            self._cleanup_gpu_memory(force=True)
             return []
 
         # 概率融合 (YOLO + MOG2) — 先提升置信度再滤波, 避免低置信但有强运动证据的目标被误过滤
         if FUSION_ENABLED and raw_dets:
+            fusion_weight = float(RuntimeConfig.get("FUSION_MOTION_WEIGHT", FUSION_MOTION_WEIGHT))
             raw_dets = fuse_confidence(
-                raw_dets, fg_mask, motion_weight=FUSION_MOTION_WEIGHT,
+                raw_dets, fg_mask, motion_weight=fusion_weight,
             )
 
         # 三帧差分运动滤波 (苏国韶2025)
@@ -359,8 +532,9 @@ class RockDetector:
         if TFD_ENABLED and self._active_skip <= 1:
             _, tfd_contours = self._tfd.compute(frame)
             if tfd_contours:
+                tfd_iou = float(RuntimeConfig.get("TFD_IOU_THRESHOLD", TFD_IOU_THRESHOLD))
                 raw_dets = filter_detections_by_motion(
-                    raw_dets, tfd_contours, TFD_IOU_THRESHOLD,
+                    raw_dets, tfd_iou,
                 )
 
         # MOG2 中心点运动滤波 (Zhang2024) — 不依赖帧连续性, 始终可用
@@ -554,11 +728,13 @@ class RockDetector:
                 if is_live:
                     reconnect_attempts += 1
                     if reconnect_attempts > CAMERA_RECONNECT_MAX_ATTEMPTS:
-                        log_event("system", msg=f"摄像头重连失败({CAMERA_RECONNECT_MAX_ATTEMPTS}次): {source_name}")
+                        log_event("system", msg=f"摄像头重连失败({CAMERA_RECONNECT_MAX_ATTEMPTS}次), 请运维人员检查: {source_name}")
                         break
                     disconnected = True
                     log_event("system", msg=f"视频源断开: {source_name}, {reconnect_delay}s后重连({reconnect_attempts}/{CAMERA_RECONNECT_MAX_ATTEMPTS})")
                     time.sleep(reconnect_delay)
+                    # 先释放旧资源再重新打开, 防止句柄泄漏
+                    cap.release()
                     cap.open(source)
                     reconnect_delay = min(int(reconnect_delay * CAMERA_RECONNECT_BACKOFF), CAMERA_RECONNECT_MAX)
                     continue
@@ -637,10 +813,16 @@ class RockDetector:
                          "yellow": (0, 215, 255), "blue": (255, 140, 0),
                          "green": (0, 200, 0)}[frame_alert], 2)
 
-            if save_frames:
-                cv2.imwrite(str(RESULTS_DIR / f"stream_{frame_idx:06d}.jpg"), annotated)
+            # 帧环形缓冲: 始终写入内存（异步压缩），仅告警时 flush 到磁盘
+            if save_frames and hasattr(self, "_frame_buffer"):
+                self._frame_buffer.push(frame_idx, frame, annotated)
 
             if push_alerts and frame_alert != "green":
+                # 告警触发: flush 上下文帧到磁盘
+                if save_frames and hasattr(self, "_frame_buffer"):
+                    self._frame_buffer.flush_alert(
+                        RESULTS_DIR, alert_frame_idx=frame_idx, context_frames=30,
+                    )
                 image_url = f"{IMAGE_URL_BASE}/stream_{frame_idx:06d}.jpg" if (IMAGE_URL_BASE and save_frames) else ""
                 dispatch_alert_async(
                     count=len(tracks_info), max_confidence=alert_ctx.max_conf,

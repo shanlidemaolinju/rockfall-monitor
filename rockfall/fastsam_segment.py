@@ -22,6 +22,8 @@ from typing import Optional
 import cv2
 import numpy as np
 
+from .logger import log_event
+
 # ---- 缓存目录 ----
 _MASKS_DIR = Path(__file__).resolve().parent.parent / "data" / "masks"
 
@@ -55,7 +57,7 @@ EXCLUDE_TEXTS = [
 # ================================================================
 
 def get_fastsam_model(
-    model_path: str = "FastSAM-x.pt",
+    model_path: str = "",
     device: str = "cuda:0",
     verbose: bool = False,
 ):
@@ -66,6 +68,10 @@ def get_fastsam_model(
     如需释放显存, 调用 release_fastsam_model()。
     """
     global _fastsam_model, _fastsam_device
+
+    if not model_path:
+        from .config import FASTSAM_MODEL_NAME
+        model_path = FASTSAM_MODEL_NAME
 
     if _fastsam_model is not None and _fastsam_device == device:
         return _fastsam_model
@@ -79,7 +85,7 @@ def get_fastsam_model(
         _gc_collect()
 
     if verbose:
-        print(f"[FastSAM] 加载模型 {model_path} → {device}")
+        log_event("system", level="DEBUG", msg=f"FastSAM 加载模型 {model_path} → {device}")
 
     _fastsam_model = FastSAM(model_path)
     _fastsam_device = device
@@ -240,10 +246,11 @@ def segment_frame(
     if verbose:
         n_s = (slope_mask > 0).sum()
         n_r = (road_mask > 0).sum()
-        print(f"[FastSAM] {len(all_masks)} regions → "
-              f"slope={n_s / (h * w) * 100:.1f}% "
-              f"road={n_r / (h * w) * 100:.1f}% "
-              f"({elapsed_ms:.0f}ms)")
+        log_event("system", level="DEBUG",
+                  msg=f"FastSAM {len(all_masks)} regions → "
+                      f"slope={n_s / (h * w) * 100:.1f}% "
+                      f"road={n_r / (h * w) * 100:.1f}% "
+                      f"({elapsed_ms:.0f}ms)")
 
     return {
         'slope_mask': slope_mask,
@@ -384,7 +391,7 @@ def generate_road_mask(
         cached = cv2.imread(str(cache_path), cv2.IMREAD_GRAYSCALE)
         if cached is not None and cached.shape == (fh, fw):
             if verbose:
-                print(f"[FastSAM] 缓存命中: {cache_path.name}")
+                log_event("system", level="DEBUG", msg=f"FastSAM 缓存命中: {cache_path.name}")
             return cached
 
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -417,14 +424,15 @@ def generate_road_mask(
             road_score += (result['road_mask'] > 0).astype(np.float32)
             valid += 1
             if verbose:
-                print(f"[FastSAM] 帧 {s + 1}/{num_samples} "
-                      f"({result['elapsed_ms']:.0f}ms)"
-                      f" slope={result['slope_mask'].sum() / (fw * fh) * 100:.0f}%"
-                      f" road={result['road_mask'].sum() / (fw * fh) * 100:.0f}%")
+                log_event("system", level="DEBUG",
+                          msg=f"FastSAM 帧 {s + 1}/{num_samples} "
+                              f"({result['elapsed_ms']:.0f}ms) "
+                              f"slope={result['slope_mask'].sum() / (fw * fh) * 100:.0f}% "
+                              f"road={result['road_mask'].sum() / (fw * fh) * 100:.0f}%")
 
     if valid < 1:
         if verbose:
-            print("[FastSAM] 无有效分割帧")
+            log_event("system", level="WARN", msg="FastSAM 无有效分割帧")
         return None
 
     road_score /= valid
@@ -451,7 +459,7 @@ def generate_road_mask(
     bottom_coverage = (road_mask[-5:, :].sum(axis=0) > 0).sum() / fw
     if bottom_coverage < 0.15:
         if verbose:
-            print(f"[FastSAM] 底部覆盖率仅 {bottom_coverage:.0%}, 结果可能不可靠")
+            log_event("system", level="WARN", msg=f"FastSAM 底部覆盖率仅 {bottom_coverage:.0%}, 结果可能不可靠")
 
     # 边缘裁剪: 去除画面边缘的碎片
     road_mask[:, :int(fw * 0.02)] = 0
@@ -469,8 +477,9 @@ def generate_road_mask(
 
     if verbose:
         road_pct = (road_mask > 0).sum() / (fw * fh) * 100
-        print(f"[FastSAM] 完成 road_mask={road_pct:.1f}% "
-              f"({time.time() - t_start:.1f}s 总计)")
+        log_event("system", level="DEBUG",
+                  msg=f"FastSAM 完成 road_mask={road_pct:.1f}% "
+                      f"({time.time() - t_start:.1f}s 总计)")
 
     return road_mask
 

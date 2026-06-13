@@ -1,0 +1,63 @@
+# ============================================================
+# 落石检测系统 — 直接依赖 (pip-compile 输入)
+# ============================================================
+# 使用方式:
+#   pip-compile requirements.in --output-file requirements-lock.txt
+#   pip install -r requirements-lock.txt
+#
+# 将自动解析并锁定所有传递依赖的精确版本+哈希。
+# ============================================================
+
+# --- YOLO + FastSAM 模型推理 ---
+ultralytics>=8.3.0
+
+# --- 计算机视觉 (headless 版适配云/服务器部署) ---
+# 注意: ultralytics 会拉入 opencv-python, 此处显式声明 headless 版确保安装后
+# cv2 来自 opencv-python-headless（两者冲突，headless 无 GUI 依赖，适合服务器）。
+# 使用 pip install -c constraints.txt -r requirements-lock.txt 可确保 headless 优先。
+opencv-python-headless>=4.10.0
+
+# --- 数值计算 ---
+numpy>=1.26.0
+
+# --- PyTorch (CPU 版, 跨平台兼容) ---
+# GPU 用户请先安装 CUDA 版 PyTorch:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu129
+torch>=2.0.0
+
+# --- 配置管理 ---
+python-dotenv>=1.0.0
+
+# --- HTTP 客户端 (PushPlus 推送) ---
+requests>=2.28.0
+
+# --- MySQL 数据库 (可选, 不配置则使用 SQLite) ---
+pymysql>=1.1.0
+
+# --- Web 服务 (FastAPI) ---
+fastapi>=0.115.0
+uvicorn[standard]>=0.34.0
+python-multipart>=0.0.9
+jinja2>=3.1.0
+
+# --- Streamlit Web 封装 ---
+streamlit>=1.40.0
+pandas>=2.0.0
+
+# --- 性能监控 (CPU / 内存) ---
+psutil>=5.9.0
+
+# --- 科学计算 (SORT 匈牙利算法) ---
+scipy>=1.10.0
+
+# --- Excel 导出 ---
+openpyxl>=3.1.0
+
+# --- 加密配置 + JWT ---
+cryptography>=42.0.0
+
+# --- Prometheus 监控指标 ---
+prometheus-client>=0.21.0
+
+# --- Sentry 错误监控 ---
+sentry-sdk[fastapi]>=2.0.0

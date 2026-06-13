@@ -5,6 +5,7 @@
 """
 
 import os
+import threading
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -25,6 +26,225 @@ ROI_CONFIG_PATH = DATA_DIR / "roi_config.json"
 # YOLO 模型
 # ============================================================
 MODEL_PATH = os.getenv("ROCK_MODEL_PATH", str(MODELS_DIR / "rock_best.pt"))
+MODEL_LATEST_SYMLINK = MODELS_DIR / "rock_best.latest.pt"  # 符号链接 → 当前版本
+
+
+def set_active_model(model_path: str | Path) -> None:
+    """原子切换模型版本: 更新符号链接指向新模型文件。
+
+    用法:
+        set_active_model("models/rock_best_v2.pt")  # 升级
+        set_active_model("models/rock_best_v1.pt")  # 回滚
+    """
+    import os as _os
+    target = Path(model_path).resolve()
+    symlink = MODEL_LATEST_SYMLINK
+    tmp_link = symlink.with_suffix(".tmp")
+
+    if not target.exists():
+        raise FileNotFoundError(f"模型文件不存在: {target}")
+
+    if tmp_link.exists() or tmp_link.is_symlink():
+        tmp_link.unlink()
+    tmp_link.symlink_to(target)
+    tmp_link.replace(symlink)  # 原子操作 (POSIX) / rename (Windows)
+
+
+def get_active_model_path() -> Path:
+    """获取当前激活的模型路径（优先使用符号链接）。
+
+    若 rock_best.latest.pt 存在 → 解析符号链接 → 返回目标路径
+    否则返回 MODEL_PATH 默认值。
+    """
+    if MODEL_LATEST_SYMLINK.exists():
+        try:
+            resolved = MODEL_LATEST_SYMLINK.resolve()
+            if resolved.exists():
+                return resolved
+        except Exception:
+            pass
+    return Path(MODEL_PATH)
+
+
+def list_model_versions() -> list[dict]:
+    """列出所有可用模型版本及其元数据。"""
+    from datetime import datetime
+
+    versions = []
+    for f in MODELS_DIR.glob("rock_best_v*.pt"):
+        versions.append({
+            "path": str(f),
+            "name": f.name,
+            "size_mb": round(f.stat().st_size / (1024 ** 2), 1),
+            "modified": datetime.fromtimestamp(f.stat().st_mtime).isoformat(),
+            "is_active": (
+                MODEL_LATEST_SYMLINK.exists()
+                and MODEL_LATEST_SYMLINK.resolve() == f.resolve()
+            ),
+        })
+    return sorted(versions, key=lambda v: v["name"], reverse=True)
+
+
+# ============================================================
+# 多模型热切换 — 按点位 + 时段自动选择 (v2.2+)
+# ============================================================
+
+# 时段模型映射: 按 start_hour-end_hour 指定模型文件
+# 格式: "0-6=models/rock_night.pt;19-23=models/rock_night.pt"
+# 多个时段用分号分隔，时段不重叠
+MODEL_SLOT_MAP = os.getenv("MODEL_SLOT_MAP", "")
+
+# 夜间模型路径 (快捷方式，等同于 MODEL_SLOT_MAP="19-23=...;0-6=...")
+MODEL_NIGHT_PATH = os.getenv("MODEL_NIGHT_PATH", "")
+# 雨天模型路径 (需要外部天气 API 触发，此处仅作预留)
+_MODEL_RAIN_PATH = os.getenv("MODEL_RAIN_PATH", "")
+
+
+def _parse_model_slot_map(env_val: str) -> dict[tuple[int, int], str]:
+    """解析 MODEL_SLOT_MAP 环境变量。
+
+    格式: "0-6=models/rock_night.pt;19-23=models/rock_night.pt"
+    返回: {(0, 6): "models/rock_night.pt", (19, 23): "models/rock_night.pt"}
+    """
+    result: dict[tuple[int, int], str] = {}
+    if not env_val:
+        return result
+    for segment in env_val.split(";"):
+        segment = segment.strip()
+        if "=" not in segment:
+            continue
+        slot, path = segment.split("=", 1)
+        slot = slot.strip()
+        path = path.strip()
+        if "-" in slot:
+            parts = slot.split("-")
+            try:
+                start, end = int(parts[0]), int(parts[1])
+                result[(start, end)] = path
+            except ValueError:
+                pass
+    return result
+
+
+def _get_model_for_hour(hour: int) -> str | None:
+    """根据当前小时返回时段模型路径，无匹配返回 None。
+
+    支持跨午夜时段 (如 19-6 表示 19:00-次日6:00)。
+    """
+    # 1. 解析 MODEL_SLOT_MAP (支持跨午夜)
+    slot_map = _parse_model_slot_map(MODEL_SLOT_MAP)
+    for (start, end), path in slot_map.items():
+        if start <= end:
+            # 普通时段: 如 0-6
+            if start <= hour <= end:
+                p = Path(path)
+                if p.exists():
+                    return str(p.resolve())
+        else:
+            # 跨午夜时段: 如 19-6 (19:00-次日6:00)
+            if hour >= start or hour <= end:
+                p = Path(path)
+                if p.exists():
+                    return str(p.resolve())
+
+    # 2. 快捷方式: MODEL_NIGHT_PATH (夜间 19-6 点)
+    if MODEL_NIGHT_PATH:
+        if hour >= 19 or hour < 6:
+            p = Path(MODEL_NIGHT_PATH)
+            if p.exists():
+                return str(p.resolve())
+
+    return None
+
+
+def resolve_model_path(site_id: str = "") -> Path:
+    """
+    按优先级解析模型路径 — 支持多模型热切换。
+
+    优先级:
+      1. 点位专用模型 (MonitoringSite.model_override, 从 DB 读取)
+      2. 时段模型 (MODEL_SLOT_MAP 或 MODEL_NIGHT_PATH)
+      3. 全局激活模型 (MODEL_LATEST_SYMLINK → MODEL_PATH)
+      4. TensorRT 引擎 (TENSORRT_MODEL_PATH, 仅 CUDA 设备)
+
+    参数:
+        site_id: 当前激活的监测点位 ID
+
+    返回:
+        模型文件的绝对路径
+    """
+    from datetime import datetime
+
+    # 1. 点位专用模型
+    if site_id:
+        try:
+            from .site_config import get_site_by_id
+            site = get_site_by_id(site_id)
+            if site and site.model_override:
+                p = Path(site.model_override)
+                if p.exists():
+                    from .logger import log_event
+                    log_event("system", level="INFO",
+                              msg=f"模型选择: 点位专用 ({site_id}) → {p.name}")
+                    return p.resolve()
+        except Exception:
+            pass
+
+    # 2. 时段模型
+    hour = datetime.now().hour
+    slot_model = _get_model_for_hour(hour)
+    if slot_model:
+        from .logger import log_event
+        log_event("system", level="INFO",
+                  msg=f"模型选择: 时段模型 (hour={hour}) → {Path(slot_model).name}")
+        return Path(slot_model)
+
+    # 3. 全局激活模型
+    return get_active_model_path()
+
+
+def list_all_models() -> list[dict]:
+    """
+    列出所有可用模型 (版本 + 时段专用)，供管理 API 使用。
+    返回每个模型的路径、名称、大小、类型 (version/slot/site_override)。
+    """
+    from datetime import datetime
+
+    models = list_model_versions()  # 版本模型
+    for m in models:
+        m["type"] = "version"
+
+    seen = {m["path"] for m in models}
+
+    # 夜间模型
+    if MODEL_NIGHT_PATH:
+        p = Path(MODEL_NIGHT_PATH)
+        if p.exists() and str(p.resolve()) not in seen:
+            models.append({
+                "path": str(p.resolve()),
+                "name": p.name,
+                "size_mb": round(p.stat().st_size / (1024 ** 2), 1),
+                "modified": datetime.fromtimestamp(p.stat().st_mtime).isoformat(),
+                "is_active": False,
+                "type": "slot_night",
+            })
+
+    # 时段映射中的其他模型
+    slot_map = _parse_model_slot_map(MODEL_SLOT_MAP)
+    for (start, end), path in slot_map.items():
+        p = Path(path).resolve()
+        if p.exists() and str(p) not in seen:
+            models.append({
+                "path": str(p),
+                "name": p.name,
+                "size_mb": round(p.stat().st_size / (1024 ** 2), 1),
+                "modified": datetime.fromtimestamp(p.stat().st_mtime).isoformat(),
+                "is_active": False,
+                "type": f"slot_{start}_{end}",
+            })
+            seen.add(str(p))
+
+    return models
 
 # ============================================================
 # 检测参数
@@ -56,6 +276,11 @@ MOG2_RESET_IDLE_FRAMES = int(os.getenv("MOG2_RESET_IDLE_FRAMES", "100"))  # 连�
 LIGHT_CHANGE_THRESHOLD = float(os.getenv("LIGHT_CHANGE_THRESHOLD", "15.0"))  # 帧间亮度变化阈值 (0-255)
 LIGHT_CHANGE_LR_FACTOR = float(os.getenv("LIGHT_CHANGE_LR_FACTOR", "0.1"))  # 光照突变时学习率缩放因子
 USE_CUDA_PREPROCESS = os.getenv("USE_CUDA_PREPROCESS", "false").lower() == "true"  # MOG2/Sobel 使用 CUDA 加速
+ROI_CROP_ENABLED = os.getenv("ROI_CROP_ENABLED", "false").lower() == "true"  # MOG2 仅处理 ROI 区域（省算力，需重建背景模型）
+
+# ---- 帧环形缓冲 ----
+RING_BUFFER_SIZE = int(os.getenv("RING_BUFFER_SIZE", "150"))  # 缓冲帧数 (150 帧 ≈ 1.1GB)
+RING_BUFFER_JPEG_QUALITY = int(os.getenv("RING_BUFFER_JPEG_QUALITY", "70"))  # JPEG 质量 0-100
 
 # ---- Sobel边缘增强  ----
 EDGE_ENHANCE_ENABLED = os.getenv("EDGE_ENHANCE_ENABLED", "false").lower() == "true"
@@ -76,6 +301,7 @@ SAHI_ENABLED = os.getenv("SAHI_ENABLED", "false").lower() == "true"
 SAHI_SLICE_SIZE = int(os.getenv("SAHI_SLICE_SIZE", "640"))
 SAHI_OVERLAP_RATIO = float(os.getenv("SAHI_OVERLAP_RATIO", "0.20"))
 SAHI_MERGE_IOU = float(os.getenv("SAHI_MERGE_IOU", "0.50"))
+SAHI_MAX_SLICES = int(os.getenv("SAHI_MAX_SLICES", "16"))  # 最大切片数, 超限自动降 overlap 或增大 size
 
 # ---- 概率融合 (YOLO置信度 + MOG2前景证据) ----
 # P_joint = P_YOLO + (1 - P_YOLO) × motion_weight × P_MOG2
@@ -126,6 +352,19 @@ def scale_physics_for_video(fps: float, frame_height: int) -> tuple[float, float
 # 摄像头 / RTSP 流
 # ============================================================
 DEFAULT_CAMERA_URL = os.getenv("CAMERA_URL", "")          # RTSP 地址或 0(USB摄像头)
+# 注意: CAMERA_URL 可能含明文密码，生产环境请使用 CAMERA_URL_FILE 或 ENC: 前缀
+_CAM_URL = os.getenv("CAMERA_URL", "")
+_CAM_URL_FILE = os.getenv("CAMERA_URL_FILE", "")
+if _CAM_URL_FILE and Path(_CAM_URL_FILE).exists():
+    DEFAULT_CAMERA_URL = Path(_CAM_URL_FILE).read_text(encoding="utf-8").strip()
+elif _CAM_URL.startswith("ENC:"):
+    try:
+        from .secrets import resolve_secret
+        DEFAULT_CAMERA_URL = resolve_secret("CAMERA_URL", "")
+    except Exception:
+        DEFAULT_CAMERA_URL = _CAM_URL
+else:
+    DEFAULT_CAMERA_URL = _CAM_URL
 RTSP_TRANSPORT = os.getenv("RTSP_TRANSPORT", "tcp")       # RTSP 传输协议: tcp (可靠) | udp (低延迟)
 FFMPEG_EXTRA_OPTS = os.getenv("FFMPEG_EXTRA_OPTS", "")    # 额外 FFMPEG 选项, 如 hevc/hwaccel
 _ffmpeg_opts = f"rtsp_transport;{RTSP_TRANSPORT}"
@@ -140,7 +379,19 @@ CAMERA_RECONNECT_MAX_ATTEMPTS = int(os.getenv("CAMERA_RECONNECT_MAX_ATTEMPTS", "
 # ============================================================
 # PushPlus 微信推送
 # ============================================================
-PUSHPLUS_TOKEN = os.getenv("PUSHPLUS_TOKEN", "")
+# PushPlus Token 支持加密: PUSHPLUS_TOKEN=ENC:<base64> 或 PUSHPLUS_TOKEN_FILE=/run/secrets/...
+_PP_TOKEN = os.getenv("PUSHPLUS_TOKEN", "")
+_PP_TOKEN_FILE = os.getenv("PUSHPLUS_TOKEN_FILE", "")
+if _PP_TOKEN_FILE and Path(_PP_TOKEN_FILE).exists():
+    PUSHPLUS_TOKEN = Path(_PP_TOKEN_FILE).read_text(encoding="utf-8").strip()
+elif _PP_TOKEN.startswith("ENC:"):
+    try:
+        from .secrets import resolve_secret
+        PUSHPLUS_TOKEN = resolve_secret("PUSHPLUS_TOKEN", "")
+    except Exception:
+        PUSHPLUS_TOKEN = _PP_TOKEN
+else:
+    PUSHPLUS_TOKEN = _PP_TOKEN
 PUSHPLUS_TOPIC = os.getenv("PUSHPLUS_TOPIC", "")
 PUSHPLUS_URL = os.getenv("PUSHPLUS_URL", "http://www.pushplus.plus/send")
 ALERT_COOLDOWN_SECONDS = int(os.getenv("ALERT_COOLDOWN_SECONDS", "10"))
@@ -193,19 +444,33 @@ ALERT_MULTI_COUNT = int(os.getenv("ALERT_MULTI_COUNT", "3"))
 ALERT_MULTI_TOTAL_AREA_RATIO = float(os.getenv("ALERT_MULTI_TOTAL_AREA_RATIO", "0.01"))
 
 # ---- MySQL 数据库 (可选, 不配置则使用 SQLite) ----
+# 密码支持加密: MYSQL_PASSWORD=ENC:<base64> 或 MYSQL_PASSWORD_FILE=/run/secrets/db_password
+_DB_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
+_DB_PASSWORD_FILE = os.getenv("MYSQL_PASSWORD_FILE", "")
+if _DB_PASSWORD_FILE and Path(_DB_PASSWORD_FILE).exists():
+    MYSQL_PASSWORD = Path(_DB_PASSWORD_FILE).read_text(encoding="utf-8").strip()
+elif _DB_PASSWORD.startswith("ENC:"):
+    try:
+        from .secrets import resolve_secret
+        MYSQL_PASSWORD = resolve_secret("MYSQL_PASSWORD", "")
+    except Exception:
+        MYSQL_PASSWORD = _DB_PASSWORD
+else:
+    MYSQL_PASSWORD = _DB_PASSWORD
 MYSQL_HOST = os.getenv("MYSQL_HOST", "")
 MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
 MYSQL_USER = os.getenv("MYSQL_USER", "")
-MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
 MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "rock")
 
 # ---- FastSAM 边坡-公路分割 ----
 # 替代旧 SAM 独立进程 + 传统 CV, 利用 FastSAM + CLIP 文本提示精准分割
 FASTSAM_ENABLED = os.getenv("FASTSAM_ENABLED", "true").lower() == "true"
-FASTSAM_MODEL_NAME = os.getenv("FASTSAM_MODEL_NAME", "FastSAM-x.pt")
+FASTSAM_MODEL_NAME = os.getenv("FASTSAM_MODEL_NAME", str(MODELS_DIR / "FastSAM-x.pt"))
 FASTSAM_CONFIDENCE = float(os.getenv("FASTSAM_CONFIDENCE", "0.25"))
 FASTSAM_IOU = float(os.getenv("FASTSAM_IOU", "0.7"))
 FASTSAM_NUM_SAMPLES = int(os.getenv("FASTSAM_NUM_SAMPLES", "5"))    # 初始化多帧采样数
+FASTSAM_LIVE_SAMPLE_INTERVAL = float(os.getenv("FASTSAM_LIVE_SAMPLE_INTERVAL", "1.0"))  # RTSP 流采样间隔(秒)
+FASTSAM_MIN_QUALITY_SCORE = float(os.getenv("FASTSAM_MIN_QUALITY_SCORE", "0.6"))  # 采样质量最低分
 FASTSAM_USE_TEXT_PROMPT = os.getenv("FASTSAM_USE_TEXT_PROMPT", "true").lower() == "true"
 # 降级策略: FastSAM 失败时是否回退到传统 CV (road_detector.py)
 FASTSAM_FALLBACK_CV = os.getenv("FASTSAM_FALLBACK_CV", "true").lower() == "true"
@@ -225,8 +490,32 @@ ACTIVE_SITE_ID = os.getenv("ACTIVE_SITE_ID", "")
 IMAGE_URL_BASE = os.getenv("IMAGE_URL_BASE", "")
 WEB_HOST = os.getenv("WEB_HOST", "127.0.0.1")
 WEB_PORT = int(os.getenv("WEB_PORT", "8000"))
-STREAM_TOKEN = os.getenv("STREAM_TOKEN", "")
-API_KEY = os.getenv("API_KEY", "")
+# API Key / Stream Token 支持加密和 _FILE 后缀
+_API_KEY = os.getenv("API_KEY", "")
+_API_KEY_FILE = os.getenv("API_KEY_FILE", "")
+if _API_KEY_FILE and Path(_API_KEY_FILE).exists():
+    API_KEY = Path(_API_KEY_FILE).read_text(encoding="utf-8").strip()
+elif _API_KEY.startswith("ENC:"):
+    try:
+        from .secrets import resolve_secret
+        API_KEY = resolve_secret("API_KEY", "")
+    except Exception:
+        API_KEY = _API_KEY
+else:
+    API_KEY = _API_KEY
+
+_STREAM_TOKEN = os.getenv("STREAM_TOKEN", "")
+_STREAM_TOKEN_FILE = os.getenv("STREAM_TOKEN_FILE", "")
+if _STREAM_TOKEN_FILE and Path(_STREAM_TOKEN_FILE).exists():
+    STREAM_TOKEN = Path(_STREAM_TOKEN_FILE).read_text(encoding="utf-8").strip()
+elif _STREAM_TOKEN.startswith("ENC:"):
+    try:
+        from .secrets import resolve_secret
+        STREAM_TOKEN = resolve_secret("STREAM_TOKEN", "")
+    except Exception:
+        STREAM_TOKEN = _STREAM_TOKEN
+else:
+    STREAM_TOKEN = _STREAM_TOKEN
 
 
 def get_location() -> str:
@@ -242,6 +531,9 @@ def get_location() -> str:
     except Exception:
         return LOCATION
 
+# ---- 日志级别 (支持热更新) ----
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")  # DEBUG | INFO | WARN | ERROR
+
 # ---- 异步任务 / 流 ----
 TASK_CLEANUP_SECONDS = int(os.getenv("TASK_CLEANUP_SECONDS", "3600"))
 TASK_CLEANUP_STUCK_SECONDS = int(os.getenv("TASK_CLEANUP_STUCK_SECONDS", "7200"))
@@ -249,6 +541,60 @@ VIDEO_TASK_WORKERS = int(os.getenv("VIDEO_TASK_WORKERS", "2"))
 MJPEG_BLANK_WIDTH = int(os.getenv("MJPEG_BLANK_WIDTH", "640"))
 MJPEG_BLANK_HEIGHT = int(os.getenv("MJPEG_BLANK_HEIGHT", "360"))
 MJPEG_FRAME_INTERVAL = float(os.getenv("MJPEG_FRAME_INTERVAL", "0.05"))
+
+# ============================================================
+# 运行时配置热更新单例 (RuntimeConfig)
+# ============================================================
+# 所有检测器实例每帧从此单例读取最新值, 无需重启。
+# 使用: RuntimeConfig.get("SKIP_IDLE", SKIP_IDLE) — 返回运行时覆盖值或默认值
+
+class _RuntimeConfig:
+    """线程安全的运行时配置单例, 支持全参数热更新"""
+
+    def __init__(self):
+        self._overrides: dict[str, float | int | bool] = {}
+        self._lock = threading.Lock()
+
+    def get(self, key: str, default: float | int | bool) -> float | int | bool:
+        """读取运行时值, 未覆盖时返回默认值"""
+        with self._lock:
+            return self._overrides.get(key, default)
+
+    def set(self, key: str, value: float | int | bool):
+        """设置运行时覆盖值"""
+        with self._lock:
+            self._overrides[key] = value
+
+    def set_batch(self, updates: dict[str, float | int | bool]):
+        """批量设置运行时覆盖值"""
+        with self._lock:
+            self._overrides.update(updates)
+
+    def get_all_overrides(self) -> dict:
+        """获取所有已覆盖的值 (供前端展示)"""
+        with self._lock:
+            return dict(self._overrides)
+
+    def reset(self, key: str | None = None):
+        """重置指定 key 或全部覆盖值"""
+        with self._lock:
+            if key:
+                self._overrides.pop(key, None)
+            else:
+                self._overrides.clear()
+
+
+RuntimeConfig = _RuntimeConfig()
+
+
+# 辅助: 带热更新的参数读取
+def _rc(key: str, default: float | int | bool) -> float | int | bool:
+    """读取配置: RuntimeConfig 覆盖 > 环境变量/默认值"""
+    return RuntimeConfig.get(key, default)
+
+
+# ---- GPU 并发推理 ----
+GPU_CONCURRENCY = int(os.getenv("GPU_CONCURRENCY", "2"))  # 多路摄像头并发推理数, 1=串行
 
 # ============================================================
 # 推理设备检测

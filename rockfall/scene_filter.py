@@ -1,7 +1,13 @@
 """
 场景干扰抑制模块
 =================
-天空检测 / 车辆运动过滤 / 阴影去除
+在运动检测和YOLO推理前, 对常见场景干扰源进行预处理:
+
+  - detect_sky_region:   天空区域检测 (高亮度+低饱和度+低纹理)
+  - filter_vehicle_by_motion: 帧差法车辆运动过滤 (宽高比 > 2.0)
+  - remove_shadow:       c1c2c3颜色空间阴影去除
+
+这些滤波器用于减少运动误检和YOLO误报, 在山区公路监控场景中尤为重要。
 """
 
 import cv2
@@ -9,7 +15,20 @@ import numpy as np
 
 
 def detect_sky_region(frame: np.ndarray) -> np.ndarray:
-    """检测天空区域掩码"""
+    """
+    检测天空区域掩码。
+
+    基于三个特征联合判定:
+      1. 亮度: HSV V通道 > 180, S通道 < 50
+      2. 纹理: Canny边缘密度 < 20 (天空区域平滑)
+      3. 位置: 仅画面顶部 1/3 区域
+
+    参数:
+        frame: BGR 输入图像 (H, W, 3)
+
+    返回:
+        uint8 二值掩码 (H, W), 255=天空区域
+    """
     h, w = frame.shape[:2]
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)

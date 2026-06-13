@@ -101,5 +101,8 @@ class TaskStatusResponse(BaseModel):
     """异步任务状态查询响应"""
     task_id: str
     status: str = Field(..., description="processing / completed / failed")
+    progress: float = Field(0.0, description="进度百分比 0-100")
+    current_frame: int = Field(0, description="当前处理帧数")
+    total_frames: int = Field(0, description="视频总帧数")
     result: Optional[dict] = Field(None, description="检测结果 (completed 时有效)")
     error: Optional[str] = Field(None, description="错误信息 (failed 时有效)")

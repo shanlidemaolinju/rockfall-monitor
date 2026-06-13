@@ -31,5 +31,17 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=rockfall
 
+# ════════════════════════════════════════════════════
+# Journald 日志保留策略（编辑 /etc/systemd/journald.conf）:
+#   MaxRetentionSec=30day
+#   MaxFileSec=1week
+#   SystemMaxUse=500M
+#
+# Logrotate 配置（JSONL 文件轮转）:
+#   sudo cp deploy/rockfall-logrotate.conf /etc/logrotate.d/rockfall
+#   sudo logrotate -d /etc/logrotate.d/rockfall  # 测试语法
+#   sudo logrotate -f /etc/logrotate.d/rockfall  # 手动强制执行
+# ════════════════════════════════════════════════════
+
 [Install]
 WantedBy=multi-user.target

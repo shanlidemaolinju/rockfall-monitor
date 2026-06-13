@@ -31,7 +31,12 @@ from desktop.ui.main_window import MainWindow
 
 
 def main():
+    from rockfall.trace import set_session_id
     from rockfall.config import get_device
+
+    # 生成本次桌面会话 ID（所有日志/告警可溯源）
+    set_session_id()
+
     device_str, device_name = get_device()
     print(f"[推理设备] {device_name} ({device_str})")
 

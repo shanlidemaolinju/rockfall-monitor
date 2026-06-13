@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0d1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>RockGuard 移动端</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        bg: '#0d1117',
+        card: '#161b22',
+        border: '#30363d',
+        text: '#c9d1d9',
+        muted: '#8b949e',
+        red: '#f85149',
+        orange: '#f0883e',
+        yellow: '#d29922',
+        blue: '#58a6ff',
+        green: '#3fb950',
+      }
+    }
+  }
+}
+</script>
+<style>
+  * { -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .alert-card { transition: transform .15s ease; }
+  .alert-card:active { transform: scale(0.98); }
+  .level-dot {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    margin-right: 4px;
+    flex-shrink: 0;
+  }
+  .level-dot.red { background: #f85149; box-shadow: 0 0 6px #f85149; }
+  .level-dot.orange { background: #f0883e; box-shadow: 0 0 6px #f0883e; }
+  .level-dot.yellow { background: #d29922; box-shadow: 0 0 6px #d29922; }
+  .level-dot.blue { background: #58a6ff; box-shadow: 0 0 6px #58a6ff; }
+  .image-modal { display: none; }
+  .image-modal.active { display: flex; }
+  .refresh-spin { transition: transform .6s ease; }
+  .refresh-spin.spinning { transform: rotate(360deg); }
+  @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .live-pulse { animation: pulse-dot 2s infinite; }
+  .tab-btn.active { color: #58a6ff; border-bottom: 2px solid #58a6ff; }
+</style>
+</head>
+<body class="bg-[#0d1117] text-[#c9d1d9] min-h-screen pb-16">
+
+<!-- ═══════════════════════════════════════════════════════════
+     Header
+     ═══════════════════════════════════════════════════════════ -->
+<header class="bg-[#161b22] border-b border-[#30363d] px-4 py-3 sticky top-0 z-50">
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-base font-semibold">🪨 RockGuard</h1>
+      <p class="text-[11px] text-[#8b949e]">公路自然灾害监测预警</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="text-[11px] text-[#8b949e]">今日预警</span>
+      <span id="today-badge" class="bg-[#f85149] text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">--</span>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Tab 导航
+     ═══════════════════════════════════════════════════════════ -->
+<nav class="flex bg-[#161b22] border-b border-[#30363d] sticky top-[60px] z-40">
+  <button class="tab-btn active flex-1 py-2.5 text-sm text-[#8b949e] font-medium"
+          data-tab="alerts" onclick="switchTab('alerts')">📋 预警列表</button>
+  <button class="tab-btn flex-1 py-2.5 text-sm text-[#8b949e] font-medium"
+          data-tab="sites" onclick="switchTab('sites')">📍 监测点位</button>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Tab: 预警列表
+     ═══════════════════════════════════════════════════════════ -->
+<div id="tab-alerts" class="px-3 pt-3">
+  <!-- 筛选栏 -->
+  <div class="flex gap-2 mb-3 overflow-x-auto pb-1">
+    <button class="level-filter active text-xs px-3 py-1 rounded-full border border-[#30363d] bg-transparent text-[#8b949e]"
+            data-level="" onclick="filterByLevel('', this)">全部</button>
+    <button class="level-filter text-xs px-3 py-1 rounded-full border border-[#30363d] bg-transparent text-[#8b949e]"
+            data-level="red" onclick="filterByLevel('red', this)">
+      <span class="level-dot red" style="width:6px;height:6px;"></span>Ⅰ级红色</button>
+    <button class="level-filter text-xs px-3 py-1 rounded-full border border-[#30363d] bg-transparent text-[#8b949e]"
+            data-level="orange" onclick="filterByLevel('orange', this)">
+      <span class="level-dot orange" style="width:6px;height:6px;"></span>Ⅱ级橙色</button>
+    <button class="level-filter text-xs px-3 py-1 rounded-full border border-[#30363d] bg-transparent text-[#8b949e]"
+            data-level="yellow" onclick="filterByLevel('yellow', this)">
+      <span class="level-dot yellow" style="width:6px;height:6px;"></span>Ⅲ级黄色</button>
+    <button class="level-filter text-xs px-3 py-1 rounded-full border border-[#30363d] bg-transparent text-[#8b949e]"
+            data-level="blue" onclick="filterByLevel('blue', this)">
+      <span class="level-dot blue" style="width:6px;height:6px;"></span>Ⅳ级蓝色</button>
+  </div>
+
+  <!-- 预警卡片列表 -->
+  <div id="alert-list" class="space-y-2">
+    <div class="text-center py-8 text-[#8b949e] text-sm">加载中...</div>
+  </div>
+
+  <!-- 加载更多 -->
+  <div id="load-more-area" class="text-center py-4">
+    <button id="load-more-btn" onclick="loadMoreAlerts()"
+            class="text-sm text-[#58a6ff] bg-transparent border border-[#30363d] rounded px-4 py-1.5">
+      加载更多
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Tab: 监测点位
+     ═══════════════════════════════════════════════════════════ -->
+<div id="tab-sites" class="px-3 pt-3 hidden">
+  <div id="sites-list" class="space-y-2">
+    <div class="text-center py-8 text-[#8b949e] text-sm">加载中...</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     图片预览模态框
+     ═══════════════════════════════════════════════════════════ -->
+<div id="image-modal" class="image-modal fixed inset-0 bg-black/90 z-[999] items-center justify-center"
+     onclick="closeImageModal()">
+  <span class="absolute top-4 right-4 text-white text-2xl cursor-pointer">&times;</span>
+  <img id="image-modal-img" src="" alt="截图预览"
+       class="max-w-[95vw] max-h-[85vh] object-contain rounded"
+       onclick="event.stopPropagation()">
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Toast
+     ═══════════════════════════════════════════════════════════ -->
+<div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-[1000] flex flex-col gap-1 pointer-events-none"></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Bottom Bar
+     ═══════════════════════════════════════════════════════════ -->
+<footer class="fixed bottom-0 left-0 right-0 bg-[#161b22] border-t border-[#30363d] px-4 py-2 flex items-center justify-between z-40">
+  <span class="text-[11px] text-[#8b949e]">🟢 系统运行中</span>
+  <button onclick="refreshData()" class="text-[#58a6ff] text-sm" id="refresh-btn">🔄 刷新</button>
+</footer>
+
+<script>
+// ============================================================
+// 状态
+// ============================================================
+let currentLevel = '';
+let currentPage = 1;
+let currentTab = 'alerts';
+const PAGE_SIZE = 15;
+
+// ============================================================
+// 初始化
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  loadTodayStats();
+  loadAlerts(1);
+  initAutoRefresh();
+});
+
+// Auto-refresh every 30s
+let _autoRefreshInterval = null;
+function initAutoRefresh() {
+  _autoRefreshInterval = setInterval(() => {
+    loadTodayStats();
+    if (currentTab === 'alerts' && currentPage === 1) {
+      loadAlerts(1, true); // silent refresh
+    }
+  }, 30000);
+}
+
+// ============================================================
+// Tab 切换
+// ============================================================
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('[data-tab="' + tab + '"]').classList.add('active');
+  document.getElementById('tab-alerts').classList.toggle('hidden', tab !== 'alerts');
+  document.getElementById('tab-sites').classList.toggle('hidden', tab !== 'sites');
+  if (tab === 'sites') loadSites();
+}
+
+// ============================================================
+// 今日统计
+// ============================================================
+async function loadTodayStats() {
+  try {
+    const r = await fetch('/api/stats');
+    const data = await r.json();
+    const total = (data.today_red || 0) + (data.today_orange || 0) + (data.today_yellow || 0) + (data.today_blue || 0);
+    document.getElementById('today-badge').textContent = total;
+  } catch(e) {
+    document.getElementById('today-badge').textContent = '--';
+  }
+}
+
+// ============================================================
+// 预警列表
+// ============================================================
+async function loadAlerts(page, silent = false) {
+  currentPage = page;
+  const list = document.getElementById('alert-list');
+  if (!silent) {
+    list.innerHTML = '<div class="text-center py-8 text-[#8b949e] text-sm">加载中...</div>';
+  }
+
+  try {
+    let url = '/api/alerts/paged?page=' + page + '&page_size=' + PAGE_SIZE;
+    if (currentLevel) url += '&alert_level=' + currentLevel;
+
+    const r = await fetch(url);
+    const data = await r.json();
+
+    if (page === 1) {
+      list.innerHTML = '';
+    }
+
+    if (!data.rows || data.rows.length === 0) {
+      if (page === 1) list.innerHTML = '<div class="text-center py-12 text-[#8b949e] text-sm">暂无预警记录 🎉</div>';
+      document.getElementById('load-more-area').style.display = 'none';
+      return;
+    }
+
+    data.rows.forEach(alert => {
+      list.appendChild(createAlertCard(alert));
+    });
+
+    // 加载更多按钮
+    const hasMore = data.page < data.total_pages;
+    document.getElementById('load-more-area').style.display = hasMore ? 'block' : 'none';
+  } catch(e) {
+    if (page === 1) list.innerHTML = '<div class="text-center py-8 text-[#f85149] text-sm">加载失败，请检查网络</div>';
+  }
+}
+
+function loadMoreAlerts() {
+  loadAlerts(currentPage + 1);
+}
+
+function filterByLevel(level, btn) {
+  currentLevel = level;
+  document.querySelectorAll('.level-filter').forEach(b => {
+    b.classList.remove('active');
+    b.style.background = 'transparent';
+    b.style.color = '';
+  });
+  btn.classList.add('active');
+  btn.style.background = 'rgba(88,166,255,0.15)';
+  btn.style.color = '#58a6ff';
+  loadAlerts(1);
+}
+
+function createAlertCard(alert) {
+  const card = document.createElement('div');
+  card.className = 'alert-card bg-[#161b22] border border-[#30363d] rounded-lg p-3';
+
+  const levelColors = { red: '#f85149', orange: '#f0883e', yellow: '#d29922', blue: '#58a6ff' };
+  const levelLabels = { red: 'Ⅰ级红色', orange: 'Ⅱ级橙色', yellow: 'Ⅲ级黄色', blue: 'Ⅳ级蓝色' };
+  const levelIcons = { red: '🚨', orange: '🔶', yellow: '⚠️', blue: 'ℹ️' };
+  const level = alert.alert_level || 'blue';
+  const dotColor = levelColors[level] || '#58a6ff';
+  const label = levelLabels[level] || level;
+  const icon = levelIcons[level] || '📋';
+
+  // 是否有截图
+  const hasImage = alert.saved_frame && alert.saved_frame !== '';
+  const imgUrl = '/api/alerts/' + alert.id + '/image';
+  const imageHtml = hasImage
+    ? `<img src="${imgUrl}"
+           alt="检测截图" loading="lazy"
+           class="w-16 h-12 object-cover rounded border border-[#30363d] cursor-pointer flex-shrink-0"
+           onclick="event.stopPropagation();openImageModal('${imgUrl}')"
+           onerror="this.style.display='none'">`
+    : '';
+
+  card.innerHTML = `
+    <div class="flex items-start justify-between mb-1.5">
+      <div class="flex items-center gap-1.5">
+        <span class="level-dot ${level}"></span>
+        <span class="text-xs font-semibold" style="color:${dotColor}">${icon} ${label}</span>
+      </div>
+      <span class="text-[11px] text-[#8b949e]">${alert.time || '--'}</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="flex-1 min-w-0">
+        <div class="text-xs text-[#8b949e]">
+          检测目标: <span class="text-[#c9d1d9] font-medium">${alert.count || 0}</span> 个
+          ${alert.max_confidence ? '| 置信度: <span class="text-[#c9d1d9] font-medium">' + (alert.max_confidence * 100).toFixed(1) + '%</span>' : ''}
+        </div>
+        ${alert.class_summary ? '<div class="text-[11px] text-[#8b949e] mt-0.5 truncate">' + alert.class_summary + '</div>' : ''}
+        ${alert.track_ids && alert.track_ids.length ? '<div class="text-[11px] text-[#8b949e] mt-0.5">跟踪ID: ' + alert.track_ids.slice(0,5).join(', ') + '</div>' : ''}
+        ${alert.push_status ? '<div class="text-[11px] mt-0.5 ' + (alert.push_status === 'sent' ? 'text-[#3fb950]' : 'text-[#8b949e]') + '">推送: ' + alert.push_status + '</div>' : ''}
+      </div>
+      ${imageHtml}
+    </div>
+  `;
+
+  // 点击卡片显示详情 toast
+  card.addEventListener('click', () => {
+    showToast(`${icon} ${label} — 检测到 ${alert.count} 个目标 (置信度 ${((alert.max_confidence || 0) * 100).toFixed(0)}%)`);
+  });
+
+  return card;
+}
+
+// ============================================================
+// 图片预览
+// ============================================================
+function openImageModal(src) {
+  document.getElementById('image-modal-img').src = src;
+  document.getElementById('image-modal').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeImageModal() {
+  document.getElementById('image-modal').classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+// ============================================================
+// 监测点位
+// ============================================================
+async function loadSites() {
+  const list = document.getElementById('sites-list');
+  list.innerHTML = '<div class="text-center py-8 text-[#8b949e] text-sm">加载中...</div>';
+  try {
+    const r = await fetch('/api/sites');
+    const data = await r.json();
+    if (!data.sites || data.sites.length === 0) {
+      list.innerHTML = '<div class="text-center py-12 text-[#8b949e] text-sm">暂无配置点位</div>';
+      return;
+    }
+    list.innerHTML = '';
+    data.sites.forEach(site => {
+      const card = document.createElement('div');
+      card.className = 'bg-[#161b22] border border-[#30363d] rounded-lg p-3';
+      const riskColor = site.risk_level === 'high' ? '#f85149' : site.risk_level === 'medium' ? '#f0883e' : '#3fb950';
+      const riskLabel = site.risk_level === 'high' ? '高风险' : site.risk_level === 'medium' ? '中风险' : '低风险';
+      card.innerHTML = `
+        <div class="flex items-start justify-between mb-1">
+          <div>
+            <h3 class="text-sm font-medium text-[#c9d1d9]">📍 ${site.name || site.site_id}</h3>
+            <p class="text-[11px] text-[#8b949e]">${site.location || site.region || '--'}</p>
+          </div>
+          <span class="text-[11px] px-2 py-0.5 rounded-full" style="background:${riskColor}22;color:${riskColor}">${riskLabel}</span>
+        </div>
+        ${site.highway ? '<div class="text-[11px] text-[#8b949e]">🛣 ' + site.highway + (site.stake_mark ? ' ' + site.stake_mark : '') + '</div>' : ''}
+        ${site.latitude && site.longitude ? '<div class="text-[11px] text-[#8b949e] mt-1">📍 ' + site.latitude + ', ' + site.longitude + '</div>' : ''}
+      `;
+      list.appendChild(card);
+    });
+  } catch(e) {
+    list.innerHTML = '<div class="text-center py-8 text-[#f85149] text-sm">加载失败</div>';
+  }
+}
+
+// ============================================================
+// 刷新 & Toast
+// ============================================================
+function refreshData() {
+  const btn = document.getElementById('refresh-btn');
+  btn.textContent = '⏳ 刷新中...';
+  btn.classList.add('spinning');
+
+  loadTodayStats();
+  if (currentTab === 'alerts') loadAlerts(1);
+  if (currentTab === 'sites') loadSites();
+
+  setTimeout(() => {
+    btn.textContent = '🔄 刷新';
+    btn.classList.remove('spinning');
+    showToast('✅ 已刷新');
+  }, 800);
+}
+
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  const div = document.createElement('div');
+  div.className = 'bg-[#161b22] border border-[#30363d] text-[#c9d1d9] text-xs px-3 py-1.5 rounded shadow-lg';
+  div.style.animation = 'fadeInOut 2.5s ease forwards';
+  div.textContent = msg;
+  el.appendChild(div);
+  setTimeout(() => div.remove(), 2600);
+}
+
+// ============================================================
+// PWA: 下拉刷新模拟 (touch-based)
+// ============================================================
+let _touchStartY = 0;
+document.addEventListener('touchstart', (e) => {
+  _touchStartY = e.touches[0].clientY;
+}, { passive: true });
+
+document.addEventListener('touchend', (e) => {
+  const dy = e.changedTouches[0].clientY - _touchStartY;
+  if (dy > 80 && window.scrollY < 10) {
+    refreshData();
+  }
+});
+</script>
+
+<style>
+@keyframes fadeInOut {
+  0% { opacity: 0; transform: translateY(-8px); }
+  15% { opacity: 1; transform: translateY(0); }
+  75% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-8px); }
+}
+</style>
+</body>
+</html>

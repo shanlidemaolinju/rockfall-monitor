@@ -1,7 +1,14 @@
 """
-ROI生成 — 纯基准版
-====================
-颜色0.30/0.7/20 + 纹理P50 + 梯度P55 + 85%几何
+ROI 边坡区域生成 — 纯传统CV
+==============================
+基于多特征融合的边坡区域检测:
+  - 颜色: HSV饱和度 + LAB a通道 → 植被/岩石/土壤区域
+  - 纹理: Laplacian方差 → 粗糙的边坡表面
+  - 边缘: Sobel梯度幅值 → 边坡轮廓
+  - 几何: 最大连通域过滤
+
+用于 FastSAM 不可用时的降级兜底, 或作为 FastSAM 结果的补充验证。
+
 底部自适应: 有路92%, 全坡98%
 """
 
@@ -10,7 +17,15 @@ import numpy as np
 
 
 def generate_roi(frame: np.ndarray) -> np.ndarray:
-    """255=边坡, 0=排除"""
+    """
+    生成边坡ROI掩码 (纯传统CV, 无训练依赖)。
+
+    参数:
+        frame: BGR 输入图像 (H, W, 3)
+
+    返回:
+        uint8 二值掩码 (H, W), 255=边坡区域, 0=排除区域
+    """
     h, w = frame.shape[:2]
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)

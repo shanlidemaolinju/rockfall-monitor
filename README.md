@@ -194,6 +194,17 @@ docker-compose up -d
 - **推送**: PushPlus 微信 API
 - **部署**: Docker + Nginx
 
+## 文档
+
+| 文档 | 说明 |
+|------|------|
+| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | 完整部署文档（环境要求、Docker/手动部署、systemd + Nginx、验证） |
+| [OPERATIONS.md](docs/OPERATIONS.md) | 运维手册（每日巡检清单、7 个常见故障排查、备份恢复、性能调优） |
+| [USER_GUIDE.md](docs/USER_GUIDE.md) | 用户手册（Web SPA 看板、移动端 H5、API 文档、工单流转、比赛展示建议） |
+| [API.md](docs/API.md) | API 参考（端点列表、认证说明、项目结构） |
+| [DEPLOY.md](docs/DEPLOY.md) | 部署指南简明版（快速参考） |
+| [deploy.md](deploy.md) | Linux 服务器部署速查 |
+
 ## 许可证
 
 Educational Use — 钦州监测点课程设计项目

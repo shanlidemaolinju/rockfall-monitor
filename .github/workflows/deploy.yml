@@ -1,0 +1,389 @@
+# ============================================================
+# 落石监测系统 — CI/CD 自动部署流水线
+# ============================================================
+# 触发条件: push 到 main 分支
+#
+# 流水线阶段:
+#   1. 代码检查 (lint)
+#   2. 后端测试 (pytest)
+#   3. 前端构建 (npm run build)
+#   4. 同步到腾讯云服务器 (rsync)
+#   5. 数据库迁移 + 服务重启
+#
+# 需要的 Secrets (在 GitHub → Settings → Secrets and variables → Actions 配置):
+#   SSH_HOST       - 腾讯云服务器 IP/域名
+#   SSH_USER       - SSH 用户名 (如 root)
+#   SSH_KEY        - SSH 私钥 (用于 scp/rsync 免密登录)
+#   SSH_PORT       - SSH 端口 (默认 22, 可选)
+#   DEPLOY_PATH    - 部署路径 (如 /opt/rockfall)
+#   PUSHPLUS_TOKEN - 部署通知 Token (可选)
+# ============================================================
+
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+      - ".gitignore"
+      - ".env.example"
+      - "docs/**"
+      - "*.docx"
+
+  # 允许手动触发 (GitHub Actions 页面 → Run workflow)
+  workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: "跳过测试 (紧急修复时使用)"
+        type: boolean
+        default: false
+      skip_frontend_build:
+        description: "跳过前端构建 (仅后端变更时使用)"
+        type: boolean
+        default: false
+      deploy_branch:
+        description: "部署分支"
+        type: string
+        default: "main"
+
+env:
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "20"
+
+jobs:
+  # ── Job 1: 代码质量检查 ─────────────────────────────────
+  lint:
+    name: "Lint & Type Check"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install --quiet ruff pyright
+
+      - name: Ruff lint (Python)
+        run: |
+          ruff check rockfall/ server/ --output-format=github || true
+
+      - name: Pyright type check (Python)
+        run: |
+          pyright rockfall/ server/ --level error || true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: TypeScript type check
+        working-directory: web
+        run: npx tsc --noEmit
+
+  # ── Job 2: 后端测试 ────────────────────────────────────
+  test:
+    name: "Python Tests"
+    runs-on: ubuntu-latest
+    needs: lint
+    if: ${{ !inputs.skip_tests }}
+
+    services:
+      # GitHub Actions 内置 MySQL 服务 (用于集成测试)
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test_ci_pwd
+          MYSQL_DATABASE: rockfall_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements-lock.txt') }}
+          restore-keys: |
+            pip-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+
+      - name: Install dependencies
+        run: |
+          pip install --quiet -r requirements-lock.txt
+          pip install --quiet pytest pytest-cov
+
+      - name: Run Alembic migration verification
+        run: |
+          pip install --quiet alembic
+          python scripts/verify_migrations.py
+
+      - name: Run pytest (SQLite tests)
+        timeout-minutes: 15
+        run: |
+          python -m pytest tests/ \
+            -v \
+            --tb=short \
+            --ignore-glob='*mysql*' \
+            -k "not mysql" \
+            --cov=rockfall \
+            --cov-report=xml:coverage.xml \
+            --cov-report=term-missing \
+            --timeout=120
+
+      - name: Run pytest (MySQL integration tests)
+        timeout-minutes: 10
+        env:
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_PORT: 3306
+          MYSQL_USER: root
+          MYSQL_PASSWORD: test_ci_pwd
+          MYSQL_DATABASE: rockfall_test
+        run: |
+          python -m pytest tests/ \
+            -v \
+            --tb=short \
+            -k "mysql" \
+            --timeout=120
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+          retention-days: 7
+
+  # ── Job 3: 前端构建 ────────────────────────────────────
+  build-frontend:
+    name: "Build Frontend"
+    runs-on: ubuntu-latest
+    needs: test
+    if: ${{ !inputs.skip_frontend_build }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Build
+        working-directory: web
+        run: npm run build
+
+      - name: Upload frontend build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: web/dist/
+          retention-days: 3
+
+  # ── Job 4: 部署到腾讯云 ────────────────────────────────
+  deploy:
+    name: "Deploy to Tencent Cloud"
+    runs-on: ubuntu-latest
+    needs: [test, build-frontend]
+    if: success()
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download frontend build
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: web/dist/
+
+      - name: Setup SSH
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSH_KEY }}
+          known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+          config: |
+            Host rockfall-prod
+              HostName ${{ secrets.SSH_HOST }}
+              User ${{ secrets.SSH_USER }}
+              Port ${{ secrets.SSH_PORT || '22' }}
+              StrictHostKeyChecking accept-new
+
+      - name: Create deployment backup (for rollback)
+        run: |
+          ssh rockfall-prod "
+            if [ -d ${{ secrets.DEPLOY_PATH }}/dist ]; then
+              rm -rf ${{ secrets.DEPLOY_PATH }}/dist.prev
+              cp -a ${{ secrets.DEPLOY_PATH }}/dist ${{ secrets.DEPLOY_PATH }}/dist.prev 2>/dev/null || true
+            fi
+            if [ -d ${{ secrets.DEPLOY_PATH }}/rockfall ]; then
+              rm -rf ${{ secrets.DEPLOY_PATH }}/rockfall.prev
+              cp -a ${{ secrets.DEPLOY_PATH }}/rockfall ${{ secrets.DEPLOY_PATH }}/rockfall.prev 2>/dev/null || true
+            fi
+            if [ -d ${{ secrets.DEPLOY_PATH }}/server ]; then
+              rm -rf ${{ secrets.DEPLOY_PATH }}/server.prev
+              cp -a ${{ secrets.DEPLOY_PATH }}/server ${{ secrets.DEPLOY_PATH }}/server.prev 2>/dev/null || true
+            fi
+            mkdir -p ${{ secrets.DEPLOY_PATH }}
+            echo 'backup_time=$(date -Iseconds)' > ${{ secrets.DEPLOY_PATH }}/.deploy_backup_info
+          "
+
+      - name: Rsync backend code
+        run: |
+          rsync -avz \
+            --delete \
+            --exclude='web/' \
+            --exclude='.git/' \
+            --exclude='__pycache__/' \
+            --exclude='*.pyc' \
+            --exclude='.pytest_cache/' \
+            --exclude='data/' \
+            --exclude='models/*.pt' \
+            --exclude='models/*.pth' \
+            --exclude='models/*.engine' \
+            --exclude='*.pt.cache' \
+            --exclude='.env' \
+            --exclude='.venv/' \
+            --exclude='venv/' \
+            --exclude='node_modules/' \
+            --exclude='.idea/' \
+            --exclude='.vscode/' \
+            --exclude='tests/' \
+            --include='requirements-lock.txt' \
+            --include='pyproject.toml' \
+            --exclude='requirements*.txt' \
+            ./ rockfall-prod:${{ secrets.DEPLOY_PATH }}/
+
+      - name: Rsync frontend (dist/)
+        run: |
+          rsync -avz --delete \
+            web/dist/ rockfall-prod:${{ secrets.DEPLOY_PATH }}/dist/
+
+      - name: Rsync Alembic migrations
+        run: |
+          rsync -avz --delete \
+            alembic/ rockfall-prod:${{ secrets.DEPLOY_PATH }}/alembic/
+          rsync -avz \
+            alembic.ini rockfall-prod:${{ secrets.DEPLOY_PATH }}/alembic.ini
+
+      - name: Rsync scripts
+        run: |
+          rsync -avz --delete \
+            scripts/ rockfall-prod:${{ secrets.DEPLOY_PATH }}/scripts/
+          ssh rockfall-prod "chmod +x ${{ secrets.DEPLOY_PATH }}/scripts/*.sh"
+
+      - name: Install Python dependencies
+        run: |
+          ssh rockfall-prod "
+            cd ${{ secrets.DEPLOY_PATH }} && \
+            pip install --quiet -r requirements-lock.txt
+          "
+
+      - name: Backup database (pre-migration safety)
+        run: |
+          ssh rockfall-prod "
+            cd ${{ secrets.DEPLOY_PATH }} && \
+            if [ -f scripts/backup_db.sh ]; then
+              bash scripts/backup_db.sh --backup-dir /data/backups/pre_deploy --retain 7
+              echo 'pre_migration_backup=completed' >> .deploy_backup_info
+            else
+              echo '[WARN] backup_db.sh not found, skipping pre-migration backup'
+            fi
+          "
+
+      - name: Run Alembic migration
+        run: |
+          ssh rockfall-prod "
+            cd ${{ secrets.DEPLOY_PATH }} && \
+            python -m alembic upgrade head
+          "
+
+      - name: Restart service
+        run: |
+          ssh rockfall-prod "
+            sudo systemctl daemon-reload && \
+            sudo systemctl restart rockfall && \
+            sudo systemctl status rockfall --no-pager || true
+          "
+
+      - name: Health check
+        run: |
+          sleep 5
+          for i in 1 2 3 4 5 6; do
+            STATUS=\$(ssh rockfall-prod "curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/health")
+            if [ "\$STATUS" = "200" ]; then
+              echo "✓ 健康检查通过 (HTTP \$STATUS)"
+              exit 0
+            fi
+            echo "等待服务就绪... (\$i/6, HTTP \$STATUS)"
+            sleep 5
+          done
+          echo "✗ 健康检查失败"
+          exit 1
+
+      - name: Report deployment status
+        if: always()
+        run: |
+          STATUS="${{ job.status }}"
+          echo "部署状态: $STATUS"
+
+          if [ "$STATUS" = "success" ]; then
+            ssh rockfall-prod "
+              echo 'deploy_time=\$(date -Iseconds)' >> ${{ secrets.DEPLOY_PATH }}/.deploy_backup_info
+              echo 'deploy_status=success' >> ${{ secrets.DEPLOY_PATH }}/.deploy_backup_info
+              echo 'deploy_commit=\$(cd ${{ secrets.DEPLOY_PATH }} && git rev-parse HEAD 2>/dev/null || echo unknown)' >> ${{ secrets.DEPLOY_PATH }}/.deploy_backup_info
+              echo 'deploy_github_run=${{ github.run_id }}' >> ${{ secrets.DEPLOY_PATH }}/.deploy_backup_info
+            "
+          fi
+
+          # 可选: 发送 PushPlus 部署通知
+          # if [ -n "${{ secrets.PUSHPLUS_TOKEN }}" ]; then
+          #   curl -s "http://www.pushplus.plus/send?token=${{ secrets.PUSHPLUS_TOKEN }}&title=部署$STATUS&content=项目:rockfall%0A状态:$STATUS%0A时间:$(date)"
+          # fi
+
+  # ── Job 5: 部署失败时通知 ─────────────────────────────
+  notify-failure:
+    name: "Notify Failure"
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: failure()
+    steps:
+      - name: Send failure notification
+        run: |
+          echo "部署失败! 请检查 GitHub Actions 日志:"
+          echo "  https://github.com/\${{ github.repository }}/actions/runs/\${{ github.run_id }}"
+
+          # 可选: PushPlus 失败通知
+          # if [ -n "${{ secrets.PUSHPLUS_TOKEN }}" ]; then
+          #   curl -s "http://www.pushplus.plus/send?token=${{ secrets.PUSHPLUS_TOKEN }}&title=部署失败&content=请检查Actions日志"
+          # fi

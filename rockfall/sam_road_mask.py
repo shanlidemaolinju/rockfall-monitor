@@ -13,6 +13,8 @@ import tempfile
 from pathlib import Path
 
 import cv2
+
+from .logger import log_event
 import numpy as np
 
 _MASKS_DIR = Path(__file__).resolve().parent.parent / "data" / "masks"
@@ -66,10 +68,10 @@ def segment_road_with_box_prompt(
             str(tmp_dir), str(output), str(fw), str(fh), cache_key,
         ], capture_output=True, text=True, encoding='utf-8', errors='ignore', timeout=180)
         if result.returncode != 0:
-            print(f"[SAM] subprocess failed (code {result.returncode})")
+            log_event("system", level="ERROR", msg=f"SAM 子进程失败 (code {result.returncode})")
             return None
     except Exception as e:
-        print(f"[SAM] 子进程异常: {e}")
+        log_event("system", level="ERROR", msg=f"SAM 子进程异常: {e}")
         return None
 
     # 读取结果

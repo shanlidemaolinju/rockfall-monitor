@@ -10,8 +10,8 @@ FROM ultralytics/ultralytics:8.3.133-cpu
 WORKDIR /app
 
 # 安装 Python 依赖
-COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade -r requirements.txt
+COPY requirements-lock.txt .
+RUN pip install --no-cache-dir --upgrade -r requirements-lock.txt
 
 # 复制全部源码
 COPY . .

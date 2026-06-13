@@ -1,22 +1,52 @@
 """
-ROI质量评估与自适应降级
-=========================
+ROI 质量评估与自适应降级
+==========================
+在启动阶段评估道路/边坡分割结果的可靠性, 决定使用自动分割还是回退手动ROI。
+
+评估维度:
+  1. 边界清晰度: 道路边界梯度强度
+  2. 颜色一致性: 道路区域V通道方差
+  3. 形状合理性: 多边形凸度
+  4. 底部连通性: 道路是否延伸到底部
+  5. 道路占比: 理想 20%-40%
+  6. 天空占比: 惩罚含大量天空的分割
+  7. 右半部分覆盖: 山区道路通常在画面右侧
+  8. 上半部分占比: 边坡应在中上部
 """
 
 import cv2
 import numpy as np
 
 
-def evaluate_roi_quality(road_mask: np.ndarray, frame: np.ndarray,
-                         polygon: np.ndarray) -> dict:
+def evaluate_roi_quality(
+    road_mask: np.ndarray,
+    frame: np.ndarray,
+    polygon: np.ndarray,
+) -> dict:
     """
-    评估ROI质量。
+    评估ROI分割质量, 输出置信度分数与降级建议。
 
-    维度:
-      1. 边界清晰度: 道路边界梯度强度
-      2. 颜色一致性: 道路区域V通道方差
-      3. 形状合理性: 多边形凸度
-      4. 底部连通性: 道路是否延伸到底部
+    参数:
+        road_mask: 道路掩码 (H, W) uint8, 255=道路
+        frame:     原始BGR图像 (H, W, 3)
+        polygon:   ROI多边形顶点 (N, 2) int32
+
+    返回:
+        {
+            'confidence': float       # 综合置信度 (0~1)
+            'details': {               # 各维度归一化得分
+                'edge_sharpness': float,
+                'color_consistency': float,
+                'convexity': float,
+                'bottom_connectivity': float,
+                'road_pct_score': float,
+                'sky_score': float,
+                'right_coverage': float,
+                'upper_half_ratio': float,
+            },
+            'is_reliable': bool       # 是否可信 (>0.65)
+            'needs_fallback': bool     # 是否需要降级到手动ROI (<0.4)
+        }
     """
     h, w = road_mask.shape
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)

@@ -10,8 +10,8 @@ FROM ultralytics/ultralytics:latest
 WORKDIR /app
 
 # 安装额外 Python 依赖 (ultralytics 镜像已含 torch + opencv)
-COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade -r requirements.txt
+COPY requirements-lock.txt .
+RUN pip install --no-cache-dir --upgrade -r requirements-lock.txt
 
 # 复制全部源码
 COPY . .

@@ -22,17 +22,14 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from .logger import log_event
 from .config import (
     DATA_DIR, PUSHPLUS_TOKEN, PUSHPLUS_URL, PUSHPLUS_TOPIC,
     MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE,
 )
+from .db_utils import is_mysql_available, get_pymysql
 
-_MYSQL_AVAILABLE = False
-try:
-    import pymysql
-    _MYSQL_AVAILABLE = True
-except ImportError:
-    pass
+_MYSQL_AVAILABLE = is_mysql_available()
 
 _MYSQL_SCHEMA = """\
 CREATE TABLE IF NOT EXISTS alerts (
@@ -44,14 +41,22 @@ CREATE TABLE IF NOT EXISTS alerts (
     track_ids JSON DEFAULT ('[]'),
     class_summary VARCHAR(255) DEFAULT '',
     saved_frame VARCHAR(500) DEFAULT '',
+    clip_path VARCHAR(500) DEFAULT '',
     push_status VARCHAR(20) DEFAULT 'pending',
     push_msg VARCHAR(500) DEFAULT '',
     rock_diameter_cm DOUBLE DEFAULT 0,
     monitoring_location VARCHAR(100) DEFAULT '',
+    workflow_state VARCHAR(20) DEFAULT 'pending',
+    workflow_history JSON DEFAULT ('[]'),
+    operator VARCHAR(50) DEFAULT '',
+    request_id VARCHAR(32) DEFAULT '',
+    session_id VARCHAR(32) DEFAULT '',
     created_at VARCHAR(19) NOT NULL,
+    INDEX idx_workflow_state (workflow_state),
     INDEX idx_push_status (push_status),
     INDEX idx_time (time),
-    INDEX idx_alert_level (alert_level)
+    INDEX idx_alert_level (alert_level),
+    INDEX idx_request_id (request_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"""
 
 _SQLITE_SCHEMA = """\
@@ -64,10 +69,16 @@ CREATE TABLE IF NOT EXISTS alerts (
     track_ids TEXT DEFAULT '[]',
     class_summary TEXT DEFAULT '',
     saved_frame TEXT DEFAULT '',
+    clip_path TEXT DEFAULT '',
     push_status TEXT DEFAULT 'pending',
     push_msg TEXT DEFAULT '',
     rock_diameter_cm REAL DEFAULT 0,
     monitoring_location TEXT DEFAULT '',
+    workflow_state TEXT DEFAULT 'pending',
+    workflow_history TEXT DEFAULT '[]',
+    operator TEXT DEFAULT '',
+    request_id TEXT DEFAULT '',
+    session_id TEXT DEFAULT '',
     created_at TEXT NOT NULL
 )"""
 
@@ -78,12 +89,24 @@ _MIGRATIONS = {
         "ALTER TABLE alerts ADD COLUMN monitoring_location TEXT DEFAULT ''",
         "ALTER TABLE alerts ADD COLUMN review_status TEXT DEFAULT ''",
         "ALTER TABLE alerts ADD COLUMN reviewer_note TEXT DEFAULT ''",
+        "ALTER TABLE alerts ADD COLUMN clip_path TEXT DEFAULT ''",
+        "ALTER TABLE alerts ADD COLUMN workflow_state TEXT DEFAULT 'pending'",
+        "ALTER TABLE alerts ADD COLUMN workflow_history TEXT DEFAULT '[]'",
+        "ALTER TABLE alerts ADD COLUMN operator TEXT DEFAULT ''",
+        "ALTER TABLE alerts ADD COLUMN request_id TEXT DEFAULT ''",
+        "ALTER TABLE alerts ADD COLUMN session_id TEXT DEFAULT ''",
     ],
     "mysql": [
         "ALTER TABLE alerts ADD COLUMN rock_diameter_cm DOUBLE DEFAULT 0",
         "ALTER TABLE alerts ADD COLUMN monitoring_location VARCHAR(100) DEFAULT ''",
         "ALTER TABLE alerts ADD COLUMN review_status VARCHAR(20) DEFAULT ''",
         "ALTER TABLE alerts ADD COLUMN reviewer_note VARCHAR(500) DEFAULT ''",
+        "ALTER TABLE alerts ADD COLUMN clip_path VARCHAR(500) DEFAULT ''",
+        "ALTER TABLE alerts ADD COLUMN workflow_state VARCHAR(20) DEFAULT 'pending'",
+        "ALTER TABLE alerts ADD COLUMN workflow_history JSON DEFAULT ('[]')",
+        "ALTER TABLE alerts ADD COLUMN operator VARCHAR(50) DEFAULT ''",
+        "ALTER TABLE alerts ADD COLUMN request_id VARCHAR(32) DEFAULT ''",
+        "ALTER TABLE alerts ADD COLUMN session_id VARCHAR(32) DEFAULT ''",
     ],
 }
 
@@ -107,7 +130,7 @@ class AlertStore:
         """探测可用的存储后端, 返回 'mysql' 或 'sqlite'"""
         if MYSQL_HOST and _MYSQL_AVAILABLE:
             try:
-                conn = pymysql.connect(
+                conn = get_pymysql().connect(
                     host=MYSQL_HOST, port=MYSQL_PORT,
                     user=MYSQL_USER, password=MYSQL_PASSWORD,
                     database=MYSQL_DATABASE,
@@ -117,7 +140,7 @@ class AlertStore:
                 conn.close()
                 return "mysql"
             except Exception as e:
-                print(f"[AlertStore] MySQL 连接失败 ({e}), 降级为 SQLite")
+                log_event("system", level="WARN", msg=f"MySQL 连接失败 ({e}), 降级为 SQLite")
         return "sqlite"
 
     # ---- 建表 ----
@@ -127,7 +150,14 @@ class AlertStore:
             self._init_mysql_table()
         else:
             self._init_sqlite_table()
-        self._run_migrations()
+        # 使用 Alembic 管理所有增量迁移（替代手工 _MIGRATIONS 字典）
+        try:
+            from rockfall.migration import run_migrations
+            run_migrations()
+        except Exception as e:
+            log_event("system", level="WARN",
+                      msg=f"Alembic 迁移运行失败 ({e}), 回退手工迁移")
+            self._run_migrations()
 
     def _init_mysql_table(self):
         try:
@@ -137,7 +167,7 @@ class AlertStore:
             conn.commit()
             conn.close()
         except Exception as e:
-            print(f"[AlertStore] MySQL 建表失败 ({e}), 降级为 SQLite")
+            log_event("system", level="ERROR", msg=f"MySQL 建表失败 ({e}), 降级为 SQLite")
             self._backend = "sqlite"
             self._init_sqlite_table()
 
@@ -172,7 +202,7 @@ class AlertStore:
     # ---- 连接 ----
 
     def _mysql_conn(self):
-        return pymysql.connect(
+        return get_pymysql().connect(
             host=MYSQL_HOST, port=MYSQL_PORT,
             user=MYSQL_USER, password=MYSQL_PASSWORD,
             database=MYSQL_DATABASE,
@@ -193,16 +223,26 @@ class AlertStore:
                    alert_level: str = "yellow",
                    class_summary: str = "",
                    saved_frame: str = "",
+                   clip_path: str = "",
                    push_status: str = "pending",
                    rock_diameter_cm: float = 0,
                    monitoring_location: str = "") -> int:
-        """保存预警记录, 返回 row ID"""
+        """保存预警记录, 返回 row ID。自动携带 trace 上下文。"""
+        # 提取当前 trace 上下文
+        try:
+            from .trace import get_request_id, get_session_id
+            _rid = get_request_id()
+            _sid = get_session_id()
+        except Exception:
+            _rid, _sid = "", ""
+
         now = datetime.now()
         ts = now.strftime("%Y-%m-%d %H:%M:%S")
         params = (
             ts, alert_level, count, round(max_confidence, 4),
             json.dumps(track_ids or []), class_summary, saved_frame,
-            push_status, round(rock_diameter_cm, 1), monitoring_location, ts,
+            clip_path, push_status, round(rock_diameter_cm, 1), monitoring_location,
+            _rid, _sid, ts,
         )
         if self._backend == "mysql":
             return self._mysql_insert(params)
@@ -215,9 +255,10 @@ class AlertStore:
             cur.execute(
                 """INSERT INTO alerts
                    (time, alert_level, count, max_confidence, track_ids,
-                    class_summary, saved_frame, push_status,
-                    rock_diameter_cm, monitoring_location, created_at)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                    class_summary, saved_frame, clip_path, push_status,
+                    rock_diameter_cm, monitoring_location,
+                    request_id, session_id, created_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                 params,
             )
             conn.commit()
@@ -234,9 +275,10 @@ class AlertStore:
                 cur = conn.execute(
                     """INSERT INTO alerts
                        (time, alert_level, count, max_confidence, track_ids,
-                        class_summary, saved_frame, push_status,
-                        rock_diameter_cm, monitoring_location, created_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        class_summary, saved_frame, clip_path, push_status,
+                        rock_diameter_cm, monitoring_location,
+                        request_id, session_id, created_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     params,
                 )
                 conn.commit()
@@ -349,17 +391,19 @@ class AlertStore:
             cur = conn.cursor()
             cur.execute(sql, params)
             rows = cur.fetchall()
+            result = [self._row_to_dict(r, cur) for r in rows]
             cur.close()
             conn.close()
-            return [self._row_to_dict(r) for r in rows]
+            return result
         except Exception:
             return []
 
     def _sqlite_query(self, sql: str, params: tuple) -> list[dict]:
         with self._lock:
             with self._get_sqlite_conn() as conn:
-                rows = conn.execute(sql, params).fetchall()
-        return [self._row_to_dict(r) for r in rows]
+                cur = conn.execute(sql, params)
+                rows = cur.fetchall()
+        return [self._row_to_dict(r, cur) for r in rows]
 
     # ---- 重试 ----
 
@@ -608,16 +652,155 @@ class AlertStore:
             "pending_review": pending,
         }
 
+    # ---- 预警工单流转 (闭环管理) ----
+
+    WORKFLOW_STATES = {
+        'pending':     '待审核',
+        'confirmed':   '已确认·待派单',
+        'false_alarm': '误报·已关闭',
+        'dispatched':  '已派单·处置中',
+        'arrived':     '现场已到场',
+        'handled':     '已处置·待归档',
+        'archived':    '已归档',
+    }
+
+    WORKFLOW_TRANSITIONS = {
+        'pending':     ['confirmed', 'false_alarm'],
+        'confirmed':   ['dispatched'],
+        'dispatched':  ['arrived'],
+        'arrived':     ['handled'],
+        'handled':     ['archived'],
+        'archived':    [],
+        'false_alarm': [],
+    }
+
+    def transition_workflow(self, alert_id: int, new_state: str,
+                            operator: str = '', note: str = '') -> dict:
+        """
+        执行工单状态流转。返回 {"ok": True/False, "msg": ...}。
+
+        流转规则:
+          pending -> confirmed/false_alarm
+          confirmed -> dispatched
+          dispatched -> arrived
+          arrived -> handled
+          handled -> archived
+        """
+        if new_state not in self.WORKFLOW_STATES:
+            return {'ok': False, 'msg': f'未知状态: {new_state}'}
+
+        # 读取当前状态
+        current = self._get_workflow_state(alert_id)
+        if current is None:
+            return {'ok': False, 'msg': f'预警 #{alert_id} 不存在'}
+
+        allowed = self.WORKFLOW_TRANSITIONS.get(current, [])
+        if new_state not in allowed and current != '':
+            return {'ok': False, 'msg': f'不允许从 {current} 转换到 {new_state}，允许: {allowed}'}
+
+        # 更新状态
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        history_entry = {
+            'from': current,
+            'to': new_state,
+            'time': now,
+            'operator': operator,
+            'note': note,
+        }
+
+        if self._backend == 'mysql':
+            ok = self._mysql_update_workflow(alert_id, new_state, history_entry, operator)
+        else:
+            ok = self._sqlite_update_workflow(alert_id, new_state, history_entry, operator)
+
+        if ok:
+            label = self.WORKFLOW_STATES.get(new_state, new_state)
+            return {'ok': True, 'msg': f'预警 #{alert_id} 状态已更新为: {label}',
+                    'state': new_state, 'label': label}
+        return {'ok': False, 'msg': '数据库更新失败'}
+
+    def _get_workflow_state(self, alert_id: int) -> str | None:
+        if self._backend == 'mysql':
+            rows = self._mysql_query(
+                'SELECT workflow_state FROM alerts WHERE id=%s', (alert_id,))
+        else:
+            rows = self._sqlite_query(
+                'SELECT workflow_state FROM alerts WHERE id=?', (alert_id,))
+        return rows[0].get('workflow_state', '') if rows else None
+
+    def _mysql_update_workflow(self, alert_id, state, entry, operator):
+        try:
+            conn = self._mysql_conn()
+            cur = conn.cursor()
+            cur.execute(
+                'SELECT workflow_history FROM alerts WHERE id=%s', (alert_id,))
+            row = cur.fetchone()
+            history = json.loads(row[0]) if row and row[0] else []
+            history.append(entry)
+            cur.execute(
+                'UPDATE alerts SET workflow_state=%s, workflow_history=%s, operator=%s WHERE id=%s',
+                (state, json.dumps(history, ensure_ascii=False), operator, alert_id))
+            conn.commit()
+            cur.close(); conn.close()
+            return True
+        except Exception:
+            return False
+
+    def _sqlite_update_workflow(self, alert_id, state, entry, operator):
+        with self._lock:
+            with self._get_sqlite_conn() as conn:
+                cur = conn.execute(
+                    'SELECT workflow_history FROM alerts WHERE id=?', (alert_id,))
+                row = cur.fetchone()
+                history = json.loads(row[0]) if row and row[0] else []
+                history.append(entry)
+                conn.execute(
+                    'UPDATE alerts SET workflow_state=?, workflow_history=?, operator=? WHERE id=?',
+                    (state, json.dumps(history, ensure_ascii=False), operator, alert_id))
+                return True
+
+    def get_workflow_history(self, alert_id: int) -> list[dict]:
+        """获取工单流转历史"""
+        if self._backend == 'mysql':
+            rows = self._mysql_query(
+                'SELECT workflow_state, workflow_history, operator FROM alerts WHERE id=%s',
+                (alert_id,))
+        else:
+            rows = self._sqlite_query(
+                'SELECT workflow_state, workflow_history, operator FROM alerts WHERE id=?',
+                (alert_id,))
+        if not rows:
+            return []
+        r = rows[0]
+        history = json.loads(r.get('workflow_history', '[]')) if isinstance(r.get('workflow_history'), str) else (r.get('workflow_history') or [])
+        return history
+
+    def count_by_workflow_state(self) -> dict:
+        """按工单状态统计"""
+        if self._backend == 'mysql':
+            rows = self._mysql_query(
+                'SELECT workflow_state, COUNT(*) as cnt FROM alerts GROUP BY workflow_state', ())
+        else:
+            rows = self._sqlite_query(
+                'SELECT workflow_state, COUNT(*) as cnt FROM alerts GROUP BY workflow_state', ())
+        return {r['workflow_state']: r['cnt'] for r in rows if r['workflow_state']}
+
+
     # ---- 辅助 ----
 
     # 列顺序必须与 CREATE TABLE / ALTER TABLE 物理列序一致 (SELECT * 返回此顺序)
     _COLS = ["id", "time", "alert_level", "count", "max_confidence",
              "track_ids", "class_summary", "saved_frame", "push_status",
              "push_msg", "created_at", "rock_diameter_cm", "monitoring_location",
-             "review_status", "reviewer_note"]
+             "review_status", "reviewer_note", "clip_path", "workflow_state", "workflow_history", "operator"]
 
     @staticmethod
-    def _row_to_dict(row: tuple) -> dict:
+    def _row_to_dict(row: tuple, cursor=None) -> dict:
+        """将查询行转为 dict。优先使用 cursor.description 获取列名（兼容非 SELECT * 查询）"""
+        if cursor is not None and cursor.description is not None:
+            cols = [d[0] for d in cursor.description]
+            if len(cols) == len(row):
+                return dict(zip(cols, row))
         return dict(zip(AlertStore._COLS, row))
 
 

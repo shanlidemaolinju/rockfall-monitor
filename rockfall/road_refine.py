@@ -1,8 +1,13 @@
 """
 道路区域分割 — 轻量颜色+纹理 (不会栈溢出)
 ==========================================
+与 road_segmentation.py 互补的轻量级道路分割方案。
 单帧处理, 不累积, 不在循环里反复调 MOG2/ExG。
+
+方法: 基于HSV颜色空间(灰色沥青) + Laplacian纹理(路面平整度)
 每帧独立分析, 4帧取平均, 总耗时 <3秒。
+
+适用场景: 光照均匀、路面颜色单一的固定监控。
 """
 
 import cv2
@@ -14,7 +19,23 @@ def segment_road_by_brightness(
     fw: int, fh: int,
     approx_boundary_y: int,
 ) -> np.ndarray | None:
-    """单帧颜色+纹理分割, 4帧平均"""
+    """
+    单帧颜色+纹理分割, 4帧平均得到道路掩码。
+
+    策略:
+      - 颜色: HSV 低饱和度 + 中低明度 → 灰色沥青
+      - 纹理: 低 Laplacian 梯度 → 路面平整
+      - 排除: 黄/棕色区域 → 边坡土石
+      - 4帧采样 → 平均分数 > 0.4 → 道路
+
+    参数:
+        cap:               已打开的 cv2.VideoCapture
+        fw, fh:            帧宽高
+        approx_boundary_y: 道路/边坡近似分界 Y 坐标
+
+    返回:
+        road_mask (H, W) uint8, 255=道路, None=分割失败
+    """
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     is_live = total_frames <= 0
     num_samples = 4

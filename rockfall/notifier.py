@@ -61,6 +61,7 @@ class AlertManager:
         title, content = _build_message(
             count, max_confidence, image_url, frame_bgr,
             tracks, alert_level, class_summary,
+            rock_diameter_cm=rock_diameter_cm,
         )
         result = _push_with_retry(title, content)
 
@@ -172,12 +173,20 @@ def dispatch_alert(
     调度逻辑:
       Ⅳ 级 (蓝色): 仅本地写入报警数据库，不弹窗不推送
       Ⅲ 级 (黄色): 写入数据库 + 触发界面弹窗 (通过 SSE 通知前端)
-      Ⅱ 级 (橙色): 写入数据库 + 调用 PushPlus 推送微信通知
-      Ⅰ 级 (红色): 写入数据库 + 微信推送 + 触发声光报警
+      Ⅱ 级 (橙色): 写入数据库 + 多通道推送 (PushPlus + 邮件)
+      Ⅰ 级 (红色): 写入数据库 + 全通道推送 + 触发声光报警
+
+    推送通道由环境变量 ALERT_CHANNEL_MAP 配置，格式:
+      red=pushplus,smtp,wecom,dingtalk;orange=pushplus,smtp;yellow=;blue=
+    未配置时使用内置默认值。
 
     返回: {"code": ..., "msg": ..., "alert_level": ..., "action": ...}
     """
     from .alert_store import get_alert_store
+    from .metrics import record_alert
+
+    # 递增 Prometheus 告警计数器（按等级）
+    record_alert(alert_level)
 
     store = get_alert_store()
     track_ids = [t["id"] for t in (tracks or [])]
@@ -224,7 +233,6 @@ def dispatch_alert(
             rock_diameter_cm=rock_diameter_cm,
             monitoring_location=get_location(),
         )
-        # 写入共享状态供 SSE 推送
         _set_latest_popup_alert(alert_level, count, max_confidence,
                                 class_summary, alert_path, track_ids,
                                 rock_diameter_cm)
@@ -234,7 +242,14 @@ def dispatch_alert(
                   rock_diameter_cm=rock_diameter_cm)
         return {"code": 0, "msg": "Ⅲ级·界面弹窗提示", "alert_level": "yellow", "action": "popup"}
 
-    # ---- Ⅱ 级 (橙色): 微信推送通知 ----
+    # ---- 构建推送消息 (orange/red 共用) ----
+    title, content = _build_message(
+        count, max_confidence, image_url, frame_bgr,
+        tracks, alert_level, class_summary,
+        rock_diameter_cm=rock_diameter_cm,
+    )
+
+    # ---- Ⅱ 级 (橙色): PushPlus + 多通道推送 ----
     if alert_level == "orange":
         push_result = _default_manager.send(
             count=count, max_confidence=max_confidence,
@@ -244,20 +259,21 @@ def dispatch_alert(
             rock_diameter_cm=rock_diameter_cm,
             monitoring_location=get_location(),
         )
-        # 同时触发界面弹窗 (橙色也要弹窗)
+        multich_result = _push_via_registry(title, content, alert_level)
         _set_latest_popup_alert(alert_level, count, max_confidence,
                                 class_summary, alert_path, track_ids,
                                 rock_diameter_cm)
         log_event("alert", count=count, max_confidence=max_confidence,
                   track_ids=track_ids, alert_level="orange",
-                  action="wechat_push", push_result=push_result,
+                  action="multichannel", push_result=push_result,
+                  multichannel=multich_result,
                   saved_to=alert_path or None,
                   rock_diameter_cm=rock_diameter_cm)
         return {"code": push_result.get("code", 0),
-                "msg": "Ⅱ级·微信推送通知",
-                "alert_level": "orange", "action": "wechat_push"}
+                "msg": "Ⅱ级·多通道推送",
+                "alert_level": "orange", "action": "multichannel"}
 
-    # ---- Ⅰ 级 (红色): 微信推送 + 声光报警 ----
+    # ---- Ⅰ 级 (红色): 全通道推送 + 声光报警 ----
     if alert_level == "red":
         push_result = _default_manager.send(
             count=count, max_confidence=max_confidence,
@@ -267,18 +283,19 @@ def dispatch_alert(
             rock_diameter_cm=rock_diameter_cm,
             monitoring_location=get_location(),
         )
-        # 触发声光报警 + 红色弹窗 (通过 SSE 通知前端)
+        multich_result = _push_via_registry(title, content, alert_level)
         _set_latest_popup_alert(alert_level, count, max_confidence,
                                 class_summary, alert_path, track_ids,
                                 rock_diameter_cm, sound_alarm=True)
         log_event("alert", count=count, max_confidence=max_confidence,
                   track_ids=track_ids, alert_level="red",
-                  action="wechat_push+sound_alarm", push_result=push_result,
+                  action="all_channels+sound_alarm", push_result=push_result,
+                  multichannel=multich_result,
                   saved_to=alert_path or None,
                   rock_diameter_cm=rock_diameter_cm)
         return {"code": push_result.get("code", 0),
-                "msg": "Ⅰ级·微信推送+声光报警",
-                "alert_level": "red", "action": "wechat_push+sound_alarm"}
+                "msg": "Ⅰ级·全通道推送+声光报警",
+                "alert_level": "red", "action": "all_channels+sound_alarm"}
 
     # fallback
     return {"code": -1, "msg": "未知预警等级", "alert_level": alert_level, "action": "none"}
@@ -402,6 +419,42 @@ def _frame_to_base64(frame_bgr: np.ndarray, quality: int = 60) -> str | None:
 
 # ---- 推送内容构建 (模块级, 无状态) ----
 
+def _build_disposal_suggestions(alert_level: str, rock_diameter_cm: float = 0) -> str:
+    """根据预警等级生成处置建议"""
+    suggestions = {
+        "red": [
+            "1. 立即封闭相关车道，设置警示标志",
+            "2. 电话通知值班领导 (5分钟内响应)",
+            "3. 通知交警部门协助交通管制",
+            "4. 调取现场实时画面确认灾情规模",
+            "5. 启动公路地质灾害应急预案",
+            "6. 派遣巡查人员赴现场评估",
+        ],
+        "orange": [
+            "1. 通知公路管理部门关注该路段",
+            "2. 建议限速通行 (≤40km/h)，设置预警标志",
+            "3. 安排人员在30分钟内到场巡查",
+            "4. 加密监测频率至5fps",
+            "5. 准备应急物资和抢修设备",
+        ],
+        "yellow": [
+            "1. 系统自动记录预警事件",
+            "2. 纳入当日监测日报汇总",
+            "3. 关注后续帧是否有等级升级趋势",
+            "4. 建议2小时内安排远程视频巡检",
+        ],
+        "blue": [
+            "1. 静默记录至本地数据库",
+            "2. 用于历史趋势分析和模型优化",
+            "3. 无需主动处置",
+        ],
+    }
+    lines = suggestions.get(alert_level, suggestions["blue"])
+    if rock_diameter_cm > 0:
+        lines.insert(1, f"落石估算直径: {rock_diameter_cm:.0f}cm")
+    return "\n".join(lines)
+
+
 def _build_class_summary(tracks: list[dict] | None) -> str:
     """统计已确认轨迹的类别分布, 如 "落石:2, 滑坡:1" """
     if not tracks:
@@ -415,8 +468,9 @@ def _build_class_summary(tracks: list[dict] | None) -> str:
 
 def _build_message(count: int, max_confidence: float, image_url: str,
                    frame_bgr: np.ndarray | None, tracks: list[dict] | None,
-                   alert_level: str, class_summary: str) -> tuple[str, str]:
-    """构建 PushPlus 标题和 HTML 内容"""
+                   alert_level: str, class_summary: str,
+                   rock_diameter_cm: float = 0) -> tuple[str, str]:
+    """构建推送标题和 HTML 内容 (含处置建议)"""
     # 四级预警标签 (对齐交通部标准)
     level_labels = {
         "red":    "🔴 Ⅰ级·特别严重",
@@ -436,11 +490,13 @@ def _build_message(count: int, max_confidence: float, image_url: str,
 
     detection_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     content = (
-        f"<p>📍 位置：{loc}</p>"
-        f"<p>🕒 检测时间：{detection_time}</p>"
-        f"<p>📦 目标数量：{count}</p>"
-        f"<p>🎯 最大置信度：{max_confidence:.2f}</p>"
+        f"<p>📍 <b>位置</b>：{loc}</p>"
+        f"<p>🕒 <b>检测时间</b>：{detection_time}</p>"
+        f"<p>📦 <b>目标数量</b>：{count}</p>"
+        f"<p>🎯 <b>最大置信度</b>：{max_confidence:.2f}</p>"
     )
+    if rock_diameter_cm > 0:
+        content += f"<p>📏 <b>落石估算直径</b>：{rock_diameter_cm:.0f} cm</p>"
 
     if tracks:
         confirmed = [t for t in tracks if t.get("confirmed")]
@@ -451,6 +507,10 @@ def _build_message(count: int, max_confidence: float, image_url: str,
                 parts.append(f"{cls_label}#{t['id']} (置信度{t['confidence']:.2f}, 存活{t['age']}帧)")
             content += "<p>🏷️ 稳定跟踪目标：" + " ".join(parts) + "</p>"
 
+    # 处置建议
+    suggestions = _build_disposal_suggestions(alert_level, rock_diameter_cm)
+    content += f"<hr><p><b>📋 处置建议</b>：</p><pre style='font-size:0.9em;'>{suggestions}</pre>"
+
     if image_url:
         content += f'<img src="{image_url}" width="100%">'
     elif frame_bgr is not None:
@@ -459,6 +519,224 @@ def _build_message(count: int, max_confidence: float, image_url: str,
             content += f'<img src="data:image/jpeg;base64,{b64}" width="100%">'
 
     return title, content
+
+
+# ---- 多通道推送 (邮件 / 企业微信 / 短信) ----
+
+
+def _send_email(subject: str, body_html: str, to_emails: list[str] | None = None) -> dict:
+    """
+    通过 SMTP 发送预警邮件。
+
+    环境变量配置:
+      SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASSWORD
+      ALERT_EMAIL_TO (逗号分隔的收件人列表)
+
+    返回: {"code": 200/0, "msg": ...}
+    """
+    import os
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+
+    smtp_host = os.getenv("SMTP_HOST", "")
+    if not smtp_host:
+        return {"code": 0, "msg": "SMTP 未配置"}
+
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER", "")
+    smtp_pass = os.getenv("SMTP_PASSWORD", "")
+    recipients = to_emails or [
+        e.strip() for e in os.getenv("ALERT_EMAIL_TO", "").split(",") if e.strip()
+    ]
+    if not recipients:
+        return {"code": 0, "msg": "邮件收件人未配置 (ALERT_EMAIL_TO)"}
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = smtp_user
+        msg["To"] = ", ".join(recipients)
+        msg.attach(MIMEText(body_html, "html", "utf-8"))
+
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_pass)
+            server.sendmail(smtp_user, recipients, msg.as_string())
+
+        return {"code": 200, "msg": f"邮件已发送至 {len(recipients)} 位收件人"}
+    except Exception as e:
+        return {"code": -1, "msg": f"邮件发送失败: {e}"}
+
+
+def _send_wecom(title: str, content: str) -> dict:
+    """
+    通过企业微信机器人 Webhook 发送 Markdown 预警消息。
+
+    环境变量:
+      WECOM_WEBHOOK_URL — 企业微信群机器人 Webhook 地址
+
+    返回: {"code": 200/0, "msg": ...}
+    """
+    import os
+
+    webhook_url = os.getenv("WECOM_WEBHOOK_URL", "")
+    if not webhook_url:
+        return {"code": 0, "msg": "企业微信 Webhook 未配置 (WECOM_WEBHOOK_URL)"}
+
+    # 将 HTML 简化为纯文本 (企业微信仅支持有限的 Markdown)
+    import re
+    plain = re.sub(r"<[^>]+>", "", content)
+    plain = re.sub(r"\n\s*\n", "\n", plain).strip()[:2000]  # 限制长度
+
+    payload = {
+        "msgtype": "markdown",
+        "markdown": {
+            "content": f"## {title}\n\n{plain}\n\n> 系统自动发送 · RockGuard v2.0"
+        }
+    }
+    try:
+        r = requests.post(webhook_url, json=payload, timeout=10)
+        if r.status_code == 200 and r.json().get("errcode") == 0:
+            return {"code": 200, "msg": "企业微信推送成功"}
+        return {"code": 0, "msg": f"企业微信返回: {r.text[:100]}"}
+    except Exception as e:
+        return {"code": -1, "msg": f"企业微信推送失败: {e}"}
+
+
+def _send_sms_via_email(phone_numbers: list[str], subject: str, body: str) -> dict:
+    """
+    通过邮件转短信网关发送短信 (中国移动/联通/电信均支持)。
+
+    环境变量:
+      SMS_GATEWAY_EMAIL — 短信网关邮箱域名 (如 @139.com 移动)
+      SMTP_* — 复用 SMTP 配置
+
+    每个运营商的邮箱网关:
+      移动: number@139.com
+      联通: number@wo.cn
+      电信: number@189.cn
+
+    返回: {"code": 200/0, "msg": ...}
+    """
+    import os
+
+    gateway = os.getenv("SMS_GATEWAY_EMAIL", "")
+    if not gateway:
+        return {"code": 0, "msg": "短信网关未配置 (SMS_GATEWAY_EMAIL)"}
+
+    sms_emails = [f"{p}{gateway}" for p in phone_numbers]
+    body_short = body[:500]  # 短信长度限制
+    return _send_email(subject=subject, body_html=f"<pre>{body_short}</pre>",
+                       to_emails=sms_emails)
+
+
+# ---- 多通道推送 (基于插件注册表, 替代原 _push_multichannel) ----
+
+# 默认通道映射: 按预警等级指定启用哪些通道 (逗号分隔的通道名)
+# PushPlus 由 AlertManager 独立处理 (含冷却逻辑)，不在此处重复配置
+# 可通过环境变量 ALERT_CHANNEL_MAP 覆盖
+# 格式: "red=smtp,wecom,dingtalk;orange=smtp;yellow=;blue="
+_DEFAULT_CHANNEL_MAP = {
+    "red":    ["smtp", "wecom"],
+    "orange": ["smtp"],
+    "yellow": [],
+    "blue":   [],
+}
+
+
+def _parse_channel_map(env_val: str) -> dict[str, list[str]]:
+    """解析环境变量 ALERT_CHANNEL_MAP。
+
+    格式: "red=pushplus,smtp,wecom;orange=pushplus,smtp"
+    返回: {"red": ["pushplus","smtp","wecom"], "orange": ["pushplus","smtp"]}
+    """
+    result: dict[str, list[str]] = {}
+    for segment in env_val.split(";"):
+        segment = segment.strip()
+        if "=" not in segment:
+            continue
+        level, names = segment.split("=", 1)
+        level = level.strip()
+        result[level] = [n.strip() for n in names.split(",") if n.strip()]
+    return result
+
+
+def get_alert_channels(alert_level: str) -> list[str]:
+    """
+    获取指定预警等级应使用的推送通道名称列表。
+
+    优先级: 环境变量 ALERT_CHANNEL_MAP > 默认值
+    """
+    import os
+    env_map = os.getenv("ALERT_CHANNEL_MAP", "")
+    if env_map:
+        parsed = _parse_channel_map(env_map)
+        return parsed.get(alert_level, _DEFAULT_CHANNEL_MAP.get(alert_level, []))
+    return _DEFAULT_CHANNEL_MAP.get(alert_level, [])
+
+
+def _push_via_registry(title: str, content: str,
+                       alert_level: str) -> dict[str, dict]:
+    """
+    通过通道注册表向指定等级的所有就绪通道并行推送。
+
+    返回: {channel_name: {"success": bool, "message": str, ...}, ...}
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    try:
+        from .push_channels.registry import get_registry
+        registry = get_registry()
+        channel_names = get_alert_channels(alert_level)
+
+        # 收集就绪通道
+        ready: list[tuple[str, object]] = []
+        unready: dict[str, dict] = {}
+        for ch_name in channel_names:
+            channel = registry.get(ch_name)
+            if channel is None:
+                unready[ch_name] = {"success": False, "message": f"通道未注册: {ch_name}"}
+            elif not channel.validate_config():
+                unready[ch_name] = {"success": False, "message": f"通道未配置: {ch_name}"}
+            else:
+                ready.append((ch_name, channel))
+
+        if not ready:
+            return unready
+
+        # 并行发送
+        results = dict(unready)
+        with ThreadPoolExecutor(max_workers=min(len(ready), 6),
+                                thread_name_prefix="push") as ex:
+            futures = {
+                ex.submit(ch.send, title, content, alert_level): name
+                for name, ch in ready
+            }
+            for future in as_completed(futures, timeout=30):
+                name = futures[future]
+                try:
+                    r = future.result(timeout=15)
+                    results[name] = {
+                        "success": r.success, "message": r.message, "code": r.code,
+                    }
+                except Exception as e:
+                    results[name] = {"success": False, "message": str(e), "code": -1}
+
+            # 超时未完成的 future 标记为失败
+            for future, name in futures.items():
+                if name not in results:
+                    results[name] = {"success": False, "message": "发送超时", "code": -1}
+
+        return results
+    except Exception as e:
+        return {"registry_error": {"success": False, "message": str(e)}}
+
+
+# ══════════════════════════════════════════════════════════════
+# 以下为旧版硬编码推送函数 (保留用于向后兼容，不推荐直接调用)
+# 推荐使用 push_channels 包的 registry.send_all()
+# ══════════════════════════════════════════════════════════════
 
 
 def _push_with_retry(title: str, content: str) -> dict:
