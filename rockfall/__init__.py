@@ -27,16 +27,38 @@ rockfall — 落石检测核心库
 __version__ = "2.2.0"
 
 __all__ = [
+    # ── 检测流水线 ──
     "RockDetector", "AlertContext",
+    # ── 多目标跟踪 ──
     "RockTracker", "KalmanBoxTracker",
+    # ── 预处理 ──
     "EdgeEnhancer", "sobel_edge_enhance",
     "ThreeFrameDiff", "filter_detections_by_motion", "filter_detections_by_mog2_center",
+    # ── 推理加速 ──
     "SAHISlicer", "sahi_inference",
     "fuse_confidence", "TemporalFilter",
+    # ── 通知层 ──
     "send_alert", "send_alert_async", "dispatch_alert_async",
+    # ── 持久化 ──
     "AlertStore", "get_alert_store",
+    # ── 日志层 ──
     "log_event", "flush", "read_logs",
+    # ── 多监测点位 ──
     "list_sites", "get_active_site", "set_active_site",
+    "MonitoringSite", "PRESET_SITES",
+    # ── 配置 ──
     "get_device", "validate_config",
+    # ── 工具 ──
     "box_iou_batch", "export_alerts_to_excel",
+    # ── v2.2+ 认证与安全 ──
+    "AuthManager", "get_auth_manager",
+    "resolve_secret",
+    # ── v2.2+ 错误监控 ──
+    "init_sentry", "capture_exception",
+    # ── v2.2+ 数据库工具 ──
+    "is_mysql_available", "get_pymysql",
+    # ── v2.2+ 性能监控 ──
+    "get_global_monitor",
+    # ── v2.2+ 版本号 ──
+    "__version__",
 ]
