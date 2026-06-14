@@ -83,11 +83,32 @@ alert_rate_gauge = Gauge(
 # ============================================================
 # 数据库
 # ============================================================
-# TODO: 当前架构每个请求新建连接（无连接池），只能报告 0 或 1。
-#       引入 SQLAlchemy 连接池后可改为报告实际 pool.checkedin / pool.checkedout。
 db_connections_gauge = Gauge(
     "rockfall_db_connections", "Database connection status (1=available, 0=unavailable)",
     ["backend"],  # mysql / sqlite
+)
+db_pool_size_gauge = Gauge(
+    "rockfall_db_pool_size", "Configured connection pool size"
+)
+db_pool_checkedin_gauge = Gauge(
+    "rockfall_db_pool_checkedin", "Idle connections in pool"
+)
+db_pool_checkedout_gauge = Gauge(
+    "rockfall_db_pool_checkedout", "Active connections checked out"
+)
+db_pool_overflow_gauge = Gauge(
+    "rockfall_db_pool_overflow", "Overflow connections beyond pool_size"
+)
+
+# ============================================================
+# 深度空闲降频
+# ============================================================
+deep_idle_active = Gauge(
+    "rockfall_deep_idle_active", "Deep idle mode active (1=yes, 0=no)"
+)
+deep_idle_duration_seconds = Counter(
+    "rockfall_deep_idle_duration_seconds_total",
+    "Total seconds spent in deep idle mode (cumulative)"
 )
 
 # ============================================================
@@ -149,9 +170,27 @@ def set_task_queue_length(n: int) -> None:
 def set_db_connections(backend: str, available: bool) -> None:
     """设置数据库连接状态（0=不可用, 1=可用）。
 
-    TODO: 引入连接池后改为 pool.checkedin / pool.checkedout。
+    同时从连接池收集实时统计 (MySQL 后端) 或清零 (SQLite 后端)。
     """
     db_connections_gauge.labels(backend=backend).set(1 if available else 0)
+
+    # 收集连接池实时统计
+    try:
+        from .db_engine import get_pool_status
+        pool = get_pool_status()
+        if pool:
+            db_pool_size_gauge.set(pool["pool_size"])
+            db_pool_checkedin_gauge.set(pool["checkedin"])
+            db_pool_checkedout_gauge.set(pool["checkedout"])
+            db_pool_overflow_gauge.set(pool["overflow"])
+        else:
+            # 非 MySQL 后端 → 清零池指标，避免残留旧值
+            db_pool_size_gauge.set(0)
+            db_pool_checkedin_gauge.set(0)
+            db_pool_checkedout_gauge.set(0)
+            db_pool_overflow_gauge.set(0)
+    except Exception:
+        pass
 
 
 def set_storage_stats(used_gb: float, file_count: int) -> None:

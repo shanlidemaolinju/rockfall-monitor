@@ -17,14 +17,17 @@ import threading
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from .config import DATA_DIR, RESULTS_DIR, MODEL_PATH
+from .config import (
+    DATA_DIR, RESULTS_DIR, MODEL_PATH,
+    FILE_RETENTION_DAYS, STRICT_RETENTION,
+)
 
 
 # 阈值配置
 DISK_WARN_PERCENT = 85     # 磁盘使用率超过此值告警
 DISK_CRIT_PERCENT = 95
 DISK_HEAL_PERCENT = 85     # 触发自动清理的阈值
-DISK_RETENTION_DAYS = 7    # 自动清理时保留最近 N 天的文件
+# DISK_RETENTION_DAYS 已废弃，使用 FILE_RETENTION_DAYS 替代
 MEM_WARN_PERCENT = 85
 MEM_CRIT_PERCENT = 95
 UPTIME_WARN_HOURS = 168    # 连续运行超过 7 天告警
@@ -122,7 +125,20 @@ class SystemHealth:
         if uptime_h >= UPTIME_WARN_HOURS:
             warnings.append(f"系统已连续运行 {uptime_h:.0f} 小时，建议计划重启")
 
-        healthy = len([w for w in warnings if "严重" in w or "不存在" in w or "不可写" in w]) == 0
+        # 8. 哈希链完整性 (仅在启用时检查)
+        hash_chain = self._check_hash_chain()
+        if hash_chain is not None:
+            checks["hash_chain"] = hash_chain
+            if hash_chain.get("status") == "breach_detected":
+                warnings.append("哈希链断裂: 预警记录可能被篡改!")
+
+        # 9. 归档状态 (上次归档是否在 25 小时内)
+        retention = self._check_retention_status()
+        checks["retention"] = retention
+        if retention.get("overdue"):
+            warnings.append(f"归档调度可能滞后: 上次归档 {retention.get('hours_ago', '?')} 小时前")
+
+        healthy = len([w for w in warnings if "严重" in w or "不存在" in w or "不可写" in w or "篡改" in w]) == 0
 
         if not healthy:
             self._fail_count += 1
@@ -147,7 +163,9 @@ class SystemHealth:
 
     def _heal_disk_cleanup(self) -> dict | None:
         """
-        自动清理旧检测帧: 删除 RESULTS_DIR 中超过 DISK_RETENTION_DAYS 天的文件。
+        自动清理旧检测帧: 删除 RESULTS_DIR 中超过 FILE_RETENTION_DAYS 天的文件。
+
+        严格模式 (STRICT_RETENTION=true) 下不删除文件，改为告警。
 
         返回: 清理结果 dict, 冷却期内不重复执行返回 None
         """
@@ -156,7 +174,16 @@ class SystemHealth:
             return None
 
         self._last_disk_cleanup = now
-        cutoff_time = now - DISK_RETENTION_DAYS * 86400
+
+        if STRICT_RETENTION:
+            return {
+                "action": "disk_cleanup_skipped",
+                "time": datetime.now().isoformat(),
+                "reason": "严格保留模式已启用, 跳过自动清理",
+                "retention_days": FILE_RETENTION_DAYS,
+            }
+
+        cutoff_time = now - FILE_RETENTION_DAYS * 86400
         deleted_count = 0
         freed_bytes = 0
 
@@ -176,7 +203,7 @@ class SystemHealth:
             "time": datetime.now().isoformat(),
             "deleted_files": deleted_count,
             "freed_mb": round(freed_bytes / (1024 ** 2), 1),
-            "retention_days": DISK_RETENTION_DAYS,
+            "retention_days": FILE_RETENTION_DAYS,
         }
 
         with self._heal_lock:
@@ -338,6 +365,80 @@ class SystemHealth:
             pass
 
         return None
+
+    # ---- 哈希链完整性检查 ----
+
+    @staticmethod
+    def _check_hash_chain() -> dict | None:
+        """检查最近 100 条记录的哈希链完整性。
+
+        仅在 ALERT_HASH_CHAIN_ENABLED=True 时执行。
+        返回 None 表示功能未启用或无数据。
+        """
+        try:
+            from .config import ALERT_HASH_CHAIN_ENABLED
+            if not ALERT_HASH_CHAIN_ENABLED:
+                return None
+
+            from .alert_store import get_alert_store
+            store = get_alert_store()
+            latest = store.get_latest_hash()
+            if latest is None:
+                return {"status": "no_data", "msg": "尚无附带哈希的记录"}
+
+            recent = store.get_recent(limit=100)
+            ids = [r["id"] for r in recent if r.get("data_hash")]
+            if not ids:
+                return {"status": "no_data", "msg": "最近记录无哈希"}
+
+            result = store.verify_chain(min(ids), max(ids), max_records=len(ids))
+            return {
+                "status": "healthy" if result["invalid"] == 0 else "breach_detected",
+                "checked": result["total"],
+                "valid": result["valid"],
+                "invalid": result["invalid"],
+                "skipped": result.get("skipped", 0),
+                "breaks": result.get("breaks", []),
+            }
+        except Exception as e:
+            return {"status": "error", "msg": str(e)}
+
+    # ---- 归档状态检查 ----
+
+    @staticmethod
+    def _check_retention_status() -> dict:
+        """检查上次归档是否在 25 小时内完成 (允许 1 小时余量)。"""
+        try:
+            import json
+            from .config import DATA_DIR
+
+            progress_path = DATA_DIR / ".archive_progress.json"
+            if not progress_path.exists():
+                return {"overdue": False, "msg": "尚无归档记录"}
+
+            with open(progress_path, "r", encoding="utf-8") as f:
+                progress = json.load(f)
+
+            last_time = progress.get("last_archive_time", "")
+            status = progress.get("status", "unknown")
+            pending = progress.get("pending_upload_keys", [])
+
+            if not last_time:
+                return {"overdue": False, "status": status, "pending_uploads": pending}
+
+            from datetime import datetime as dt
+            last_dt = dt.fromisoformat(last_time)
+            hours_ago = (dt.now() - last_dt).total_seconds() / 3600
+
+            return {
+                "overdue": hours_ago > 25,
+                "last_archive_time": last_time,
+                "hours_ago": round(hours_ago, 1),
+                "status": status,
+                "pending_uploads": pending,
+            }
+        except Exception as e:
+            return {"overdue": False, "msg": str(e)}
 
 
 # 模块级单例

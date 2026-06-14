@@ -24,6 +24,7 @@ API层 — FastAPI 路由定义
   - 敏感配置自动脱敏 (secrets.py)
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -57,7 +58,11 @@ from server.schemas import (
     ImageDetectResponse, VideoDetectResponse, ErrorResponse,
     TaskResponse, TaskStatusResponse,
 )
-from rockfall.detector import get_latest_frame
+# ── ML 推理 (可选 — Railway等轻量部署时可跳过) ──
+try:
+    from rockfall.detector import get_latest_frame
+except ImportError:
+    get_latest_frame = None  # type: ignore[assignment]
 
 from rockfall import __version__
 app = FastAPI(title="落石检测系统 API", version=__version__)
@@ -85,6 +90,18 @@ _device_str, _device_name = get_device()
 log_event("system", msg=f"推理设备: {_device_name} ({_device_str})")
 for w in _config_warnings:
     log_event("system", level="WARN", msg=f"配置警告: {w}")
+
+# ── 演示凭据自动种子 ──
+# 当 API_KEY 环境变量已设置时，AuthManager 会自动创建 master 客户端密钥。
+# 此处输出清晰的启动提示，方便比赛评委获取登录信息。
+_api_key = os.getenv("API_KEY", "")
+if _api_key and _api_key != "your_token_here":
+    log_event("system", msg="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    log_event("system", msg="🔑 演示登录凭据已就绪:")
+    log_event("system", msg=f"   账号: admin")
+    log_event("system", msg=f"   密码: {_api_key}")
+    log_event("system", msg=f"   地址: http://localhost:8000")
+    log_event("system", msg="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
@@ -232,6 +249,9 @@ _PUBLIC_PATH_PREFIXES = (
     "/redoc",           # FastAPI ReDoc
     "/openapi.json",    # OpenAPI schema
     "/favicon.ico",
+    "/favicon.svg",
+    "/assets",          # React SPA 静态资源 (JS/CSS/图片)
+    "/icons.svg",       # React SPA 图标
     "/ws/",             # WebSocket 端点 (浏览器不支持自定义 Header, task_id 即鉴权)
 )
 _PUBLIC_PATHS = {
@@ -402,6 +422,8 @@ def _get_client_ip() -> str:
 def auth_login(
     request: Request,
     api_key: str = Form("", description="API Key"),
+    username: str = Form("", description="用户名（与 password 配合使用）"),
+    password: str = Form("", description="密码（与 username 配合使用）"),
     client: str = Form("web", description="客户端标识 (web/desktop/mobile)"),
     label: str = Form("", description="客户端备注"),
     expires_hours: int = Form(24, ge=1, le=720, description="Token 有效期(小时)"),
@@ -409,14 +431,14 @@ def auth_login(
     refresh_token: str = Form("", description="用于刷新 JWT 的旧 Token"),
 ):
     """
-    认证登录 — 使用 API Key 换取 JWT Token。
+    认证登录 — 支持两种方式:
 
-    请求体 (form):
-      - api_key:      客户端 API Key
-      - client:       客户端标识 (web/desktop/mobile)
-      - expires_hours: JWT 有效期(小时)，默认 24，最大 720 (30天)
-      - grant_type:   "api_key" (API Key 换 JWT) 或 "jwt_refresh" (刷新 Token)
-      - refresh_token: 用于刷新 JWT 的旧 Token (grant_type=jwt_refresh 时需要)
+    方式 1 (API Key):
+      - api_key: 客户端 API Key
+
+    方式 2 (用户名+密码):
+      - username: 用户名
+      - password: 密码（作为 API Key 验证）
 
     返回:
       - access_token: JWT Token
@@ -449,21 +471,27 @@ def auth_login(
                       detail=f"JWT token 刷新失败: {e}", ip=ip, result="error")
             raise HTTPException(status_code=401, detail=str(e))
 
-    # grant_type == "api_key": API Key 换 JWT
-    if not api_key:
-        raise HTTPException(status_code=400, detail="api_key 不能为空")
+    # grant_type == "api_key": 确定实际使用的 api_key 值
+    # 优先级: api_key 参数 > password 参数（兼容用户名+密码登录）
+    effective_key = api_key or password
+    effective_client = client
+    if username and not client:
+        effective_client = username
+
+    if not effective_key:
+        raise HTTPException(status_code=400, detail="api_key 或 password 不能为空")
 
     try:
-        result = auth.authenticate(api_key=api_key)
+        result = auth.authenticate(api_key=effective_key)
     except ValueError:
-        audit_log("auth:login", operator="unknown",
+        audit_log("auth:login", operator=username or "unknown",
                   detail="认证失败: API Key 无效", ip=ip, result="error")
-        raise HTTPException(status_code=401, detail="API Key 无效或已过期")
+        raise HTTPException(status_code=401, detail="账号或密码错误")
 
     # 签发 JWT
     token = auth.create_jwt(
         client=result["client_id"],
-        label=result.get("label", ""),
+        label=label or f"Web Login · {username or result['client_id']}",
         expires_hours=expires_hours,
     )
 
@@ -618,7 +646,7 @@ def mjpeg_stream(
         from rockfall.config import MJPEG_BLANK_WIDTH, MJPEG_BLANK_HEIGHT, MJPEG_FRAME_INTERVAL
         try:
             while True:
-                jpg = get_latest_frame(camera_id)
+                jpg = get_latest_frame(camera_id) if get_latest_frame else None
                 if jpg is None:
                     import cv2
                     import numpy as np
@@ -743,6 +771,20 @@ def api_alert_review(
     old_status = old_info.get("review_status", "") if old_info else ""
 
     result = mark_alert_review(alert_id, review_status, note)
+
+    # 误报标记 → 通知模型注册表 (供 A/B 测试和自动回滚使用)
+    if review_status == "false_alarm" and result.get("status") == "ok":
+        try:
+            from rockfall.model_registry import get_registry, MODEL_REGISTRY_AB_SPLIT_ENABLED
+            if MODEL_REGISTRY_AB_SPLIT_ENABLED:
+                registry = get_registry()
+                active = registry.active_version
+                if active is not None:
+                    registry.record_inference_metrics(
+                        active.name, latency_ms=0.0, is_false_alarm=True,
+                    )
+        except Exception:
+            pass
 
     operator = _get_operator(request)
     audit_log("alert_review", operator=operator,
@@ -903,6 +945,70 @@ def api_export_excel(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+# ============================================================
+# 哈希链防篡改验证 (v2.6+)
+# ============================================================
+
+@app.get("/api/alerts/{alert_id}/verify")
+def api_verify_alert(alert_id: int):
+    """验证单条预警记录的哈希完整性。
+
+    返回 {valid, stored_hash, computed_hash, prev_hash_match, msg}
+    """
+    from rockfall.alert_store import get_alert_store
+    store = get_alert_store()
+    return store.verify_alert(alert_id)
+
+
+@app.post("/api/alerts/verify-chain")
+def api_verify_chain(
+    start_id: int = Form(...),
+    end_id: int = Form(...),
+    max_records: int | None = Form(None),
+):
+    """批量验证 ID 区间的哈希链完整性。
+
+    返回 {total_checked, valid, invalid, skipped, breaks, truncated}
+    """
+    from rockfall.alert_store import get_alert_store
+    store = get_alert_store()
+    return store.verify_chain(start_id, end_id, max_records=max_records)
+
+
+@app.get("/api/health/hash-chain")
+def api_hash_chain_health():
+    """哈希链健康检查: 验证最近 100 条记录的完整性。"""
+    from rockfall.alert_store import get_alert_store
+    from rockfall.config import ALERT_HASH_CHAIN_ENABLED
+
+    if not ALERT_HASH_CHAIN_ENABLED:
+        return {"status": "disabled", "msg": "哈希链功能未启用"}
+
+    store = get_alert_store()
+    latest_hash = store.get_latest_hash()
+    if latest_hash is None:
+        return {"status": "no_data", "msg": "尚无带哈希的记录"}
+
+    # 查询最近 100 条记录所在 ID 范围
+    recent = store.get_recent(limit=100)
+    if not recent:
+        return {"status": "no_data", "msg": "无预警记录"}
+
+    ids = [r["id"] for r in recent if r.get("data_hash")]
+    if not ids:
+        return {"status": "no_data", "msg": "无附带哈希的记录 (功能可能刚启用)"}
+
+    start_id = min(ids)
+    end_id = max(ids)
+    result = store.verify_chain(start_id, end_id, max_records=len(ids))
+
+    return {
+        "status": "healthy" if result["invalid"] == 0 else "breach_detected",
+        "latest_hash": latest_hash,
+        **result,
+    }
 
 
 # ============================================================
@@ -1184,7 +1290,7 @@ def health_ready():
     try:
         from rockfall.alert_store import get_alert_store
         store = get_alert_store()
-        store.count_alerts(start="today")  # 快速健康查询
+        store.count_alerts()  # 快速健康查询 (不设日期过滤)
     except Exception as e:
         issues.append(f"数据库不可用: {e}")
 
@@ -1243,7 +1349,6 @@ def metrics():
     set_storage_stats(total_size / (1024 ** 3), file_count)
 
     # 数据库连接状态（缓存 60 秒，避免每次 scrape 都建连）
-    from rockfall.config import MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE
     from rockfall.alert_store import get_alert_store
     import time as _time
     _now = _time.time()
@@ -1258,20 +1363,24 @@ def metrics():
             store = get_alert_store()
             backend = store._backend  # "mysql" or "sqlite"
             if backend == "mysql":
-                import pymysql
+                conn = None
                 try:
-                    conn = pymysql.connect(
-                        host=MYSQL_HOST, port=MYSQL_PORT,
-                        user=MYSQL_USER, password=MYSQL_PASSWORD,
-                        database=MYSQL_DATABASE,
-                        connect_timeout=2, charset='utf8mb4',
-                    )
-                    conn.close()
-                    set_db_connections("mysql", True)
-                    metrics._db_cache[_cache_key] = {"backend": "mysql", "available": True, "ts": _now}
+                    from rockfall.db_engine import get_mysql_engine
+                    engine = get_mysql_engine()
+                    if engine is not None:
+                        conn = engine.raw_connection()
+                        # conn.close() 放到 finally 确保即使异常也归还
+                        set_db_connections("mysql", True)
+                        metrics._db_cache[_cache_key] = {"backend": "mysql", "available": True, "ts": _now}
+                    else:
+                        set_db_connections("mysql", False)
+                        metrics._db_cache[_cache_key] = {"backend": "mysql", "available": False, "ts": _now}
                 except Exception:
                     set_db_connections("mysql", False)
                     metrics._db_cache[_cache_key] = {"backend": "mysql", "available": False, "ts": _now}
+                finally:
+                    if conn is not None:
+                        conn.close()  # 归还到池
             else:
                 db_path = store._db_path
                 available = db_path.exists()
@@ -1405,6 +1514,20 @@ def detect_uploaded_video(
 
     # 保存文件到隔离目录
     safe_path = validator.save_quarantined(file_content, file.filename or "unknown.mp4")
+
+    # ── FLV → MP4 自动转换 (OpenCV 对 FLV 支持不稳定) ──
+    _filename_lower = (file.filename or "").lower()
+    if _filename_lower.endswith(".flv"):
+        import subprocess as _sp, shutil as _sh
+        _mp4_path = Path(safe_path).with_suffix(".mp4")
+        _result = _sp.run(
+            ["ffmpeg", "-y", "-i", str(safe_path), "-c:v", "libx264",
+             "-preset", "fast", "-crf", "23", "-c:a", "aac",
+             "-movflags", "+faststart", str(_mp4_path)],
+            capture_output=True, text=True, timeout=300,
+        )
+        if _result.returncode == 0 and _mp4_path.exists():
+            safe_path = str(_mp4_path)  # 后续使用转码后的 MP4
 
     # 创建带自动清理的临时文件包装
     class _SafeUploadFile:
@@ -1899,6 +2022,144 @@ def switch_model(request: Request, model_path: str = Form(...)):
 
 
 # ============================================================
+# 模型注册表 API (Model Registry) — A/B 测试 + 自动回滚
+# ============================================================
+
+@app.get("/api/models/registry")
+def get_model_registry():
+    """获取模型注册表完整状态 (版本列表、A/B 分流、回滚历史)。"""
+    try:
+        from rockfall.model_registry import get_registry
+        registry = get_registry()
+        status = registry.get_status()
+        # 追加远程版本缓存
+        try:
+            from rockfall.model_poller import get_poller
+            poller = get_poller()
+            status["remote_versions_cached"] = poller.version_cache
+            status["last_poll_time"] = poller.last_poll_time
+        except Exception:
+            status["remote_versions_cached"] = []
+            status["last_poll_time"] = ""
+        return status
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取注册表状态失败: {e}")
+
+
+@app.post("/api/models/ab-split")
+def set_ab_split(
+    request: Request,
+    split_pct: float = Form(..., ge=0.0, le=100.0),
+):
+    """
+    设置 A/B 测试流量分割比例。
+
+    参数:
+        split_pct: 0=全用稳定版, 50=各50%, 100=全用候选版
+    """
+    from rockfall.config import RuntimeConfig, MODEL_REGISTRY_AB_SPLIT
+    from rockfall.audit import audit_log
+
+    old_split = RuntimeConfig.get("MODEL_REGISTRY_AB_SPLIT", MODEL_REGISTRY_AB_SPLIT)
+
+    try:
+        RuntimeConfig.set("MODEL_REGISTRY_AB_SPLIT", split_pct)
+        operator = _get_operator(request)
+        audit_log(
+            "model_ab_split", operator=operator,
+            detail=f"A/B 分流比例: {old_split}% → {split_pct}%",
+            ip=_get_client_ip(), result="ok",
+        )
+        return {
+            "success": True,
+            "ab_split_pct": split_pct,
+            "previous": old_split,
+            "msg": f"A/B 分流比例已更新 (需新检测任务生效)",
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"设置 A/B 分流失败: {e}")
+
+
+@app.get("/api/models/rollback-history")
+def get_rollback_history(limit: int = 20):
+    """获取模型自动回滚历史记录。"""
+    try:
+        from rockfall.model_registry import get_registry
+        registry = get_registry()
+        return {
+            "history": registry.get_rollback_history(limit=limit),
+            "total": len(registry._rollback_history),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取回滚历史失败: {e}")
+
+
+@app.post("/api/models/activate")
+def activate_model(request: Request, version_name: str = Form(..., description="模型版本名 (如 rock_best_v3.pt)")):
+    """
+    激活指定模型版本 (通过模型注册表, 原子切换 + 更新清单状态)。
+
+    与 /api/models/switch 的区别:
+      - /api/models/switch: 接受文件路径, 直接操作符号链接 (绕过注册表)
+      - /api/models/activate: 接受版本名, 通过注册表切换并同步 manifest.json
+    """
+    from rockfall.config import get_active_model_path
+    from rockfall.audit import audit_log
+
+    try:
+        from rockfall.model_registry import get_registry, MODEL_REGISTRY_ENABLED
+        if not MODEL_REGISTRY_ENABLED:
+            raise HTTPException(status_code=400, detail="模型注册表未启用 (MODEL_REGISTRY_ENABLED=false)")
+
+        registry = get_registry()
+        old_active = registry.active_version.name if registry.active_version else str(get_active_model_path())
+
+        registry.activate_model(version_name)
+        new_active = registry.active_version.name if registry.active_version else version_name
+
+        operator = _get_operator(request)
+        audit_log("model_activate", operator=operator,
+                  detail=f"模型激活 (注册表): {old_active} → {new_active}",
+                  ip=_get_client_ip(), result="ok",
+                  before={"version": old_active},
+                  after={"version": new_active})
+
+        return {
+            "success": True,
+            "active": new_active,
+            "previous": old_active,
+            "msg": f"模型已激活: {version_name} (通过注册表, manifest 已同步)",
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"模型激活失败: {e}")
+
+
+@app.post("/api/models/poll-now")
+def trigger_model_poll(request: Request):
+    """手动触发远程模型版本检查 (同步, 返回结果)。"""
+    from rockfall.audit import audit_log
+
+    try:
+        from rockfall.model_poller import get_poller
+        poller = get_poller()
+        result = poller.poll_now()
+
+        operator = _get_operator(request)
+        audit_log(
+            "model_poll", operator=operator,
+            detail=f"手动触发模型版本检查: {result.get('status')}",
+            ip=_get_client_ip(), result=result.get("status", "unknown"),
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"模型版本检查失败: {e}")
+
+
+# ============================================================
 # 预警工单流转
 # ============================================================
 
@@ -1984,6 +2245,85 @@ def trigger_cleanup(
                      "deleted_count": result.get("deleted_count", 0),
                      "freed_mb": result.get("freed_mb", 0)})
     return result
+
+
+# ============================================================
+# 数据保留 & 冷存储归档
+# ============================================================
+
+@app.get("/api/health/retention")
+def api_retention_policy():
+    """查看当前保留策略和存储统计。"""
+    from rockfall.storage import StorageManager
+    sm = StorageManager()
+    return sm.get_retention_policy()
+
+
+@app.post("/api/health/archive")
+def api_trigger_archive(
+    request: Request,
+    retention_days: int | None = Form(None),
+    dry_run: bool = Form(False),
+    operator: str = Form(""),
+):
+    """手动触发预警记录归档。
+
+    - retention_days: 自定义保留天数 (默认使用 ALERT_RETENTION_DAYS)
+    - dry_run: True=仅统计不实际删除
+    """
+    from rockfall.alert_store import get_alert_store
+    from rockfall.audit import audit_log
+
+    store = get_alert_store()
+    result = store.archive_and_purge(
+        retention_days=retention_days, dry_run=dry_run,
+    )
+
+    effective_operator = operator or _get_operator(request)
+    audit_log(
+        "manual_archive", operator=effective_operator,
+        detail=f"retention_days={retention_days}, dry_run={dry_run}, "
+               f"archived={result.get('archived_count', 0)}",
+        ip=_get_client_ip(),
+        result="ok" if not result.get("errors") else "partial_error",
+    )
+    return result
+
+
+@app.get("/api/health/archives")
+def api_list_archives(
+    prefix: str = Query("", description="Key 前缀过滤"),
+):
+    """列出冷存储中的归档文件。"""
+    from rockfall.cold_storage import ColdStorageClient
+    client = ColdStorageClient()
+    if not client.enabled:
+        return {"enabled": False, "archives": [], "msg": "冷存储未配置"}
+    archives = client.list_archives(prefix=prefix)
+    return {"enabled": True, "archives": archives}
+
+
+@app.post("/api/health/archive/restore")
+def api_restore_archive(
+    key: str = Form(..., description="冷存储中的归档 key"),
+):
+    """从冷存储下载指定归档文件到本地。"""
+    from pathlib import Path
+    from rockfall.cold_storage import ColdStorageClient
+    from rockfall.config import DATA_DIR
+
+    client = ColdStorageClient()
+    if not client.enabled:
+        raise HTTPException(status_code=400, detail="冷存储未配置")
+
+    restore_dir = DATA_DIR / "archive" / "restored"
+    restore_dir.mkdir(parents=True, exist_ok=True)
+    local_path = restore_dir / Path(key).name
+
+    ok = client.download_archive(key, local_path)
+    if ok:
+        return {"ok": True, "local_path": str(local_path)}
+    raise HTTPException(status_code=500, detail="下载失败")
 
 
 # ============================================================

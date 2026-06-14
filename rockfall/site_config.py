@@ -25,7 +25,7 @@ from typing import Optional
 from .config import DATA_DIR
 from .config import MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE
 from .road_segmentation import ROIParams
-from .db_utils import is_mysql_available, get_pymysql
+from .db_utils import is_mysql_available
 
 # ============================================================
 # 监测点位数据模型
@@ -130,13 +130,12 @@ class SiteStore:
         self._backend = "sqlite"
         if MYSQL_HOST and _MYSQL_AVAILABLE:
             try:
-                conn = get_pymysql().connect(
-                    host=MYSQL_HOST, port=MYSQL_PORT,
-                    user=MYSQL_USER, password=MYSQL_PASSWORD,
-                    database=MYSQL_DATABASE, charset='utf8mb4', connect_timeout=3,
-                )
-                conn.close()
-                self._backend = "mysql"
+                from .db_engine import get_mysql_engine
+                engine = get_mysql_engine()
+                if engine is not None:
+                    conn = engine.raw_connection()
+                    conn.close()  # 归还到池 (仅探测)
+                    self._backend = "mysql"
             except Exception:
                 pass
         self._init_table()
@@ -144,32 +143,44 @@ class SiteStore:
     # ---- 建表 ----
 
     def _init_table(self):
+        if self._backend == "mysql":
+            self._init_mysql_table()
+        else:
+            self._init_sqlite_table()
+
+    def _init_mysql_table(self):
+        conn = None
         try:
-            if self._backend == "mysql":
-                conn = self._mysql_conn()
-                with conn.cursor() as cur:
-                    cur.execute(_SITE_TABLE_MYSQL)
-                conn.commit()
-                conn.close()
-            else:
-                conn = self._sqlite_conn()
-                conn.execute(_SITE_TABLE_SQLITE)
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_sites_active ON monitoring_sites(is_active)")
-                conn.commit()
-                conn.close()
-        except Exception:
-            if self._backend == "mysql":
-                self._backend = "sqlite"
-                self._init_table()
+            conn = self._mysql_conn()
+            with conn.cursor() as cur:
+                cur.execute(_SITE_TABLE_MYSQL)
+            conn.commit()
+        except Exception as e:
+            from .logger import log_event
+            log_event("system", level="ERROR",
+                      msg=f"MySQL 建表失败 ({e}), 降级为 SQLite")
+            self._backend = "sqlite"
+            self._init_sqlite_table()
+        finally:
+            if conn is not None:
+                conn.close()  # 归还到池
+
+    def _init_sqlite_table(self):
+        conn = self._sqlite_conn()
+        conn.execute(_SITE_TABLE_SQLITE)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_sites_active ON monitoring_sites(is_active)")
+        conn.commit()
+        conn.close()
 
     # ---- 连接 ----
 
     def _mysql_conn(self):
-        return get_pymysql().connect(
-            host=MYSQL_HOST, port=MYSQL_PORT,
-            user=MYSQL_USER, password=MYSQL_PASSWORD,
-            database=MYSQL_DATABASE, charset='utf8mb4', autocommit=False,
-        )
+        """从连接池获取一个 MySQL 连接。调用者 MUST 调用 .close() 归还到池。"""
+        from .db_engine import get_mysql_engine
+        engine = get_mysql_engine()
+        if engine is None:
+            raise RuntimeError("MySQL 引擎未初始化")
+        return engine.raw_connection()
 
     def _sqlite_conn(self):
         import sqlite3
@@ -235,15 +246,18 @@ class SiteStore:
     def delete(self, site_id: str) -> bool:
         """删除站点。返回 True 成功。"""
         if self._backend == "mysql":
+            conn = None
             try:
                 conn = self._mysql_conn()
                 with conn.cursor() as cur:
                     cur.execute("DELETE FROM monitoring_sites WHERE site_id = %s", (site_id,))
                 conn.commit()
-                conn.close()
                 return True
             except Exception:
                 return False
+            finally:
+                if conn is not None:
+                    conn.close()  # 归还到池
         else:
             with self._lock:
                 conn = self._sqlite_conn()
@@ -305,6 +319,7 @@ class SiteStore:
         )
 
     def _mysql_insert(self, site, roi_json, contacts_json, now):
+        conn = None
         try:
             conn = self._mysql_conn()
             with conn.cursor() as cur:
@@ -322,10 +337,12 @@ class SiteStore:
                      1 if site.is_active else 0, site.model_override, now, now),
                 )
             conn.commit()
-            conn.close()
             return True
         except Exception:
             return False
+        finally:
+            if conn is not None:
+                conn.close()  # 归还到池
 
     def _sqlite_insert(self, site, roi_json, contacts_json, now):
         with self._lock:
@@ -351,6 +368,7 @@ class SiteStore:
                 return False
 
     def _mysql_update(self, site, roi_json, contacts_json, now):
+        conn = None
         try:
             conn = self._mysql_conn()
             with conn.cursor() as cur:
@@ -370,10 +388,12 @@ class SiteStore:
                      now, site.site_id),
                 )
             conn.commit()
-            conn.close()
             return True
         except Exception:
             return False
+        finally:
+            if conn is not None:
+                conn.close()  # 归还到池
 
     def _sqlite_update(self, site, roi_json, contacts_json, now):
         with self._lock:
@@ -401,6 +421,8 @@ class SiteStore:
                 return False
 
     def _mysql_query(self, sql: str, params: tuple) -> list[dict]:
+        conn = None
+        cur = None
         try:
             conn = self._mysql_conn()
             cur = conn.cursor()
@@ -408,11 +430,14 @@ class SiteStore:
             rows = cur.fetchall()
             cols = [d[0] for d in cur.description] if cur.description else []
             result = [dict(zip(cols, r)) for r in rows]
-            cur.close()
-            conn.close()
             return result
         except Exception:
             return []
+        finally:
+            if cur is not None:
+                cur.close()
+            if conn is not None:
+                conn.close()  # 归还到池
 
     def _sqlite_query(self, sql: str, params: tuple) -> list[dict]:
         with self._lock:
@@ -517,7 +542,7 @@ PRESET_SITES: list[MonitoringSite] = [
 
 SITE_CONFIG_PATH = DATA_DIR / "site_config.json"
 SITE_STATE_PATH = DATA_DIR / "site_state.json"       # 当前激活点位 + 全局状态
-ROI_CONFIG_PATH = DATA_DIR / "site_config.json"      # 兼容旧路径 (ROI校准数据)
+ROI_CONFIG_PATH = DATA_DIR / "roi_config.json"      # 兼容旧路径 (ROI校准数据), 与 config.py 保持一致
 
 # ============================================================
 # 点位切换与管理 — 线程安全

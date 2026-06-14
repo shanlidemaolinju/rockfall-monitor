@@ -55,11 +55,17 @@ from .config import (
     CAMERA_RECONNECT_MAX_ATTEMPTS,
     SKIP_IDLE, SKIP_ACTIVE, SKIP_CRITICAL,
     MOTION_SCORE_LOW, MOTION_SCORE_HIGH,
+    # 深度空闲降频
+    DEEP_IDLE_ENABLED, DEEP_IDLE_TIMEOUT_SEC, DEEP_IDLE_INFERENCE_INTERVAL_SEC,
+    DEEP_IDLE_WAKE_UP_DEBOUNCE, DEEP_IDLE_ROI_ONLY,
     MOG2_HISTORY, MOG2_VAR_THRESHOLD, MOG2_DETECT_SHADOWS,
     MOG2_LEARNING_RATE, MOG2_MORPH_KERNEL, MOG2_RESET_IDLE_FRAMES,
     LIGHT_CHANGE_THRESHOLD, LIGHT_CHANGE_LR_FACTOR,
     USE_CUDA_PREPROCESS, ROI_CROP_ENABLED,
     RING_BUFFER_SIZE, RING_BUFFER_JPEG_QUALITY,
+    # 缩略图定时保存
+    THUMBNAIL_ENABLED, THUMBNAIL_SAVE_INTERVAL_MIN,
+    THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT, THUMBNAIL_JPEG_QUALITY,
     EDGE_ENHANCE_ENABLED, EDGE_ENHANCE_ALPHA, EDGE_ENHANCE_INTERVAL,
     TFD_ENABLED, TFD_IOU_THRESHOLD, TFD_MORPH_KERNEL, TFD_THRESHOLD,
     MOG2_FILTER_ENABLED,
@@ -79,6 +85,8 @@ from .sahi import SAHISlicer, sahi_inference
 from .frame_buffer import FrameRingBuffer
 from .fusion import fuse_confidence, TemporalFilter
 from .logger import log_event
+from .privacy import PrivacyFilter
+from .config import PRIVACY_BLUR_ENABLED as _PRIVACY_BLUR_ENABLED
 
 # ---- 共享帧缓冲 ----
 _frame_lock = threading.Lock()
@@ -132,8 +140,33 @@ class RockDetector:
         self._site_id = site_id
 
         # 多模型热切换: 按点位+时段解析模型路径
-        from .config import resolve_model_path, TENSORRT_ENABLED, TENSORRT_MODEL_PATH
-        model_path = str(resolve_model_path(site_id))
+        # 优先级: 模型注册表 A/B 分流 > 点位专用模型 > 时段模型 > 全局默认模型 > TensorRT
+        from .config import (
+            resolve_model_path, TENSORRT_ENABLED, TENSORRT_MODEL_PATH,
+            MODEL_REGISTRY_AB_SPLIT_ENABLED,
+        )
+
+        # 1. 尝试模型注册表 A/B 分流
+        model_path = None
+        _registry_version = None
+        if MODEL_REGISTRY_AB_SPLIT_ENABLED:
+            try:
+                from .model_registry import get_registry
+                registry = get_registry()
+                registry_path = registry.get_model_for_request(site_id or "default")
+                if registry_path is not None and Path(registry_path).exists():
+                    model_path = str(registry_path)
+                    _registry_version = registry.active_version.name if registry.active_version else None
+                    # A/B 双模型显存警告
+                    if MODEL_REGISTRY_AB_SPLIT_ENABLED:
+                        self._warn_dual_model_memory(registry)
+            except Exception:
+                pass
+
+        # 2. 回退到标准路径解析
+        if model_path is None:
+            model_path = str(resolve_model_path(site_id))
+
         if TENSORRT_ENABLED and Path(TENSORRT_MODEL_PATH).exists():
             model_path = TENSORRT_MODEL_PATH
         elif not Path(model_path).exists():
@@ -143,11 +176,13 @@ class RockDetector:
             RockDetector._model_cache[model_path] = YOLO(model_path)
             from .logger import log_event
             model_name = Path(model_path).name
+            source = f"registry({_registry_version})" if _registry_version else "config"
             log_event("system", level="INFO",
                       msg=f"模型已加载: {model_name} (site={site_id or 'default'}, "
-                          f"device={self._device_name})")
+                          f"source={source}, device={self._device_name})")
         self.model = RockDetector._model_cache[model_path]
         self._active_model_path = model_path
+        self._active_model_version = _registry_version or Path(model_path).name
 
         # SAHI 在 CPU 上自动禁用 (分块推理在 CPU 上极慢, 毫无实时性)
         if SAHI_ENABLED and self._device_str == "cpu":
@@ -173,6 +208,9 @@ class RockDetector:
 
         # 流水线状态 (init_stream_state 初始化)
         self._stream_ready = False
+
+        # 隐私脱敏过滤器 (惰性初始化，避免未启用时加载 Haar 模型)
+        self._privacy_filter: PrivacyFilter | None = None
 
 
     def init_stream_state(self, fw: int, fh: int, roi_mask: np.ndarray | None = None):
@@ -255,6 +293,17 @@ class RockDetector:
         self._consecutive_idle = 0
         self._active_skip = 1  # 当前实际跳帧间隔, 1=无跳帧
         self._prev_brightness = -1.0
+        # 深度空闲降频状态
+        self._idle_since: float | None = None        # 进入无运动状态的时间戳
+        self._deep_idle: bool = False                # 是否处于深度空闲模式
+        self._last_deep_inference_time: float = 0.0  # 上次深度空闲推理时间
+        self._wake_candidate_count: int = 0          # 唤醒候选帧计数 (防抖)
+        self._deep_idle_entered_at: float = 0.0      # 进入深度空闲的时间戳 (用于累计空闲时长)
+        # 缩略图定时保存状态
+        self._last_thumbnail_time: float = 0.0
+        self._was_alert: bool = False
+        self._camera_id: str = ""
+        self._thumb_executor = None  # 异步缩略图保存线程池 (惰性初始化)
         self._frame_buffer = FrameRingBuffer(
             maxlen=RING_BUFFER_SIZE, jpeg_quality=RING_BUFFER_JPEG_QUALITY,
         )
@@ -276,11 +325,11 @@ class RockDetector:
 
     def preprocess_frame(self, frame: np.ndarray) -> dict:
         """
-        MOG2 运动检测 + 自适应跳帧决策。每帧调用 (含跳过的帧)。
+        MOG2 运动检测 + 自适应跳帧决策 + 深度空闲状态机。每帧调用 (含跳过的帧)。
 
         返回:
             {'fg': np.ndarray, 'motion_score': float, 'has_motion': bool,
-             'box_mask': np.ndarray, 'skip': int}
+             'box_mask': np.ndarray, 'skip': int, 'deep_idle': bool}
         """
         # 光照突变检测: 帧间整体亮度大幅变化 → 云层移动/阳光变化
         # 此时 MOG2 会把整帧当前景, 需要临时降低学习率防止背景模型被污染
@@ -303,7 +352,12 @@ class RockDetector:
         k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (self._mog2_kernel, self._mog2_kernel))
 
         # ROI 裁剪优化: 仅对 ROI 边界矩形区域做 MOG2，减少 40-60% 像素处理量
-        if self._roi_crop_enabled and self._roi_mask is not None:
+        # 深度空闲 + DEEP_IDLE_ROI_ONLY 时也强制使用 ROI 裁剪 (进一步省 CPU)
+        _deep_idle_roi = (
+            DEEP_IDLE_ENABLED and self._deep_idle and DEEP_IDLE_ROI_ONLY
+            and self._roi_mask is not None
+        )
+        if (self._roi_crop_enabled or _deep_idle_roi) and self._roi_mask is not None:
             fg = self._mog2_apply_roi_crop(frame, lr, k)
         else:
             fg = self._mog2_apply(frame, lr)
@@ -333,13 +387,88 @@ class RockDetector:
             # 若本帧在高学习率模式下检出运动, 用低学习率重新应用 MOG2
             # 防止落石被 lr=0.1 快速融入背景导致后续漏检
             if was_high_lr:
-                if self._roi_crop_enabled and self._roi_mask is not None:
+                if (self._roi_crop_enabled or _deep_idle_roi) and self._roi_mask is not None:
                     fg = self._mog2_apply_roi_crop(frame, self._mog2_lr, k)
                 else:
                     fg = self._mog2_apply(frame, self._mog2_lr)
                     self._postprocess_fg(fg, k)
         else:
             self._consecutive_idle += 1
+
+        # ── 深度空闲状态机 ──
+        deep_idle = False
+        if DEEP_IDLE_ENABLED:
+            now = time.time()
+            idle_debounce = int(RuntimeConfig.get("DEEP_IDLE_WAKE_UP_DEBOUNCE", DEEP_IDLE_WAKE_UP_DEBOUNCE))
+            idle_timeout = int(RuntimeConfig.get("DEEP_IDLE_TIMEOUT_SEC", DEEP_IDLE_TIMEOUT_SEC))
+
+            if motion_score < MOTION_SCORE_LOW:
+                # 无运动: 累计空闲时长
+                if self._idle_since is None:
+                    self._idle_since = now
+                if now - self._idle_since >= idle_timeout:
+                    if not self._deep_idle:
+                        self._deep_idle = True
+                        self._deep_idle_entered_at = now
+                        self._wake_candidate_count = 0
+                        log_event("system", level="INFO",
+                                  msg=f"进入深度空闲模式 (无运动 {idle_timeout}s)")
+                    deep_idle = True
+            elif light_change:
+                # 光照突变 (云层移动/阳光变化): 不触发唤醒, 不重置空闲计时器
+                # MOG2 在光照突变时会把整帧当前景, 导致 motion_score 短暂飙升
+                # 真实运动随后出现时 motion_score 会持续高位, 届时正常唤醒
+                deep_idle = self._deep_idle
+            else:
+                # 有运动 (非光照突变)
+                if self._deep_idle:
+                    # 唤醒防抖: 连续 N 帧有运动才退出深度空闲
+                    self._wake_candidate_count += 1
+                    if self._wake_candidate_count >= idle_debounce:
+                        # 确认唤醒
+                        idle_duration = now - self._deep_idle_entered_at if self._deep_idle_entered_at > 0 else 0
+                        self._deep_idle = False
+                        self._idle_since = None
+                        self._wake_candidate_count = 0
+                        # 累计空闲时长写入 Prometheus 指标
+                        try:
+                            from .metrics import deep_idle_duration_seconds as _ddc
+                            _ddc.inc(idle_duration)
+                        except Exception:
+                            pass
+                        log_event("system", level="INFO",
+                                  msg=f"深度空闲唤醒 (空闲 {idle_duration:.0f}s, "
+                                      f"防抖 {idle_debounce} 帧)")
+                    # 防抖期间仍视为深度空闲 (不跳过唤醒候选帧的 MOG2 更新)
+                    deep_idle = True
+                else:
+                    # 非深度空闲状态下有运动: 重置空闲计时器
+                    self._idle_since = None
+
+            # 热更新关闭: 即时退出深度空闲
+            if not RuntimeConfig.get("DEEP_IDLE_ENABLED", DEEP_IDLE_ENABLED):
+                if self._deep_idle:
+                    idle_duration = now - self._deep_idle_entered_at if self._deep_idle_entered_at > 0 else 0
+                    self._deep_idle = False
+                    self._idle_since = None
+                    self._wake_candidate_count = 0
+                    try:
+                        from .metrics import deep_idle_duration_seconds as _ddc
+                        _ddc.inc(idle_duration)
+                    except Exception:
+                        pass
+                    log_event("system", level="INFO",
+                              msg=f"深度空闲已热更新关闭 (空闲 {idle_duration:.0f}s)")
+                deep_idle = False
+            elif self._deep_idle:
+                deep_idle = True
+
+            # 同步 Prometheus Gauge
+            try:
+                from .metrics import deep_idle_active as _dia
+                _dia.set(1 if deep_idle else 0)
+            except Exception:
+                pass
 
         # 三级跳帧 (每帧从 RuntimeConfig 读取, 支持热更新无需重启)
         skip_idle = RuntimeConfig.get("SKIP_IDLE", SKIP_IDLE)
@@ -354,7 +483,7 @@ class RockDetector:
 
         return {
             'fg': fg, 'motion_score': motion_score, 'has_motion': has_motion,
-            'box_mask': box_mask, 'skip': skip,
+            'box_mask': box_mask, 'skip': skip, 'deep_idle': deep_idle,
         }
 
     def _mog2_apply(self, frame: np.ndarray, lr: float) -> np.ndarray:
@@ -490,6 +619,7 @@ class RockDetector:
             det_input = np.where(box_mask[..., None] == 255, det_input, blurred)
 
         # YOLO 推理 (SAHI 或 普通)
+        _inference_start = time.time()
         try:
             if self._sahi_enabled:
                 raw_dets = sahi_inference(
@@ -511,6 +641,17 @@ class RockDetector:
                             raw_dets.append([x1, y1, x2, y2, b.conf[0].item(), int(b.cls[0].item())])
                 # 立即释放 YOLO 推理结果 (GPU 张量), 防止显存累积
                 del results
+
+            # 记录推理耗时到模型注册表 (供 A/B 测试和自动回滚)
+            _inference_ms = (time.time() - _inference_start) * 1000
+            if MODEL_REGISTRY_AB_SPLIT_ENABLED and self._active_model_version:
+                try:
+                    from .model_registry import get_registry
+                    get_registry().record_inference_metrics(
+                        self._active_model_version, latency_ms=_inference_ms,
+                    )
+                except Exception:
+                    pass
 
             # 周期性 GPU 显存回收 (每 200 帧 gc + empty_cache)
             self._cleanup_gpu_memory()
@@ -710,6 +851,8 @@ class RockDetector:
         cv2.fillPoly(roi_mask, [polygon], 255)
 
         self.init_stream_state(fw, fh, roi_mask)
+        # 设置 camera_id (用于缩略图命名和日志)
+        self._camera_id = str(source_name).replace(" ", "_").replace("/", "_") if source_name else "default"
         trk = RockTracker() if track else None
         if trk is not None:
             trk.set_video_context(fps, fh)
@@ -766,14 +909,36 @@ class RockDetector:
             if progress_callback is not None:
                 progress_callback(processed_count, max_frames or 0)
 
-            # ---- 统一预处理: MOG2 + 跳帧决策 ----
+            # ---- 统一预处理: MOG2 + 跳帧决策 + 深度空闲状态机 ----
             pp = self.preprocess_frame(frame)
 
-            self._active_skip = max(pp['skip'], 1)
-            if frame_idx % self._active_skip == 0:
-                raw_dets = self.detect_frame(frame, pp['box_mask'], pp['fg'])
+            # 记录深度空闲状态切换 (用于唤醒时清空滤波缓冲)
+            was_deep_idle = self._deep_idle if hasattr(self, '_deep_idle') else False
+
+            # ---- 深度空闲分支: 跳过 YOLO，仅低频守候 ----
+            if pp.get('deep_idle'):
+                now = time.time()
+                deep_interval = float(RuntimeConfig.get(
+                    "DEEP_IDLE_INFERENCE_INTERVAL_SEC", DEEP_IDLE_INFERENCE_INTERVAL_SEC))
+                if now - self._last_deep_inference_time >= deep_interval:
+                    raw_dets = self.detect_frame(frame, pp['box_mask'], pp['fg'])
+                    self._last_deep_inference_time = now
+                else:
+                    raw_dets = []
             else:
-                raw_dets = []  # 跳帧时清空, 跟踪器仅执行卡尔曼预测
+                # 正常跳帧逻辑 (现有代码)
+                self._active_skip = max(pp['skip'], 1)
+                if frame_idx % self._active_skip == 0:
+                    raw_dets = self.detect_frame(frame, pp['box_mask'], pp['fg'])
+                else:
+                    raw_dets = []  # 跳帧时清空, 跟踪器仅执行卡尔曼预测
+
+            # ---- 从深度空闲恢复时: 清空时序滤波器和 TFD 缓冲 ----
+            if was_deep_idle and not pp.get('deep_idle', False):
+                if hasattr(self, '_temporal_filter') and self._temporal_filter is not None:
+                    self._temporal_filter.reset()
+                if hasattr(self, '_tfd') and self._tfd is not None:
+                    self._tfd.reset()
 
             # ---- SORT 跟踪 ----
             tracks_info = trk.update(raw_dets) if trk else []
@@ -813,11 +978,24 @@ class RockDetector:
                          "yellow": (0, 215, 255), "blue": (255, 140, 0),
                          "green": (0, 200, 0)}[frame_alert], 2)
 
+            # 深度空闲时在画面上标注状态
+            if pp.get('deep_idle'):
+                cv2.putText(annotated, "DEEP IDLE", (10, 60),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 100, 100), 2)
+
+            # ---- 隐私脱敏 (在落盘前模糊人脸/车牌) ----
+            if _PRIVACY_BLUR_ENABLED:
+                if self._privacy_filter is None:
+                    self._privacy_filter = PrivacyFilter()
+                annotated = self._privacy_filter.blur_frame(annotated)
+
             # 帧环形缓冲: 始终写入内存（异步压缩），仅告警时 flush 到磁盘
             if save_frames and hasattr(self, "_frame_buffer"):
                 self._frame_buffer.push(frame_idx, frame, annotated)
 
-            if push_alerts and frame_alert != "green":
+            is_alert = (frame_alert != "green")
+
+            if push_alerts and is_alert:
                 # 告警触发: flush 上下文帧到磁盘
                 if save_frames and hasattr(self, "_frame_buffer"):
                     self._frame_buffer.flush_alert(
@@ -832,6 +1010,23 @@ class RockDetector:
                     tracks=tracks_info, confirm_frames=confirm_frames,
                     rock_diameter_cm=alert_ctx.rock_diameter_cm,
                 )
+
+            # ---- 缩略图定时保存 (非告警时段) ----
+            if THUMBNAIL_ENABLED:
+                now = time.time()
+                if is_alert and not self._was_alert:
+                    # 告警开始: 标记 (不保存缩略图, 避免与 flush_alert 重复)
+                    pass
+                elif not is_alert and self._was_alert:
+                    # 告警结束: 立即保存一张缩略图 (记录灾害现场后续状态) + 重置计时器
+                    self._save_thumbnail(frame)
+                    self._last_thumbnail_time = now
+                elif not is_alert:
+                    # 非告警常态: 定时保存
+                    if now - self._last_thumbnail_time >= THUMBNAIL_SAVE_INTERVAL_MIN * 60:
+                        self._save_thumbnail(frame)
+                        self._last_thumbnail_time = now
+                self._was_alert = is_alert
 
             log_event("detection", frame=frame_idx,
                       count=len(tracks_info), alert_level=frame_alert,
@@ -853,6 +1048,7 @@ class RockDetector:
                 "tracks": tracks_info,
                 "alert_level": frame_alert,
                 "timestamp": datetime.now().isoformat(),
+                "deep_idle": pp.get('deep_idle', False),
             }
             if is_live:
                 yield frame_result
@@ -977,6 +1173,45 @@ class RockDetector:
         return enhanced
 
     # ================================================================
+    # 缩略图保存
+    # ================================================================
+
+    def _save_thumbnail(self, frame: np.ndarray):
+        """异步保存低质量缩略图 (320x240) 到 RESULTS_DIR/。
+
+        文件名格式: thumb_{camera_id}_{YYYYMMDD_HHMMSS}.jpg
+        通过独立线程池异步写入，不阻塞主循环。
+        """
+        import hashlib
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # 用毫秒级随机后缀避免高帧率下的命名冲突
+        suffix = hashlib.md5(f"{ts}{time.time()}".encode()).hexdigest()[:6]
+        filename = f"thumb_{self._camera_id}_{ts}_{suffix}.jpg"
+        filepath = RESULTS_DIR / filename
+
+        # 惰性初始化异步保存线程池
+        if self._thumb_executor is None:
+            from concurrent.futures import ThreadPoolExecutor
+            self._thumb_executor = ThreadPoolExecutor(
+                max_workers=1, thread_name_prefix="thumb-save"
+            )
+
+        # 缩略图: 降采样到 320x240
+        thumb = cv2.resize(frame, (THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT))
+
+        def _write():
+            try:
+                cv2.imwrite(
+                    str(filepath), thumb,
+                    [cv2.IMWRITE_JPEG_QUALITY, THUMBNAIL_JPEG_QUALITY],
+                )
+            except Exception as e:
+                log_event("system", level="WARN",
+                          msg=f"缩略图保存失败: {filename} — {e}")
+
+        self._thumb_executor.submit(_write)
+
+    # ================================================================
     # 绘制
     # ================================================================
 
@@ -1030,6 +1265,35 @@ class RockDetector:
     # ================================================================
     # 辅助
     # ================================================================
+
+    @staticmethod
+    def _warn_dual_model_memory(registry):
+        """A/B 双模型模式下的显存警告。"""
+        try:
+            import torch
+            if not torch.cuda.is_available():
+                return
+            total_mb = torch.cuda.get_device_properties(0).total_memory / (1024 ** 2)
+            # 仅检查 A/B 测试中实际会同时加载的两个模型 (稳定版 + 候选版)
+            active_pair = []
+            stable = registry.stable_version
+            if stable and stable.path.exists():
+                active_pair.append(stable)
+            candidate = registry._get_candidate_version()
+            if candidate and candidate.path.exists() and candidate != stable:
+                active_pair.append(candidate)
+            # 估算: 每个 .pt 文件大小 ≈ 2× 显存占用 (加载后)
+            total_model_size = sum(
+                v.path.stat().st_size / (1024 ** 2) * 2
+                for v in active_pair
+            )
+            if len(active_pair) > 1 and total_model_size > total_mb * 0.7:
+                log_event("system", level="WARN",
+                          msg=f"A/B 双模型显存警告: 估算占用 {total_model_size:.0f}MB "
+                              f"(stable={stable.name}, candidate={candidate.name}) "
+                              f"/ GPU 总量 {total_mb:.0f}MB (可能 OOM)")
+        except Exception:
+            pass
 
     @staticmethod
     def _default_polygon(w: int, h: int) -> np.ndarray:

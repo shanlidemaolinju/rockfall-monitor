@@ -7,13 +7,12 @@ FastSAM 道路/边坡分割模块（替代原SAM独立进程）
 输出: road_mask(255=公路) 、roi_mask(255=边坡)
 兼容原有视频流/图片调用逻辑
 
-模型加载策略 (V2):
-  - 启动时后台线程异步预加载 ~145MB FastSAM 模型
-  - 未就绪时自动降级为传统CV (road_detector.generate_roi)
-  - 加载失败自动重试 (最多3次, 指数退避)
+模型加载策略 (V3):
+  - 主线程懒加载 (CUDA 必须从主线程初始化, 不能在 daemon 线程)
+  - 首次调用阻塞 ~5-8 秒, 之后复用
+  - 加载失败自动降级为传统CV
 """
 
-import threading
 import time
 import cv2
 import numpy as np
@@ -25,68 +24,53 @@ from .config import (
 )
 from .logger import log_event
 
-# ---- 全局模型单例 (异步加载) ----
-_SAM_MODEL = None
-_MODEL_READY = threading.Event()
+# ---- 全局模型单例 (主线程懒加载) ----
+_SAM_MODEL: FastSAM | None = None
+_MODEL_LOADED = False
 _MODEL_LOAD_ERROR: str | None = None
-_MODEL_LOAD_RETRIES = 0
-_MODEL_MAX_RETRIES = 3
-_MODEL_RETRY_BASE_DELAY = 5  # 秒
 _DEVICE = "cuda" if cv2.cuda.getCudaEnabledDeviceCount() > 0 else "cpu"
-
-
-def _load_model_worker():
-    """后台线程: 加载 FastSAM 模型, 支持重试"""
-    global _SAM_MODEL, _MODEL_LOAD_ERROR, _MODEL_LOAD_RETRIES
-
-    for attempt in range(1, _MODEL_MAX_RETRIES + 1):
-        try:
-            _SAM_MODEL = FastSAM(FASTSAM_MODEL_NAME)
-            _MODEL_READY.set()
-            _MODEL_LOAD_ERROR = None
-            return
-        except Exception as e:
-            _MODEL_LOAD_RETRIES = attempt
-            _MODEL_LOAD_ERROR = str(e)
-            if attempt < _MODEL_MAX_RETRIES:
-                delay = _MODEL_RETRY_BASE_DELAY * (2 ** (attempt - 1))
-                time.sleep(delay)
-            else:
-                # 最后一次失败, 标记不可用 (后续全部走CV降级)
-                _MODEL_READY.clear()
-
-
-# 启动时立即触发后台加载
-_loader_thread = threading.Thread(target=_load_model_worker, daemon=True, name="fastsam-loader")
-_loader_thread.start()
 
 
 def is_model_ready() -> bool:
     """查询 FastSAM 模型是否已就绪 (非阻塞)"""
-    return _MODEL_READY.is_set()
+    return _MODEL_LOADED
 
 
 def get_model_load_status() -> dict:
     """获取模型加载状态 (供健康检查/UI展示)"""
     return {
-        "ready": _MODEL_READY.is_set(),
+        "ready": _MODEL_LOADED,
         "error": _MODEL_LOAD_ERROR,
-        "retries": _MODEL_LOAD_RETRIES,
-        "max_retries": _MODEL_MAX_RETRIES,
         "device": _DEVICE,
     }
 
 
-def wait_for_model(timeout: float = 30.0) -> bool:
-    """阻塞等待模型就绪 (最多 timeout 秒), 返回是否就绪"""
-    return _MODEL_READY.wait(timeout=timeout)
-
-
 def _get_model() -> FastSAM | None:
-    """获取全局模型单例。未就绪时返回 None (调用方应降级CV)"""
-    if not _MODEL_READY.is_set():
+    """
+    获取全局模型单例 (主线程懒加载)。
+    首次调用阻塞 5-8 秒加载模型, 之后立即返回。
+    CUDA 初始化必须在主线程进行, 不能在 daemon 线程。
+    """
+    global _SAM_MODEL, _MODEL_LOADED, _MODEL_LOAD_ERROR
+
+    if _MODEL_LOADED:
+        return _SAM_MODEL
+
+    # 首次加载 (调用方应在主线程)
+    try:
+        log_event("system", level="DEBUG",
+                  msg=f"FastSAM 开始加载 {FASTSAM_MODEL_NAME} → {_DEVICE}")
+        _SAM_MODEL = FastSAM(FASTSAM_MODEL_NAME)
+        _MODEL_LOADED = True
+        _MODEL_LOAD_ERROR = None
+        log_event("system", msg="FastSAM 模型加载完成")
+        return _SAM_MODEL
+    except Exception as e:
+        _MODEL_LOADED = True  # 标记已尝试, 不再重试
+        _MODEL_LOAD_ERROR = str(e)
+        log_event("system", level="ERROR",
+                  msg=f"FastSAM 加载失败: {e}")
         return None
-    return _SAM_MODEL
 
 
 def generate_road_slope_mask(frame: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -98,9 +82,10 @@ def generate_road_slope_mask(frame: np.ndarray) -> tuple[np.ndarray, np.ndarray]
     模型未就绪时自动降级为像素级 CV 分类。
     """
     h, w = frame.shape[:2]
+
+    # 主线程懒加载 (首次阻塞 ~5-8s, 后续立即返回)
     model = _get_model()
 
-    # 模型未就绪 → 直接降级 CV (非阻塞, 后台线程仍在加载)
     if model is None:
         return _pixel_level_cv_fallback(frame)
 
@@ -108,6 +93,12 @@ def generate_road_slope_mask(frame: np.ndarray) -> tuple[np.ndarray, np.ndarray]
     # Step 1: FastSAM 全图分割 (segment everything, 不限定文本)
     # ================================================================
     try:
+        # 固定随机种子, 保证同一帧每次推理结果一致
+        import torch
+        torch.manual_seed(42)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(42)
+
         results = model.predict(
             source=frame,
             conf=0.20,
@@ -531,14 +522,13 @@ def _default_masks(fw: int, fh: int) -> tuple[np.ndarray, np.ndarray]:
 
 
 def release_model():
-    """释放 FastSAM 显存 + 重置异步加载状态"""
-    global _SAM_MODEL, _MODEL_LOAD_ERROR, _MODEL_LOAD_RETRIES
+    """释放 FastSAM 显存"""
+    global _SAM_MODEL, _MODEL_LOADED, _MODEL_LOAD_ERROR
     if _SAM_MODEL is not None:
         del _SAM_MODEL
         _SAM_MODEL = None
-    _MODEL_READY.clear()
+    _MODEL_LOADED = False
     _MODEL_LOAD_ERROR = None
-    _MODEL_LOAD_RETRIES = 0
     import gc; gc.collect()
     try:
         import torch; torch.cuda.empty_cache()

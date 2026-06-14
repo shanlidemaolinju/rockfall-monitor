@@ -1,0 +1,70 @@
+# ── Git ──
+.git/
+.gitignore
+.gitattributes
+
+# ── CI/CD ──
+.github/
+
+# ── Python 缓存 ──
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+rockfall_detection.egg-info/
+
+# ── 虚拟环境 ──
+.venv/
+venv/
+env/
+
+# ── IDE ──
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── 密钥 (不要打入镜像!) ──
+.env
+*.key
+*.pem
+
+# ── 前端开发 (生产构建在 server/static/) ──
+web/node_modules/
+web/dist/
+
+# ── 运行时数据 (通过 volume 挂载) ──
+data/
+demo_data/
+
+# ── 测试 ──
+tests/
+test_*.db
+
+# ── 文档 ──
+docs/
+*.md
+!README.md
+
+# ── 桌面端 ──
+desktop/
+
+# ── 开发脚本 ──
+run_desktop.bat
+run_server.bat
+
+# ── Docker Compose 文件自身 ──
+docker-compose.demo.yml
+docker-compose.demo.gpu.yml
+docker-compose.override.yml
+
+# ── 系统文件 ──
+Thumbs.db
+.DS_Store
+*.tmp
+*.log
+
+# ── 大模型 (通过 volume 挂载) ──
+models/FastSAM-x.pt
+models/sam_vit_b_01ec64.pth

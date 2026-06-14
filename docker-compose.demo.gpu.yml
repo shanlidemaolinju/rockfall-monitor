@@ -1,0 +1,21 @@
+# ============================================================
+# RockGuard · GPU 叠加文件 (需要 nvidia-container-toolkit)
+# ============================================================
+# 用法:
+#   docker compose -f docker-compose.demo.yml -f docker-compose.demo.gpu.yml up -d
+# ============================================================
+
+services:
+  rockfall_api:
+    build:
+      dockerfile: docker/Dockerfile.gpu
+    image: rockfall:demo-gpu
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    environment:
+      - USE_CUDA_PREPROCESS=true

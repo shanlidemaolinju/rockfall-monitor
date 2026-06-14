@@ -1,0 +1,94 @@
+# ============================================================
+# RockGuard · 比赛演示 Docker Compose
+# ============================================================
+# 启动: docker compose -f docker-compose.demo.yml up -d
+# 停止: docker compose -f docker-compose.demo.yml down
+# GPU:  docker compose -f docker-compose.demo.yml -f docker-compose.demo.gpu.yml up -d
+#
+# 访问: http://localhost:80
+# 登录: 账号=admin  密码=rockfall2024 (或 .env 中 API_KEY 的值)
+# ============================================================
+
+services:
+  # ── FastAPI 检测服务 ──
+  rockfall_api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: rockfall:demo
+    container_name: rockfall_api
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "/app/docker/entrypoint.sh"]
+    expose:
+      - "8000"
+    volumes:
+      - rockfall_data:/app/data          # 预警记录 + 截图 (持久化命名卷)
+      - ./models:/app/models:ro          # 模型文件 (只读)
+    env_file:
+      - .env
+    environment:
+      - TZ=Asia/Shanghai
+      - WEB_HOST=0.0.0.0
+      - WEB_PORT=8000
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8g
+        reservations:
+          cpus: '2'
+          memory: 2g
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+    networks:
+      - rockfall_net
+
+  # ── Nginx 反向代理 ──
+  rockfall_nginx:
+    image: nginx:1.27.0-alpine
+    container_name: rockfall_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./docker/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - rockfall_data:/results:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      rockfall_api:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - rockfall_net
+
+volumes:
+  rockfall_data:
+    name: rockfall_data
+
+networks:
+  rockfall_net:
+    name: rockfall_net
+    driver: bridge

@@ -21,7 +21,10 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from pathlib import Path
 
-from rockfall.detector import RockDetector
+try:
+    from rockfall.detector import RockDetector
+except ImportError:
+    RockDetector = None  # type: ignore[assignment]
 from rockfall.logger import read_logs, log_event
 from rockfall.config import RESULTS_DIR, UPLOADS_DIR
 from rockfall.alert_store import get_alert_store
@@ -47,8 +50,10 @@ _active_cameras: dict[str, dict] = {}
 _active_cameras_lock = threading.Lock()
 
 
-def _get_detector(camera_id: str = "default") -> RockDetector:
+def _get_detector(camera_id: str = "default"):
     """获取或创建指定摄像头的检测器实例（按点位自动选择模型）。"""
+    if RockDetector is None:
+        raise RuntimeError("RockDetector 不可用 (torch/ultralytics 未安装)")
     if camera_id not in _detectors:
         with _detector_lock:
             if camera_id not in _detectors:
@@ -693,6 +698,9 @@ _HOT_UPDATE_KEYS = {
     "detection_confidence", "detection_img_size", "motion_min_area",
     "alert_blue_high", "alert_yellow_high", "alert_orange_high",
     "skip_idle", "skip_active", "skip_critical",
+    # 深度空闲降频 (实时生效)
+    "deep_idle_enabled", "deep_idle_timeout_sec",
+    "deep_idle_inference_interval_sec", "deep_idle_wake_up_debounce",
     # ---- 下次 init_stream_state 生效 (写入 RuntimeConfig, 需触发流重启) ----
     "mog2_history", "mog2_var_threshold", "mog2_learning_rate",
     "mog2_morph_kernel", "mog2_reset_idle_frames",
@@ -723,6 +731,10 @@ _RC_KEY_MAP = {
     "skip_idle": "SKIP_IDLE",
     "skip_active": "SKIP_ACTIVE",
     "skip_critical": "SKIP_CRITICAL",
+    "deep_idle_enabled": "DEEP_IDLE_ENABLED",
+    "deep_idle_timeout_sec": "DEEP_IDLE_TIMEOUT_SEC",
+    "deep_idle_inference_interval_sec": "DEEP_IDLE_INFERENCE_INTERVAL_SEC",
+    "deep_idle_wake_up_debounce": "DEEP_IDLE_WAKE_UP_DEBOUNCE",
     "mog2_history": "MOG2_HISTORY",
     "mog2_var_threshold": "MOG2_VAR_THRESHOLD",
     "mog2_learning_rate": "MOG2_LEARNING_RATE",

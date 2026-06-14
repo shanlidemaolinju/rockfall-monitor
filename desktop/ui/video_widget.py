@@ -423,9 +423,15 @@ class VideoCaptureWidget(QtWidgets.QWidget):
         try:
             # ========== L1: FastSAM分割 ==========
             road_mask = None
+
+            from rockfall.fastsam_road import is_model_ready
+            from rockfall.config import FASTSAM_NUM_SAMPLES
+
             try:
+                # FastSAM 模型在首次调用时主线程懒加载 (~5-8秒),
+                # 后续调用立即返回, 不再有异步等待问题
                 self._road_mask, self.roi_mask = auto_segment_from_cap(
-                    tmp_cap, fw, fh, sample_num=3,
+                    tmp_cap, fw, fh, sample_num=FASTSAM_NUM_SAMPLES,
                 )
                 road_pct = (self._road_mask > 0).sum() / (fw * fh) * 100
                 self.log_message.emit(
@@ -434,7 +440,7 @@ class VideoCaptureWidget(QtWidgets.QWidget):
             except Exception as e:
                 self.log_message.emit(f"[FastSAM] 异常: {e}")
 
-            # ========== L2: 传统CV备选 ==========
+            # ========== L2: 传统CV备选 (仅FastSAM真正失败时) ==========
             if road_mask is None:
                 self.log_message.emit("[ROI] FastSAM不可用, 切传统CV...")
                 try:
@@ -504,7 +510,14 @@ class VideoCaptureWidget(QtWidgets.QWidget):
             self._road_pct = road_pct
             self.log_message.emit(
                 f"[ROI] {len(self.polygon)}顶点 边坡框{poly_area_pct:.0f}% 道路{road_pct:.0f}%")
-            self._save_roi()
+
+            # 仅 FastSAM 成功时保存缓存; CV 降级不保存
+            # (CV 降级时模型不可用, 下次启动模型就绪后会重新跑 FastSAM)
+            from rockfall.fastsam_road import is_model_ready
+            if is_model_ready():
+                self._save_roi()
+            else:
+                self.log_message.emit("[ROI] CV降级结果不缓存, 下次启动将重试FastSAM")
         finally:
             _safe_release(tmp_cap)
 

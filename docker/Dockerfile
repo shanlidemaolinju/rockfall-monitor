@@ -9,12 +9,19 @@ FROM ultralytics/ultralytics:8.3.133-cpu
 
 WORKDIR /app
 
-# 安装 Python 依赖
+# 安装额外 Python 依赖 (ultralytics 镜像已含 torch + opencv + ultralytics)
+# 不加 --upgrade，避免覆盖基础镜像中已有的 CUDA/PyTorch 版本
 COPY requirements-lock.txt .
-RUN pip install --no-cache-dir --upgrade -r requirements-lock.txt
+RUN pip install --no-cache-dir -r requirements-lock.txt
 
 # 复制全部源码
 COPY . .
+
+# 安装 Alembic (数据库迁移工具，entrypoint.sh 调用)
+RUN pip install --no-cache-dir alembic
+
+# 使 entrypoint 可执行
+RUN chmod +x docker/entrypoint.sh
 
 # 创建运行时目录
 RUN mkdir -p data/results data/uploads

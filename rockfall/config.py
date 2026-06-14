@@ -247,6 +247,22 @@ def list_all_models() -> list[dict]:
     return models
 
 # ============================================================
+# 模型版本管理 (Model Registry) — A/B 测试 + 自动回滚
+# ============================================================
+# 从 S3/OSS 自动拉取新模型, 支持 A/B 灰度测试和基于指标的自动回滚。
+# 默认关闭, 不影响现有部署。开启后复用 ColdStorageClient 的 S3/OSS 连接。
+MODEL_REGISTRY_ENABLED = os.getenv("MODEL_REGISTRY_ENABLED", "false").lower() == "true"
+MODEL_REGISTRY_POLL_INTERVAL_SEC = int(os.getenv("MODEL_REGISTRY_POLL_INTERVAL_SEC", "3600"))
+MODEL_REGISTRY_S3_PREFIX = os.getenv("MODEL_REGISTRY_S3_PREFIX", "models/")
+MODEL_REGISTRY_AB_SPLIT = float(os.getenv("MODEL_REGISTRY_AB_SPLIT", "0.0"))  # 0=全用稳定版, 50=各50%
+MODEL_REGISTRY_AB_SPLIT_ENABLED = MODEL_REGISTRY_AB_SPLIT > 0
+# 自动回滚: 需要人工审核数据积累到 MODEL_ROLLBACK_MIN_SAMPLE 条后才启用
+MODEL_AUTO_ROLLBACK_ENABLED = os.getenv("MODEL_AUTO_ROLLBACK_ENABLED", "false").lower() == "true"
+MODEL_ROLLBACK_FP_RATE_INCREASE = float(os.getenv("MODEL_ROLLBACK_FP_RATE_INCREASE", "2.0"))  # 误报率翻倍
+MODEL_ROLLBACK_LATENCY_INCREASE = float(os.getenv("MODEL_ROLLBACK_LATENCY_INCREASE", "1.5"))  # 延迟+50%
+MODEL_ROLLBACK_MIN_SAMPLE = int(os.getenv("MODEL_ROLLBACK_MIN_SAMPLE", "100"))  # 最少审核样本数
+
+# ============================================================
 # 检测参数
 # ============================================================
 DETECTION_CONFIDENCE = float(os.getenv("DETECTION_CONFIDENCE", "0.3"))
@@ -266,6 +282,17 @@ SKIP_CRITICAL = int(os.getenv("SKIP_CRITICAL", "2"))
 MOTION_SCORE_LOW = float(os.getenv("MOTION_SCORE_LOW", "0.01"))
 MOTION_SCORE_HIGH = float(os.getenv("MOTION_SCORE_HIGH", "0.1"))
 
+# ---- 深度空闲降频 (Deep Idle) ----
+# 连续无运动超过 DEEP_IDLE_TIMEOUT_SEC 秒后, 进入深度空闲模式:
+#   GPU 推理降至 DEEP_IDLE_INFERENCE_INTERVAL_SEC 秒一次 (默认 0.1 FPS)
+#   仅用 MOG2 守候, 运动恢复后经防抖确认再唤醒
+# 唤醒防抖: 连续 DEEP_IDLE_WAKE_UP_DEBOUNCE 帧有运动才退出深度空闲 (防止飞虫/树叶误唤醒)
+DEEP_IDLE_ENABLED = os.getenv("DEEP_IDLE_ENABLED", "true").lower() == "true"
+DEEP_IDLE_TIMEOUT_SEC = int(os.getenv("DEEP_IDLE_TIMEOUT_SEC", "600"))           # 进入深度空闲前的无运动等待时间
+DEEP_IDLE_INFERENCE_INTERVAL_SEC = float(os.getenv("DEEP_IDLE_INFERENCE_INTERVAL_SEC", "10.0"))  # 深度空闲时推理间隔
+DEEP_IDLE_WAKE_UP_DEBOUNCE = int(os.getenv("DEEP_IDLE_WAKE_UP_DEBOUNCE", "3"))   # 唤醒防抖帧数
+DEEP_IDLE_ROI_ONLY = os.getenv("DEEP_IDLE_ROI_ONLY", "false").lower() == "true"  # 深度空闲时 MOG2 仅处理 ROI
+
 # ---- MOG2 背景建模参数 ----
 MOG2_HISTORY = int(os.getenv("MOG2_HISTORY", "500"))
 MOG2_VAR_THRESHOLD = int(os.getenv("MOG2_VAR_THRESHOLD", "32"))
@@ -281,6 +308,16 @@ ROI_CROP_ENABLED = os.getenv("ROI_CROP_ENABLED", "false").lower() == "true"  # M
 # ---- 帧环形缓冲 ----
 RING_BUFFER_SIZE = int(os.getenv("RING_BUFFER_SIZE", "150"))  # 缓冲帧数 (150 帧 ≈ 1.1GB)
 RING_BUFFER_JPEG_QUALITY = int(os.getenv("RING_BUFFER_JPEG_QUALITY", "70"))  # JPEG 质量 0-100
+
+# ---- 非告警帧缩略图定时保存 ----
+# 非告警时段每 THUMBNAIL_SAVE_INTERVAL_MIN 分钟保存一张低质量缩略图 (320x240)
+# 告警帧已通过 flush_alert 保存全分辨率, 此处仅保存非告警环境快照
+# 缩略图保留 THUMBNAIL_RETENTION_DAYS 天后由 StorageManager.cleanup_thumbnails() 清理
+THUMBNAIL_ENABLED = os.getenv("THUMBNAIL_ENABLED", "true").lower() == "true"
+THUMBNAIL_SAVE_INTERVAL_MIN = int(os.getenv("THUMBNAIL_SAVE_INTERVAL_MIN", "10"))
+THUMBNAIL_WIDTH = int(os.getenv("THUMBNAIL_WIDTH", "320"))
+THUMBNAIL_HEIGHT = int(os.getenv("THUMBNAIL_HEIGHT", "240"))
+THUMBNAIL_JPEG_QUALITY = int(os.getenv("THUMBNAIL_JPEG_QUALITY", "40"))
 
 # ---- Sobel边缘增强  ----
 EDGE_ENHANCE_ENABLED = os.getenv("EDGE_ENHANCE_ENABLED", "false").lower() == "true"
@@ -351,7 +388,6 @@ def scale_physics_for_video(fps: float, frame_height: int) -> tuple[float, float
 # ============================================================
 # 摄像头 / RTSP 流
 # ============================================================
-DEFAULT_CAMERA_URL = os.getenv("CAMERA_URL", "")          # RTSP 地址或 0(USB摄像头)
 # 注意: CAMERA_URL 可能含明文密码，生产环境请使用 CAMERA_URL_FILE 或 ENC: 前缀
 _CAM_URL = os.getenv("CAMERA_URL", "")
 _CAM_URL_FILE = os.getenv("CAMERA_URL_FILE", "")
@@ -443,6 +479,18 @@ ALERT_FALLING_MIN_CONF = float(os.getenv("ALERT_FALLING_MIN_CONF", "0.3"))
 ALERT_MULTI_COUNT = int(os.getenv("ALERT_MULTI_COUNT", "3"))
 ALERT_MULTI_TOTAL_AREA_RATIO = float(os.getenv("ALERT_MULTI_TOTAL_AREA_RATIO", "0.01"))
 
+# ---- 数据库连接池 (MySQL 专用, 高并发稳定) ----
+# pool_size: 常驻连接数, max_overflow: 峰值额外连接数, pre_ping: 每次检出前 ping 检测有效性
+# recycle: 连接最大存活秒数 (超时自动回收, 避免 MySQL wait_timeout 断开)
+# connect_timeout: MySQL 连接超时秒数, read/write_timeout: 读写超时秒数
+DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "5"))
+DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "10"))
+DB_POOL_PRE_PING = os.getenv("DB_POOL_PRE_PING", "true").lower() == "true"
+DB_POOL_RECYCLE = int(os.getenv("DB_POOL_RECYCLE", "3600"))
+DB_CONNECT_TIMEOUT = int(os.getenv("DB_CONNECT_TIMEOUT", "5"))
+DB_READ_TIMEOUT = int(os.getenv("DB_READ_TIMEOUT", "30"))
+DB_WRITE_TIMEOUT = int(os.getenv("DB_WRITE_TIMEOUT", "30"))
+
 # ---- MySQL 数据库 (可选, 不配置则使用 SQLite) ----
 # 密码支持加密: MYSQL_PASSWORD=ENC:<base64> 或 MYSQL_PASSWORD_FILE=/run/secrets/db_password
 _DB_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
@@ -468,7 +516,7 @@ FASTSAM_ENABLED = os.getenv("FASTSAM_ENABLED", "true").lower() == "true"
 FASTSAM_MODEL_NAME = os.getenv("FASTSAM_MODEL_NAME", str(MODELS_DIR / "FastSAM-x.pt"))
 FASTSAM_CONFIDENCE = float(os.getenv("FASTSAM_CONFIDENCE", "0.25"))
 FASTSAM_IOU = float(os.getenv("FASTSAM_IOU", "0.7"))
-FASTSAM_NUM_SAMPLES = int(os.getenv("FASTSAM_NUM_SAMPLES", "5"))    # 初始化多帧采样数
+FASTSAM_NUM_SAMPLES = int(os.getenv("FASTSAM_NUM_SAMPLES", "7"))    # 初始化多帧采样数(更多=更稳定)
 FASTSAM_LIVE_SAMPLE_INTERVAL = float(os.getenv("FASTSAM_LIVE_SAMPLE_INTERVAL", "1.0"))  # RTSP 流采样间隔(秒)
 FASTSAM_MIN_QUALITY_SCORE = float(os.getenv("FASTSAM_MIN_QUALITY_SCORE", "0.6"))  # 采样质量最低分
 FASTSAM_USE_TEXT_PROMPT = os.getenv("FASTSAM_USE_TEXT_PROMPT", "true").lower() == "true"
@@ -530,6 +578,47 @@ def get_location() -> str:
         return get_active_location()
     except Exception:
         return LOCATION
+
+# ---- 隐私脱敏 (Privacy Blur) ----
+# 在标注帧落盘前自动模糊人脸/车牌区域，保护行人隐私。
+# 使用 OpenCV 内置 Haar Cascade，无需额外下载模型。
+# 生产环境如需更高精度，可替换为深度学习模型（通过 PRIVACY_BLUR_MODEL_PATH）。
+PRIVACY_BLUR_ENABLED = os.getenv("PRIVACY_BLUR_ENABLED", "false").lower() == "true"
+PRIVACY_BLUR_FACES = os.getenv("PRIVACY_BLUR_FACES", "true").lower() == "true"
+PRIVACY_BLUR_PLATES = os.getenv("PRIVACY_BLUR_PLATES", "true").lower() == "true"
+PRIVACY_BLUR_METHOD = os.getenv("PRIVACY_BLUR_METHOD", "gaussian")       # gaussian | pixelate
+PRIVACY_BLUR_KERNEL = int(os.getenv("PRIVACY_BLUR_KERNEL", "25"))         # 模糊核大小 (奇数)
+PRIVACY_BLUR_INTERVAL = int(os.getenv("PRIVACY_BLUR_INTERVAL", "1"))      # 跳帧间隔: 1=每帧
+PRIVACY_BLUR_MODEL_PATH = os.getenv("PRIVACY_BLUR_MODEL_PATH", "")        # 预留: 自定义检测模型
+
+# ---- 哈希链防篡改 (Hash Chain) ----
+# 为每条预警记录计算 SHA256 链式摘要，提供完整性校验。
+# 默认关闭；开启后仅对新记录生成哈希，旧记录（data_hash 为空）视为不可信。
+ALERT_HASH_CHAIN_ENABLED = os.getenv("ALERT_HASH_CHAIN_ENABLED", "false").lower() == "true"
+ALERT_HASH_GENESIS = os.getenv(
+    "ALERT_HASH_GENESIS",
+    "0000000000000000000000000000000000000000000000000000000000000000",
+)
+ALERT_HASH_VERIFY_BATCH_SIZE = int(os.getenv("ALERT_HASH_VERIFY_BATCH_SIZE", "500"))
+
+# ---- 数据保留 & 冷存储归档 (Data Retention & Cold Storage) ----
+# DB 预警记录保留 ≥1095 天 (3 年)，符合《公路桥梁隧道结构监测系统标准》。
+# 冷存储支持 S3 兼容协议 (MinIO, Ceph) 或 Alibaba OSS。
+ALERT_RETENTION_DAYS = int(os.getenv("ALERT_RETENTION_DAYS", "1095"))
+FILE_RETENTION_DAYS = int(os.getenv("FILE_RETENTION_DAYS", "365"))
+THUMBNAIL_RETENTION_DAYS = int(os.getenv("THUMBNAIL_RETENTION_DAYS", "7"))
+STRICT_RETENTION = os.getenv("STRICT_RETENTION", "false").lower() == "true"
+
+COLD_STORAGE_TYPE = os.getenv("COLD_STORAGE_TYPE", "")  # "s3" | "oss" | ""=禁用
+COLD_STORAGE_ENDPOINT = os.getenv("COLD_STORAGE_ENDPOINT", "")
+COLD_STORAGE_BUCKET = os.getenv("COLD_STORAGE_BUCKET", "rockfall-archive")
+COLD_STORAGE_ACCESS_KEY = os.getenv("COLD_STORAGE_ACCESS_KEY", "")
+COLD_STORAGE_SECRET_KEY = os.getenv("COLD_STORAGE_SECRET_KEY", "")
+COLD_STORAGE_REGION = os.getenv("COLD_STORAGE_REGION", "us-east-1")
+COLD_STORAGE_PREFIX = os.getenv("COLD_STORAGE_PREFIX", "alerts-archive/")
+
+ARCHIVE_SCHEDULE_HOUR = int(os.getenv("ARCHIVE_SCHEDULE_HOUR", "3"))
+ARCHIVE_BATCH_SIZE = int(os.getenv("ARCHIVE_BATCH_SIZE", "10000"))
 
 # ---- 日志级别 (支持热更新) ----
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")  # DEBUG | INFO | WARN | ERROR
@@ -642,30 +731,66 @@ def validate_config() -> list[str]:
     """验证关键配置, 返回警告列表 (空列表 = 全部正常)"""
     warnings: list[str] = []
 
+    # ── 模型文件 ──
     if not Path(MODEL_PATH).exists() and not (TENSORRT_ENABLED and Path(TENSORRT_MODEL_PATH).exists()):
         warnings.append(f"模型文件不存在: {MODEL_PATH}")
 
+    # ── 推送配置 ──
     if not PUSHPLUS_TOKEN or PUSHPLUS_TOKEN == "your_token_here":
         warnings.append("PUSHPLUS_TOKEN 未配置, 预警推送将不会发送")
+    if PUSH_EXECUTOR_WORKERS < 1:
+        warnings.append(f"PUSH_EXECUTOR_WORKERS({PUSH_EXECUTOR_WORKERS}) 应 >= 1")
+    if ALERT_COOLDOWN_SECONDS < 1:
+        warnings.append(f"ALERT_COOLDOWN_SECONDS({ALERT_COOLDOWN_SECONDS}) 应 >= 1")
 
+    # ── 检测参数 ──
     if DETECTION_CONFIDENCE < 0 or DETECTION_CONFIDENCE > 1:
         warnings.append(f"DETECTION_CONFIDENCE 应在 0-1 之间, 当前: {DETECTION_CONFIDENCE}")
+    if DETECTION_IMG_SIZE % 32 != 0:
+        warnings.append(f"DETECTION_IMG_SIZE({DETECTION_IMG_SIZE}) 应为 32 的倍数 (YOLO 要求)")
+    if MOTION_MIN_AREA <= 0:
+        warnings.append(f"MOTION_MIN_AREA({MOTION_MIN_AREA}) 应 > 0")
 
+    # ── 四级预警阈值 ──
     if not (ALERT_BLUE_CONFIDENCE_LOW < ALERT_BLUE_CONFIDENCE_HIGH < ALERT_YELLOW_CONFIDENCE_HIGH < ALERT_ORANGE_CONFIDENCE_HIGH):
         warnings.append("四级预警阈值应满足: blue_low < blue_high < yellow_high < orange_high")
-
+    if ALERT_BLUE_CONFIDENCE_LOW < 0 or ALERT_ORANGE_CONFIDENCE_HIGH > 1:
+        warnings.append(f"预警置信度阈值应在 0-1 之间 (当前: low={ALERT_BLUE_CONFIDENCE_LOW}, orange_high={ALERT_ORANGE_CONFIDENCE_HIGH})")
     if ALERT_RED_AREA_RATIO <= ALERT_YELLOW_AREA_RATIO:
         warnings.append("ALERT_RED_AREA_RATIO 应大于 ALERT_YELLOW_AREA_RATIO")
+    if ALERT_MULTI_COUNT < 1:
+        warnings.append(f"ALERT_MULTI_COUNT({ALERT_MULTI_COUNT}) 应 >= 1")
 
+    # ── 自适应跳帧 ──
     if not (SKIP_IDLE >= SKIP_ACTIVE >= SKIP_CRITICAL):
         warnings.append(f"跳帧参数应满足 SKIP_IDLE({SKIP_IDLE}) >= SKIP_ACTIVE({SKIP_ACTIVE}) >= SKIP_CRITICAL({SKIP_CRITICAL})")
-
     if SKIP_IDLE <= 0 or SKIP_ACTIVE <= 0 or SKIP_CRITICAL <= 0:
         warnings.append(f"跳帧参数必须 > 0, 否则会触发除零异常 (当前: idle={SKIP_IDLE} active={SKIP_ACTIVE} critical={SKIP_CRITICAL})")
-
     if MOTION_SCORE_LOW >= MOTION_SCORE_HIGH:
         warnings.append(f"MOTION_SCORE_LOW({MOTION_SCORE_LOW}) 应 < MOTION_SCORE_HIGH({MOTION_SCORE_HIGH}), 否则三级跳帧部分区间失效")
 
+    # ── 深度空闲降频 ──
+    if DEEP_IDLE_ENABLED:
+        if DEEP_IDLE_TIMEOUT_SEC < 60:
+            warnings.append(f"DEEP_IDLE_TIMEOUT_SEC({DEEP_IDLE_TIMEOUT_SEC}) 过小, 建议 ≥ 60 秒以避免频繁进出深度空闲")
+        if DEEP_IDLE_INFERENCE_INTERVAL_SEC < 1.0:
+            warnings.append(f"DEEP_IDLE_INFERENCE_INTERVAL_SEC({DEEP_IDLE_INFERENCE_INTERVAL_SEC}) < 1s, 深度空闲效果有限")
+        if DEEP_IDLE_WAKE_UP_DEBOUNCE < 1:
+            warnings.append("DEEP_IDLE_WAKE_UP_DEBOUNCE 应 ≥ 1, 否则无防抖效果")
+        if DEEP_IDLE_WAKE_UP_DEBOUNCE > 10:
+            warnings.append(f"DEEP_IDLE_WAKE_UP_DEBOUNCE({DEEP_IDLE_WAKE_UP_DEBOUNCE}) 过大, 可能导致真实落石唤醒延迟过长")
+
+    # ── MOG2 背景建模 ──
+    if MOG2_LEARNING_RATE < 0 or MOG2_LEARNING_RATE > 1:
+        warnings.append(f"MOG2_LEARNING_RATE 应在 0-1 之间, 当前: {MOG2_LEARNING_RATE}")
+    if MOG2_MORPH_KERNEL < 3 or MOG2_MORPH_KERNEL % 2 == 0:
+        warnings.append(f"MOG2_MORPH_KERNEL({MOG2_MORPH_KERNEL}) 应为 >= 3 的奇数")
+    if MOG2_RESET_IDLE_FRAMES < 10:
+        warnings.append(f"MOG2_RESET_IDLE_FRAMES({MOG2_RESET_IDLE_FRAMES}) 过小, 建议 >= 10")
+    if LIGHT_CHANGE_THRESHOLD < 0 or LIGHT_CHANGE_THRESHOLD > 255:
+        warnings.append(f"LIGHT_CHANGE_THRESHOLD({LIGHT_CHANGE_THRESHOLD}) 应在 0-255 之间")
+
+    # ── CUDA 预处理 ──
     if USE_CUDA_PREPROCESS:
         try:
             import cv2
@@ -674,24 +799,84 @@ def validate_config() -> list[str]:
         except Exception:
             warnings.append("USE_CUDA_PREPROCESS=true 但 cv2.cuda 不可用, 已回退 CPU")
 
+    # ── SORT 跟踪 ──
     if TRACK_IOU_THRESHOLD < 0 or TRACK_IOU_THRESHOLD > 1:
         warnings.append(f"TRACK_IOU_THRESHOLD 应在 0-1 之间, 当前: {TRACK_IOU_THRESHOLD}")
+    if TRACK_MIN_CONFIRM < 1:
+        warnings.append(f"TRACK_MIN_CONFIRM({TRACK_MIN_CONFIRM}) 应 >= 1")
+    if TRACK_MAX_MISSED < 1:
+        warnings.append(f"TRACK_MAX_MISSED({TRACK_MAX_MISSED}) 应 >= 1")
 
-    if MOG2_LEARNING_RATE < 0 or MOG2_LEARNING_RATE > 1:
-        warnings.append(f"MOG2_LEARNING_RATE 应在 0-1 之间, 当前: {MOG2_LEARNING_RATE}")
-
+    # ── 融合与滤波 ──
     if FUSION_MOTION_WEIGHT < 0 or FUSION_MOTION_WEIGHT > 1:
         warnings.append(f"FUSION_MOTION_WEIGHT 应在 0-1 之间, 当前: {FUSION_MOTION_WEIGHT}")
-
     if SAHI_OVERLAP_RATIO < 0 or SAHI_OVERLAP_RATIO >= 1:
         warnings.append(f"SAHI_OVERLAP_RATIO 应在 [0, 1) 之间, 当前: {SAHI_OVERLAP_RATIO}")
-
     if TEMPORAL_IOU < 0 or TEMPORAL_IOU > 1:
         warnings.append(f"TEMPORAL_IOU 应在 0-1 之间, 当前: {TEMPORAL_IOU}")
+    if TEMPORAL_WINDOW < 1:
+        warnings.append(f"TEMPORAL_WINDOW({TEMPORAL_WINDOW}) 应 >= 1")
 
+    # ── SAHI (CPU 上性能极差) ──
     if SAHI_ENABLED:
         device_str, device_name = get_device()
         if device_str == "cpu":
             warnings.append(f"SAHI_ENABLED=true 在 CPU ({device_name}) 上性能极差, 已自动禁用")
+
+    # ── 帧缓冲 ──
+    if RING_BUFFER_SIZE < 10:
+        warnings.append(f"RING_BUFFER_SIZE({RING_BUFFER_SIZE}) 过小, 建议 >= 10 帧 (否则告警上下文不足)")
+
+    # ── 缩略图 ──
+    if THUMBNAIL_ENABLED:
+        if THUMBNAIL_SAVE_INTERVAL_MIN < 1:
+            warnings.append(f"THUMBNAIL_SAVE_INTERVAL_MIN({THUMBNAIL_SAVE_INTERVAL_MIN}) 应 >= 1 分钟")
+
+    # ── GPU 并发 ──
+    if GPU_CONCURRENCY < 1:
+        warnings.append(f"GPU_CONCURRENCY({GPU_CONCURRENCY}) 应 >= 1, 1=串行推理")
+
+    # ── 摄像头重连 ──
+    if CAMERA_RECONNECT_BASE < 1:
+        warnings.append(f"CAMERA_RECONNECT_BASE({CAMERA_RECONNECT_BASE}) 应 >= 1")
+    if CAMERA_RECONNECT_BASE > CAMERA_RECONNECT_MAX:
+        warnings.append(f"CAMERA_RECONNECT_BASE({CAMERA_RECONNECT_BASE}) > CAMERA_RECONNECT_MAX({CAMERA_RECONNECT_MAX}), 重连逻辑将异常")
+    if CAMERA_RECONNECT_BACKOFF <= 1.0:
+        warnings.append(f"CAMERA_RECONNECT_BACKOFF({CAMERA_RECONNECT_BACKOFF}) 应 > 1.0 (退避因子)")
+    if CAMERA_RECONNECT_MAX_ATTEMPTS < 1:
+        warnings.append(f"CAMERA_RECONNECT_MAX_ATTEMPTS({CAMERA_RECONNECT_MAX_ATTEMPTS}) 应 >= 1")
+
+    # ── FastSAM ──
+    if FASTSAM_ENABLED:
+        if not Path(FASTSAM_MODEL_NAME).exists():
+            warnings.append(f"FastSAM 模型文件不存在: {FASTSAM_MODEL_NAME}")
+        if FASTSAM_CONFIDENCE < 0 or FASTSAM_CONFIDENCE > 1:
+            warnings.append(f"FASTSAM_CONFIDENCE 应在 0-1 之间, 当前: {FASTSAM_CONFIDENCE}")
+
+    # ── 数据库连接池 ──
+    if DB_POOL_SIZE < 1:
+        warnings.append(f"DB_POOL_SIZE({DB_POOL_SIZE}) 应 >= 1")
+    if DB_MAX_OVERFLOW < 0:
+        warnings.append(f"DB_MAX_OVERFLOW({DB_MAX_OVERFLOW}) 应 >= 0")
+    if DB_POOL_RECYCLE < 60:
+        warnings.append(f"DB_POOL_RECYCLE({DB_POOL_RECYCLE}) 过小, 建议 >= 60 (避免频繁回收)")
+    if DB_CONNECT_TIMEOUT < 1 or DB_CONNECT_TIMEOUT > 60:
+        warnings.append(f"DB_CONNECT_TIMEOUT({DB_CONNECT_TIMEOUT}) 应在 1-60 之间")
+    if MYSQL_HOST and not MYSQL_USER:
+        warnings.append("MYSQL_HOST 已配置但 MYSQL_USER 为空")
+    if MYSQL_HOST and not MYSQL_DATABASE:
+        warnings.append("MYSQL_HOST 已配置但 MYSQL_DATABASE 为空")
+    if MYSQL_PORT < 1 or MYSQL_PORT > 65535:
+        warnings.append(f"MYSQL_PORT({MYSQL_PORT}) 应在 1-65535 之间")
+
+    # ── 归档 ──
+    if ARCHIVE_SCHEDULE_HOUR < 0 or ARCHIVE_SCHEDULE_HOUR > 23:
+        warnings.append(f"ARCHIVE_SCHEDULE_HOUR({ARCHIVE_SCHEDULE_HOUR}) 应在 0-23 之间")
+
+    # ── 冷存储 ──
+    if COLD_STORAGE_TYPE and COLD_STORAGE_TYPE not in ("s3", "oss"):
+        warnings.append(f"COLD_STORAGE_TYPE({COLD_STORAGE_TYPE}) 无效, 仅支持 s3/oss/空")
+    if COLD_STORAGE_TYPE and not COLD_STORAGE_ENDPOINT:
+        warnings.append(f"已启用 COLD_STORAGE_TYPE={COLD_STORAGE_TYPE} 但未配置 COLD_STORAGE_ENDPOINT")
 
     return warnings

@@ -54,7 +54,7 @@ docker-compose.override.yml
 # ---- 前端构建产物 ----
 web/node_modules/
 web/dist/
-server/static/
+# server/static/ 提交 (Paas 部署需要预构建的 SPA)
 
 # ---- clip 模型缓存 (streamlit 环境) ----
 *.pt.cache

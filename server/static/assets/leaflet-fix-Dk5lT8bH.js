@@ -1,0 +1,1 @@
+import{r as o}from"./rolldown-runtime-NMqb_1LM.js";import{i as t,n as e,r,t as a}from"./vendor-leaflet-0sMuriUe.js";var l=o(t(),1),n=!1;function s(){n||(delete l.default.Icon.Default.prototype._getIconUrl,l.default.Icon.Default.mergeOptions({iconRetinaUrl:r,iconUrl:e,shadowUrl:a}),n=!0)}export{s as t};

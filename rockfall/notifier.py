@@ -723,9 +723,10 @@ def _push_via_registry(title: str, content: str,
                 except Exception as e:
                     results[name] = {"success": False, "message": str(e), "code": -1}
 
-            # 超时未完成的 future 标记为失败
-            for future, name in futures.items():
+            # 超时未完成的 future: 取消并标记为失败 (防止线程泄漏)
+            for future, name in list(futures.items()):
                 if name not in results:
+                    future.cancel()
                     results[name] = {"success": False, "message": "发送超时", "code": -1}
 
         return results
