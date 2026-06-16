@@ -128,7 +128,7 @@ if _IMPORT_ERRORS:
 
 st.set_page_config(
     page_title="RockGuard — 公路落石灾害监测预警系统",
-    page_icon="::rock::",
+    page_icon=":rock:",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -140,8 +140,8 @@ st.set_page_config(
 APP_NAME = "RockGuard"
 APP_VERSION = f"v{_core_version}"
 APP_SUBTITLE = "公路自然灾害监测预警平台"
-TEAM_NAME = "RockGuard Team"
-COPYRIGHT = "© 2026 RockGuard. All rights reserved."
+TEAM_NAME = "落石卫士团队"
+COPYRIGHT = "© 2026 RockGuard. 保留所有权利。"
 
 # ══════════════════════════════════════════════════════════════
 # 样式 & 配色 (科技蓝主色调)
@@ -487,7 +487,7 @@ def _update_perf_dashboard(placeholders: dict, detail_placeholder, snap) -> None
     placeholders["inference"].markdown(f"""
     <div style="text-align:center;padding:0.5rem 0.3rem;background:#fff;border:1px solid #E3E8EF;border-radius:8px;">
         <div style="font-size:1.4rem;font-weight:700;color:#1B2838;">{snap.inference_ms_avg:.0f}<span style="font-size:0.7rem;">ms</span></div>
-        <div style="font-size:0.65rem;color:#5F6B7A;">推理耗时 (avg)</div>
+        <div style="font-size:0.65rem;color:#5F6B7A;">推理耗时 (平均)</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -670,7 +670,7 @@ def page_demo_showcase():
             for sid, scene in unavailable:
                 st.markdown(f"- **{scene['title']}** — _{scene['subtitle']}_ → `{scene['data_dir']}/`")
         else:
-            st.info("请在 DEMO_SCENES 中注册场景，然后运行生成脚本。")
+            st.info("请在场景配置中注册场景，然后运行生成脚本。")
         return
 
     # ── 场景选择器 (多场景时显示) ──
@@ -781,15 +781,15 @@ def page_demo_showcase():
 
     with col_chart:
         chart_data = pd.DataFrame({
-            "Level": ["I级 · 红色", "II级 · 橙色", "III级 · 黄色", "IV级 · 蓝色"],
-            "Frames": [
+            "预警等级": ["I级 · 红色", "II级 · 橙色", "III级 · 黄色", "IV级 · 蓝色"],
+            "帧数": [
                 alerts.get("red", 0), alerts.get("orange", 0),
                 alerts.get("yellow", 0), alerts.get("blue", 0),
             ],
         })
-        chart_data = chart_data[chart_data["Frames"] > 0]
+        chart_data = chart_data[chart_data["帧数"] > 0]
         st.bar_chart(
-            chart_data.set_index("Level"),
+            chart_data.set_index("预警等级"),
             use_container_width=True,
             color=PRIMARY_BLUE,
         )
@@ -814,7 +814,7 @@ def page_demo_showcase():
         <div style="display:flex;align-items:center;gap:12px;margin:1.25rem 0 0.75rem 0;">
             <div style="width:4px;height:24px;background:{PRIMARY_BLUE};border-radius:2px;"></div>
             <div style="font-weight:600;font-size:1rem;color:{TEXT_PRIMARY};">关键帧查看器</div>
-            <div style="font-size:0.78rem;color:{TEXT_SECONDARY};">{len(key_frames)} frames</div>
+            <div style="font-size:0.78rem;color:{TEXT_SECONDARY};">{len(key_frames)} 帧</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1199,16 +1199,16 @@ def page_realtime_monitor():
     if alert_count > 0:
         st.divider()
         chart_data = pd.DataFrame({
-            "Level": ["I级 · 红色", "II级 · 橙色", "III级 · 黄色", "IV级 · 蓝色"],
-            "Frames": [
+            "预警等级": ["I级 · 红色", "II级 · 橙色", "III级 · 黄色", "IV级 · 蓝色"],
+            "帧数": [
                 level_counts["red"], level_counts["orange"],
                 level_counts["yellow"], level_counts["blue"],
             ],
         })
-        chart_data = chart_data[chart_data["Frames"] > 0]
+        chart_data = chart_data[chart_data["帧数"] > 0]
         col_a, col_b = st.columns([1, 1])
         with col_a:
-            st.bar_chart(chart_data.set_index("Level"), use_container_width=True)
+            st.bar_chart(chart_data.set_index("预警等级"), use_container_width=True)
         with col_b:
             if results["alert_frames"]:
                 tl_data = []
@@ -1430,7 +1430,7 @@ def page_algorithm_showcase():
             <div class="icon" style="font-weight:700;font-size:1.5rem;color:#1565C0;">3</div>
             <div class="title">SORT 目标跟踪</div>
             <div class="desc">Kalman 预测<br>IoU 匹配关联<br>轨迹管理</div>
-            <div class="tech">SORT Algorithm</div>
+            <div class="tech">SORT 跟踪</div>
         </div>
         <div class="pipe-arrow">→</div>
         <div class="pipe-stage" style="border-color:#D32F2F;border-width:2px;">
@@ -1515,7 +1515,7 @@ def page_algorithm_showcase():
             comp_data.set_index("场景")[["纯 YOLO (fps)", "本方案 (fps)"]],
             use_container_width=True,
         )
-        st.caption("注: 推理FPS受跳帧策略影响，纯YOLO全帧推理固定25fps (视频帧率)")
+        st.caption("注: 推理帧率受跳帧策略影响，纯YOLO全帧推理固定 25 FPS (视频帧率)")
 
     with col_metric:
         st.markdown("""
@@ -1607,19 +1607,19 @@ def page_algorithm_showcase():
 
         # 模拟 Kalman 预测 vs 实际轨迹数据
         kf_data = pd.DataFrame({
-            "Frame": list(range(1, 21)),
-            "Actual X": [100, 105, 112, 118, 125, 133, 140, 148, 155, 163,
-                         170, 177, 183, 190, 197, 204, 210, 217, 224, 230],
-            "Predicted X": [100, 106, 113, 119, 127, 134, 141, 149, 156, 164,
-                            171, 178, 184, 191, 198, 205, 211, 218, 225, 231],
-            "Actual Y": [200, 205, 211, 216, 222, 229, 235, 242, 249, 256,
-                         263, 270, 277, 284, 291, 298, 305, 312, 319, 326],
-            "Predicted Y": [200, 206, 212, 217, 224, 230, 237, 244, 251, 258,
-                            265, 272, 279, 286, 293, 300, 307, 314, 321, 327],
+            "帧号": list(range(1, 21)),
+            "实际 X": [100, 105, 112, 118, 125, 133, 140, 148, 155, 163,
+                      170, 177, 183, 190, 197, 204, 210, 217, 224, 230],
+            "预测 X": [100, 106, 113, 119, 127, 134, 141, 149, 156, 164,
+                      171, 178, 184, 191, 198, 205, 211, 218, 225, 231],
+            "实际 Y": [200, 205, 211, 216, 222, 229, 235, 242, 249, 256,
+                      263, 270, 277, 284, 291, 298, 305, 312, 319, 326],
+            "预测 Y": [200, 206, 212, 217, 224, 230, 237, 244, 251, 258,
+                      265, 272, 279, 286, 293, 300, 307, 314, 321, 327],
         })
 
         st.line_chart(
-            kf_data.set_index("Frame")[["Actual X", "Predicted X"]],
+            kf_data.set_index("帧号")[["实际 X", "预测 X"]],
             use_container_width=True,
         )
         st.caption("X 坐标: 实际值 (蓝色) vs Kalman 预测值 (橙色)")
@@ -1780,7 +1780,7 @@ def page_extreme_scenarios():
     st.markdown(f"""
     <div class="brand-header">
         <div>
-            <div class="logo">Extreme Scenarios Verification</div>
+            <div class="logo">极端场景验证</div>
             <div style="font-size:0.8rem;opacity:0.85;">夜间 &middot; 雨天 &middot; 逆光 &middot; 遮挡 &middot; 小目标 &middot; 摄像头抖动</div>
         </div>
         <div class="meta"><span>{APP_VERSION}</span><span>{TEAM_NAME}</span></div>
@@ -1873,7 +1873,7 @@ def page_extreme_scenarios():
                 with frame_cols[i % 2]:
                     if fp.exists():
                         st.image(str(fp), use_container_width=True,
-                                 caption=f"F{kf['frame_idx']} | {ALERT_LABELS.get(kf['alert_level'], kf['alert_level'])} | {kf['track_count']} targets")
+                                 caption=f"第{kf['frame_idx']}帧 | {ALERT_LABELS.get(kf['alert_level'], kf['alert_level'])} | {kf['track_count']} 个目标")
         else:
             st.info("示例帧暂不可用。运行 `python scripts/generate_demo.py` 生成演示数据。")
 
@@ -2556,8 +2556,8 @@ def page_multi_camera():
             col1, col2, col3 = st.columns([2, 4, 2])
             with col1:
                 cam_name = st.text_input(
-                    f"名称", value=f"Camera {i+1}",
-                    key=f"mc_name_{i}", placeholder=f"Cam {i+1}"
+                    f"名称", value=f"摄像头 {i+1}",
+                    key=f"mc_name_{i}", placeholder=f"摄像头 {i+1}"
                 )
             with col2:
                 cam_source = st.text_input(
@@ -2579,7 +2579,7 @@ def page_multi_camera():
                 uploaded = st.file_uploader(
                     f"上传视频 {i+1}", type=["mp4", "avi", "mov", "mkv"],
                     key=f"mc_upload_{i}",
-                    help=f"为 Camera {i+1} 上传视频文件"
+                    help=f"为摄像头 {i+1} 上传视频文件"
                 )
                 if uploaded:
                     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
@@ -2713,7 +2713,7 @@ def page_multi_camera():
     c1.metric("活跃摄像头", total_cams)
     c2.metric("总帧数", total_frames)
     c3.metric("总预警", total_alerts)
-    c4.metric("平均 FPS", round(sum(r["fps"] for r in mc_results.values()) / max(total_cams, 1), 1))
+    c4.metric("平均帧率", round(sum(r["fps"] for r in mc_results.values()) / max(total_cams, 1), 1))
 
     # 按等级统计聚合
     level_counts = {"red": 0, "orange": 0, "yellow": 0, "blue": 0}
@@ -2781,7 +2781,7 @@ def page_multi_camera():
                             </span>
                         </div>
                         <div>
-                            <span class="alert-badge red" style="font-size:0.7rem;">{alert_count} alerts</span>
+                            <span class="alert-badge red" style="font-size:0.7rem;">{alert_count} 条预警</span>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
@@ -2862,7 +2862,7 @@ def page_multi_camera():
                 for i, af in enumerate(alert_frames_list[:10]):
                     lvl = af.get("alert_level", "green")
                     with alert_shortcuts[i]:
-                        if st.button(f"{lvl[0].upper()}",
+                        if st.button(f"{ALERT_LABELS.get(lvl, lvl[:1].upper())}",
                                      key=f"mc_alert_jump_{i}",
                                      help=f"跳转到帧 {af['frame_idx']} ({ALERT_LABELS.get(lvl, lvl)})",
                                      use_container_width=True):
@@ -2908,17 +2908,17 @@ def page_multi_camera():
         tl_data = []
         for a in all_alerts_agg:
             tl_data.append({
-                "Camera": a["camera"],
-                "Time (s)": a.get("time_sec", 0),
-                "Level": a.get("alert_level", "yellow"),
-                "Targets": len(a.get("boxes", [])),
+                "摄像头": a["camera"],
+                "时间 (秒)": a.get("time_sec", 0),
+                "等级": a.get("alert_level", "yellow"),
+                "目标数": len(a.get("boxes", [])),
             })
 
         if tl_data:
             tl_df = pd.DataFrame(tl_data)
             # 绘制散点图，按摄像头着色
             st.scatter_chart(
-                tl_df.set_index("Time (s)")[["Targets"]],
+                tl_df.set_index("时间 (秒)")[["目标数"]],
                 use_container_width=True,
             )
             st.caption("横轴: 时间(秒) | 纵轴: 检出目标数 | 每路摄像头独立显示")
@@ -3063,7 +3063,7 @@ def page_alert_records():
             wf_col1, wf_col2 = st.columns([2, 3])
             with wf_col1:
                 wf_alert_id = st.number_input("预警ID", min_value=1, value=1, key="wf_alert_id")
-                wf_operator = st.text_input("操作人", value="admin", key="wf_operator",
+                wf_operator = st.text_input("操作人", value="管理员", key="wf_operator",
                                            help="操作人员姓名或工号")
                 wf_note = st.text_input("备注", placeholder="备注信息 (可选)", key="wf_note")
             with wf_col2:
