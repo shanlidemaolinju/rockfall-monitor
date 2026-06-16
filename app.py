@@ -419,20 +419,9 @@ def render_sidebar():
         # ── 导航 ──
         page = st.radio(
             "",
-            ["Preset Demo", "Live Detection", "Multi-Camera", "Algorithm", "Extreme Scenarios", "Alert Standards", "Alert Records", "Site Manager", "Settings", "System"],
+            ["预设演示", "实时监测", "多路监控", "算法亮点", "极端场景", "预警标准", "预警记录", "点位管理", "参数设置", "系统管理"],
             label_visibility="collapsed",
-            format_func=lambda x: {
-                "Preset Demo": "    Preset Demo",
-                "Live Detection": "    Live Detection",
-                "Multi-Camera": "    Multi-Camera",
-                "Algorithm": "    Algorithm",
-                "Extreme Scenarios": "    Extreme Scenarios",
-                "Alert Standards": "    Alert Standards",
-                "Alert Records": "    Alert Records",
-                "Site Manager": "    Site Manager",
-                "Settings": "    Settings",
-                "System": "    System",
-            }[x],
+            format_func=lambda x: f"    {x}",
         )
 
         st.divider()
@@ -476,21 +465,7 @@ def render_sidebar():
         </div>
         """, unsafe_allow_html=True)
 
-        # 页面映射 (英文 → 中文 key)
-        page_map = {
-            "Preset Demo": "预设演示",
-            "Live Detection": "实时监测",
-            "Multi-Camera": "多路监控",
-            "Algorithm": "算法亮点",
-            "Extreme Scenarios": "极端场景",
-            "Alert Standards": "预警标准",
-            "Alert Records": "预警记录",
-            "Site Manager": "点位管理",
-            "Settings": "参数设置",
-            "System": "系统管理",
-        }
-
-    return page_map[page]
+    return page
 
 
 # ══════════════════════════════════════════════════════════════
@@ -667,7 +642,7 @@ def page_demo_showcase():
     <div class="brand-header">
         <div>
             <div class="logo">{APP_NAME}</div>
-            <div style="font-size:0.8rem;opacity:0.85;">Preset Demo &middot; GPU Pre-computed</div>
+            <div style="font-size:0.8rem;opacity:0.85;">预设演示 &middot; GPU 预计算</div>
         </div>
         <div class="meta">
             <span>{APP_VERSION}</span><span>{TEAM_NAME}</span>
@@ -686,7 +661,7 @@ def page_demo_showcase():
             unavailable.append((sid, scene))
 
     if not available:
-        st.warning("Demo data not found. Generate it with:")
+        st.warning("未找到演示数据，请用以下命令生成:")
         st.code("python scripts/generate_all_demos.py /path/to/video.mp4 --scene nanning_naan_s1")
         st.markdown("""
         **已注册但未生成的场景** (上传对应视频后运行 `scripts/generate_all_demos.py`):
@@ -722,7 +697,7 @@ def page_demo_showcase():
         )
         st.markdown(f"""
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:0.5rem;">
-            <span style="font-size:0.78rem;color:{TEXT_SECONDARY};">Active Scene:</span>
+            <span style="font-size:0.78rem;color:{TEXT_SECONDARY};">当前场景:</span>
             <span style="font-weight:600;color:{TEXT_PRIMARY};">{sc['title']}</span>
             {tags_html}
         </div>
@@ -753,8 +728,8 @@ def page_demo_showcase():
     st.markdown(f"""
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:0.75rem;">
         <div style="width:4px;height:24px;background:{PRIMARY_BLUE};border-radius:2px;"></div>
-        <div style="font-weight:600;font-size:1rem;color:{TEXT_PRIMARY};">Scenario</div>
-        <div class="alert-badge green" style="font-size:0.7rem;">READY</div>
+        <div style="font-weight:600;font-size:1rem;color:{TEXT_PRIMARY};">场景</div>
+        <div class="alert-badge green" style="font-size:0.7rem;">就绪</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -766,7 +741,7 @@ def page_demo_showcase():
             <div style="font-weight:600;font-size:0.95rem;color:{TEXT_PRIMARY};">{active_scene['title']}</div>
             <div style="font-size:0.78rem;color:{TEXT_SECONDARY};margin-top:0.25rem;">{active_scene['subtitle']}</div>
             <div style="margin-top:0.5rem;font-size:0.75rem;color:{TEXT_SECONDARY};">
-                Video: {video.get('file','')} &middot; {video.get('resolution','')} &middot; {video.get('fps',0)} fps
+                视频: {video.get('file','')} &middot; {video.get('resolution','')} &middot; {video.get('fps',0)} fps
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -776,29 +751,29 @@ def page_demo_showcase():
         with k1:
             st.markdown(f"""<div class="kpi-card">
                 <div class="kpi-value">{video.get('total_frames', 0):,}</div>
-                <div class="kpi-label">Total Frames</div></div>""", unsafe_allow_html=True)
+                <div class="kpi-label">总帧数</div></div>""", unsafe_allow_html=True)
         with k2:
             st.markdown(f"""<div class="kpi-card">
                 <div class="kpi-value">{detection.get('elapsed_sec', 0):.1f}s</div>
-                <div class="kpi-label">Inference Time</div></div>""", unsafe_allow_html=True)
+                <div class="kpi-label">推理时间</div></div>""", unsafe_allow_html=True)
         with k3:
             st.markdown(f"""<div class="kpi-card">
                 <div class="kpi-value">{total_alerts}</div>
-                <div class="kpi-label">Alert Frames</div></div>""", unsafe_allow_html=True)
+                <div class="kpi-label">预警帧数</div></div>""", unsafe_allow_html=True)
         with k4:
             st.markdown(f"""<div class="kpi-card">
                 <div class="kpi-value" style="color:{ALERT_COLORS['red']};">{alerts.get('red', 0)}</div>
-                <div class="kpi-label">Level I (Red)</div></div>""", unsafe_allow_html=True)
+                <div class="kpi-label">I级 (红色)</div></div>""", unsafe_allow_html=True)
         with k5:
             st.markdown(f"""<div class="kpi-card">
                 <div class="kpi-value">{detection.get('device', 'GPU')[:16]}</div>
-                <div class="kpi-label">Device</div></div>""", unsafe_allow_html=True)
+                <div class="kpi-label">设备</div></div>""", unsafe_allow_html=True)
 
     # ── 第二行: 预警等级分布 ──
     st.markdown(f"""
     <div style="display:flex;align-items:center;gap:12px;margin:1.25rem 0 0.75rem 0;">
         <div style="width:4px;height:24px;background:{PRIMARY_BLUE};border-radius:2px;"></div>
-        <div style="font-weight:600;font-size:1rem;color:{TEXT_PRIMARY};">Alert Distribution</div>
+        <div style="font-weight:600;font-size:1rem;color:{TEXT_PRIMARY};">预警分布</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -806,7 +781,7 @@ def page_demo_showcase():
 
     with col_chart:
         chart_data = pd.DataFrame({
-            "Level": ["I · Red", "II · Orange", "III · Yellow", "IV · Blue"],
+            "Level": ["I级 · 红色", "II级 · 橙色", "III级 · 黄色", "IV级 · 蓝色"],
             "Frames": [
                 alerts.get("red", 0), alerts.get("orange", 0),
                 alerts.get("yellow", 0), alerts.get("blue", 0),
@@ -838,7 +813,7 @@ def page_demo_showcase():
         st.markdown(f"""
         <div style="display:flex;align-items:center;gap:12px;margin:1.25rem 0 0.75rem 0;">
             <div style="width:4px;height:24px;background:{PRIMARY_BLUE};border-radius:2px;"></div>
-            <div style="font-weight:600;font-size:1rem;color:{TEXT_PRIMARY};">Key Frame Viewer</div>
+            <div style="font-weight:600;font-size:1rem;color:{TEXT_PRIMARY};">关键帧查看器</div>
             <div style="font-size:0.78rem;color:{TEXT_SECONDARY};">{len(key_frames)} frames</div>
         </div>
         """, unsafe_allow_html=True)
@@ -872,22 +847,22 @@ def page_demo_showcase():
         with c_right:
             st.markdown(f"""
             <div class="card">
-                <div style="font-size:0.7rem;color:{TEXT_SECONDARY};text-transform:uppercase;">Frame Info</div>
+                <div style="font-size:0.7rem;color:{TEXT_SECONDARY};text-transform:uppercase;">帧信息</div>
                 <div style="font-size:1.5rem;font-weight:700;color:{TEXT_PRIMARY};margin:0.25rem 0;">#{kf['frame_idx']}</div>
                 <div><span class="alert-badge {lvl}">{ALERT_LABELS.get(lvl, lvl)}</span></div>
                 <div style="margin-top:0.75rem;font-size:0.82rem;">
-                    <div>Confidence <b style="float:right;">{kf['max_confidence']:.3f}</b></div>
-                    <div>Targets <b style="float:right;">{kf['track_count']}</b></div>
-                    <div>Timestamp <b style="float:right;">{kf['time_sec']:.1f}s</b></div>
+                    <div>置信度 <b style="float:right;">{kf['max_confidence']:.3f}</b></div>
+                    <div>目标数 <b style="float:right;">{kf['track_count']}</b></div>
+                    <div>时间戳 <b style="float:right;">{kf['time_sec']:.1f}s</b></div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
-            st.button("Previous", key="demo_prev", use_container_width=True,
+            st.button("上一帧", key="demo_prev", use_container_width=True,
                       disabled=st.session_state.demo_frame_idx == 0,
                       on_click=lambda: st.session_state.update(
                           demo_frame_idx=max(0, st.session_state.demo_frame_idx - 1)))
-            st.button("Next", key="demo_next", use_container_width=True,
+            st.button("下一帧", key="demo_next", use_container_width=True,
                       disabled=st.session_state.demo_frame_idx >= len(key_frames) - 1,
                       on_click=lambda: st.session_state.update(
                           demo_frame_idx=min(len(key_frames) - 1, st.session_state.demo_frame_idx + 1)))
@@ -907,8 +882,8 @@ def page_realtime_monitor():
     st.markdown(f"""
     <div class="brand-header">
         <div>
-            <div class="logo">Live Detection</div>
-            <div style="font-size:0.8rem;opacity:0.85;">Upload video &middot; CPU inference &middot; Real-time results</div>
+            <div class="logo">实时监测</div>
+            <div style="font-size:0.8rem;opacity:0.85;">上传视频 &middot; CPU 推理 &middot; 实时结果</div>
         </div>
         <div class="meta"><span>{APP_VERSION}</span></div>
     </div>
@@ -975,8 +950,8 @@ def page_realtime_monitor():
         st.markdown("""
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:0.5rem;">
             <div style="width:4px;height:24px;background:#1565C0;border-radius:2px;"></div>
-            <div style="font-weight:600;font-size:0.95rem;color:#1B2838;">Performance Dashboard</div>
-            <div style="font-size:0.72rem;color:#5F6B7A;">Real-time monitoring</div>
+            <div style="font-weight:600;font-size:0.95rem;color:#1B2838;">性能仪表盘</div>
+            <div style="font-size:0.72rem;color:#5F6B7A;">实时监测</div>
         </div>
         """, unsafe_allow_html=True)
         perf_cols = st.columns(6)
@@ -1198,7 +1173,7 @@ def page_realtime_monitor():
     st.markdown(f"""
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:0.5rem;">
         <div style="width:4px;height:24px;background:{PRIMARY_BLUE};border-radius:2px;"></div>
-        <div style="font-weight:600;font-size:1rem;color:{TEXT_PRIMARY};">Detection Report</div>
+        <div style="font-weight:600;font-size:1rem;color:{TEXT_PRIMARY};">检测报告</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1215,16 +1190,16 @@ def page_realtime_monitor():
 
     # ── KPI 行 ──
     c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Total Frames", total)
-    c2.metric("Alert Frames", alert_count, delta=f"{alert_ratio:.1f}%" if alert_count > 0 else None)
-    c3.metric("Level I (Red)", level_counts["red"])
-    c4.metric("Level II (Orange)", level_counts["orange"])
-    c5.metric("Level III (Yellow)", level_counts["yellow"])
+    c1.metric("总帧数", total)
+    c2.metric("预警帧数", alert_count, delta=f"{alert_ratio:.1f}%" if alert_count > 0 else None)
+    c3.metric("I级 (红色)", level_counts["red"])
+    c4.metric("II级 (橙色)", level_counts["orange"])
+    c5.metric("III级 (黄色)", level_counts["yellow"])
 
     if alert_count > 0:
         st.divider()
         chart_data = pd.DataFrame({
-            "Level": ["I · Red", "II · Orange", "III · Yellow", "IV · Blue"],
+            "Level": ["I级 · 红色", "II级 · 橙色", "III级 · 黄色", "IV级 · 蓝色"],
             "Frames": [
                 level_counts["red"], level_counts["orange"],
                 level_counts["yellow"], level_counts["blue"],
@@ -1239,14 +1214,14 @@ def page_realtime_monitor():
                 tl_data = []
                 for fr in results["alert_frames"]:
                     tl_data.append({
-                        "Frame": fr["frame_idx"],
-                        "Time (s)": fr.get("time_sec", fr["frame_idx"] / max(results.get("fps", 25), 1)),
-                        "Level": fr.get("alert_level", "yellow"),
-                        "Targets": len(fr.get("tracks", [])),
+                        "帧号": fr["frame_idx"],
+                        "时间 (秒)": fr.get("time_sec", fr["frame_idx"] / max(results.get("fps", 25), 1)),
+                        "等级": fr.get("alert_level", "yellow"),
+                        "目标数": len(fr.get("tracks", [])),
                     })
                 tl_df = pd.DataFrame(tl_data)
-                st.scatter_chart(tl_df.set_index("Time (s)")[["Targets"]], use_container_width=True)
-                st.caption("Alert timeline: X = time (s), Y = detected targets")
+                st.scatter_chart(tl_df.set_index("时间 (秒)")[["目标数"]], use_container_width=True)
+                st.caption("预警时间线: X轴 = 时间(秒), Y轴 = 检出目标数")
 
     # 预警帧图库
     if alert_count > 0 and save_frames_flag:
@@ -1254,7 +1229,7 @@ def page_realtime_monitor():
         st.markdown(f"""
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:0.5rem;">
             <div style="width:4px;height:24px;background:{PRIMARY_BLUE};border-radius:2px;"></div>
-            <div style="font-weight:600;font-size:1rem;color:{TEXT_PRIMARY};">Alert Frame Gallery</div>
+            <div style="font-weight:600;font-size:1rem;color:{TEXT_PRIMARY};">预警帧图库</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1282,7 +1257,7 @@ def page_realtime_monitor():
         if st.button("📥 导出检测报告 (CSV)", use_container_width=True):
             csv_buffer = io.StringIO()
             writer = csv.writer(csv_buffer)
-            writer.writerow(["帧号", "时间(秒)", "预警等级", "目标数", "Track IDs", "最高置信度"])
+            writer.writerow(["帧号", "时间(秒)", "预警等级", "目标数", "跟踪ID", "最高置信度"])
             for fr in results["all_frames"]:
                 tracks = fr.get("tracks", [])
                 track_ids = ",".join(str(t["id"]) for t in tracks)
@@ -1303,7 +1278,7 @@ def page_realtime_monitor():
                 use_container_width=True,
             )
 
-    # ── 预警回放 (Alert Replay) ──
+    # ── 预警回放 ──
     clips = results.get("clips", {})
     if clips:
         total_clips = sum(len(v) for v in clips.values())
@@ -1312,8 +1287,8 @@ def page_realtime_monitor():
             st.markdown(f"""
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:0.75rem;">
                 <div style="width:4px;height:24px;background:#1565C0;border-radius:2px;"></div>
-                <div style="font-weight:600;font-size:1rem;color:#1B2838;">Alert Replay</div>
-                <div style="font-size:0.78rem;color:#5F6B7A;">{total_clips} clips</div>
+                <div style="font-weight:600;font-size:1rem;color:#1B2838;">预警回放</div>
+                <div style="font-size:0.78rem;color:#5F6B7A;">{total_clips} 个片段</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -1383,8 +1358,8 @@ def page_algorithm_showcase():
     st.markdown(f"""
     <div class="brand-header">
         <div>
-            <div class="logo">Algorithm Showcase</div>
-            <div style="font-size:0.8rem;opacity:0.85;">Pipeline visualization &middot; Performance comparison &middot; Technical innovation</div>
+            <div class="logo">算法亮点</div>
+            <div style="font-size:0.8rem;opacity:0.85;">流水线可视化 &middot; 性能对比 &middot; 技术创新</div>
         </div>
         <div class="meta"><span>{APP_VERSION}</span><span>{TEAM_NAME}</span></div>
     </div>
@@ -1396,8 +1371,8 @@ def page_algorithm_showcase():
     st.markdown("""
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:0.5rem;">
         <div style="width:4px;height:24px;background:#1565C0;border-radius:2px;"></div>
-        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">Algorithm Pipeline</div>
-        <div style="font-size:0.78rem;color:#5F6B7A;">MOG2 → YOLO → SORT → Alert Grading</div>
+        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">算法流水线</div>
+        <div style="font-size:0.78rem;color:#5F6B7A;">MOG2 → YOLO → SORT → 预警分级</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1439,37 +1414,37 @@ def page_algorithm_showcase():
     <div class="pipeline-container">
         <div class="pipe-stage">
             <div class="icon" style="font-weight:700;font-size:1.5rem;color:#1565C0;">1</div>
-            <div class="title">MOG2 Motion</div>
+            <div class="title">MOG2 运动检测</div>
             <div class="desc">背景减除<br>运动区域提取<br>自适应跳帧决策</div>
             <div class="tech">OpenCV MOG2</div>
         </div>
         <div class="pipe-arrow">→</div>
         <div class="pipe-stage">
             <div class="icon" style="font-weight:700;font-size:1.5rem;color:#1565C0;">2</div>
-            <div class="title">YOLO Detection</div>
+            <div class="title">YOLO 目标检测</div>
             <div class="desc">运动区域裁剪<br>目标检测推理<br>置信度输出</div>
             <div class="tech">YOLOv8 Nano</div>
         </div>
         <div class="pipe-arrow">→</div>
         <div class="pipe-stage">
             <div class="icon" style="font-weight:700;font-size:1.5rem;color:#1565C0;">3</div>
-            <div class="title">SORT Tracking</div>
+            <div class="title">SORT 目标跟踪</div>
             <div class="desc">Kalman 预测<br>IoU 匹配关联<br>轨迹管理</div>
             <div class="tech">SORT Algorithm</div>
         </div>
         <div class="pipe-arrow">→</div>
         <div class="pipe-stage" style="border-color:#D32F2F;border-width:2px;">
             <div class="icon" style="font-weight:700;font-size:1.5rem;color:#D32F2F;">4</div>
-            <div class="title">Alert Grading</div>
+            <div class="title">预警分级</div>
             <div class="desc">四级预警分级<br>置信度+尺寸<br>运动状态判断</div>
-            <div class="tech" style="background:#FFEBEE;color:#D32F2F;">4-Level System</div>
+            <div class="tech" style="background:#FFEBEE;color:#D32F2F;">四级预警系统</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
     # 流水线详情
     with st.expander("各阶段详细说明", expanded=False):
-        stages_detail = st.tabs(["Stage 1: MOG2", "Stage 2: YOLO", "Stage 3: SORT", "Stage 4: Alert"])
+        stages_detail = st.tabs(["阶段一: MOG2", "阶段二: YOLO", "阶段三: SORT", "阶段四: 预警分级"])
 
         with stages_detail[0]:
             st.markdown("""
@@ -1520,8 +1495,8 @@ def page_algorithm_showcase():
     st.markdown("""
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:0.5rem;">
         <div style="width:4px;height:24px;background:#E65100;border-radius:2px;"></div>
-        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">Performance Comparison</div>
-        <div style="font-size:0.78rem;color:#5F6B7A;">Pure YOLO vs Motion-PreFilter + YOLO</div>
+        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">性能对比</div>
+        <div style="font-size:0.78rem;color:#5F6B7A;">纯 YOLO vs 运动前置过滤 + YOLO</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1531,13 +1506,13 @@ def page_algorithm_showcase():
     with col_chart:
         # FPS 对比柱状图
         comp_data = pd.DataFrame({
-            "Scenario": ["Idle (no motion)", "Light Motion", "Heavy Motion", "Continuous Rockfall"],
-            "Pure YOLO (fps)": [25, 25, 25, 25],
-            "Our Method (fps)": [5, 12, 18, 22],
-            "YOLO Calls Saved": [80, 52, 28, 12],
+            "场景": ["静止 (无运动)", "弱运动", "强运动", "持续落石"],
+            "纯 YOLO (fps)": [25, 25, 25, 25],
+            "本方案 (fps)": [5, 12, 18, 22],
+            "YOLO 调用节省": [80, 52, 28, 12],
         })
         st.bar_chart(
-            comp_data.set_index("Scenario")[["Pure YOLO (fps)", "Our Method (fps)"]],
+            comp_data.set_index("场景")[["纯 YOLO (fps)", "本方案 (fps)"]],
             use_container_width=True,
         )
         st.caption("注: 推理FPS受跳帧策略影响，纯YOLO全帧推理固定25fps (视频帧率)")
@@ -1549,15 +1524,15 @@ def page_algorithm_showcase():
 
         k1, k2 = st.columns(2)
         with k1:
-            st.metric("Avg GPU Inference", "781 fps", delta="RTX 4060", delta_color="off")
+            st.metric("平均 GPU 推理", "781 fps", delta="RTX 4060", delta_color="off")
         with k2:
-            st.metric("Avg CPU Inference", "~45 fps", delta="i7-13620H", delta_color="off")
+            st.metric("平均 CPU 推理", "~45 fps", delta="i7-13620H", delta_color="off")
 
         k3, k4 = st.columns(2)
         with k3:
-            st.metric("Motion Skip Ratio", "60-80%", delta="frames filtered out")
+            st.metric("运动跳过率", "60-80%", delta="帧过滤比例")
         with k4:
-            st.metric("Model Size", "6.2 MB", delta="YOLOv8 Nano")
+            st.metric("模型大小", "6.2 MB", delta="YOLOv8 Nano")
 
         st.markdown("""
         <div style="margin-top:0.75rem;padding:0.75rem;background:#E8F5E9;border-radius:8px;
@@ -1593,8 +1568,8 @@ def page_algorithm_showcase():
     st.markdown("""
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:0.5rem;">
         <div style="width:4px;height:24px;background:#6A1B9A;border-radius:2px;"></div>
-        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">Kalman Filter Trajectory</div>
-        <div style="font-size:0.78rem;color:#5F6B7A;">Prediction vs Actual &middot; Multi-target Tracking</div>
+        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">Kalman 滤波轨迹</div>
+        <div style="font-size:0.78rem;color:#5F6B7A;">预测 vs 实际 &middot; 多目标跟踪</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1698,7 +1673,7 @@ def page_algorithm_showcase():
     st.markdown("""
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:0.75rem;">
         <div style="width:4px;height:24px;background:#2E7D32;border-radius:2px;"></div>
-        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">Technical Innovation Summary</div>
+        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">技术创新总结</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1706,7 +1681,7 @@ def page_algorithm_showcase():
     with innovations[0]:
         st.markdown("""
         <div class="kpi-card">
-            <div style="font-weight:600;font-size:0.9rem;color:#1B2838;">Motion Pre-Filter</div>
+            <div style="font-weight:600;font-size:0.9rem;color:#1B2838;">运动前置过滤</div>
             <div style="font-size:0.72rem;color:#5F6B7A;margin-top:0.4rem;line-height:1.5;">
                 MOG2 + TFD 双模态运动检测，<br>
                 过滤 60-80% 无效帧，<br>
@@ -1717,7 +1692,7 @@ def page_algorithm_showcase():
     with innovations[1]:
         st.markdown("""
         <div class="kpi-card">
-            <div style="font-weight:600;font-size:0.9rem;color:#1B2838;">4-Level Alert Grading</div>
+            <div style="font-weight:600;font-size:0.9rem;color:#1B2838;">四级预警分级</div>
             <div style="font-size:0.72rem;color:#5F6B7A;margin-top:0.4rem;line-height:1.5;">
                 置信度 + 落石尺寸 + 运动状态<br>
                 三维度联合分级，<br>
@@ -1728,7 +1703,7 @@ def page_algorithm_showcase():
     with innovations[2]:
         st.markdown("""
         <div class="kpi-card">
-            <div style="font-weight:600;font-size:0.9rem;color:#1B2838;">Modular Architecture</div>
+            <div style="font-weight:600;font-size:0.9rem;color:#1B2838;">模块化架构</div>
             <div style="font-size:0.72rem;color:#5F6B7A;margin-top:0.4rem;line-height:1.5;">
                 流水线各阶段独立可替换，<br>
                 支持 TensorRT/ONNX 加速，<br>
@@ -1806,7 +1781,7 @@ def page_extreme_scenarios():
     <div class="brand-header">
         <div>
             <div class="logo">Extreme Scenarios Verification</div>
-            <div style="font-size:0.8rem;opacity:0.85;">Night &middot; Rain &middot; Backlight &middot; Occlusion &middot; Small Target &middot; Camera Shake</div>
+            <div style="font-size:0.8rem;opacity:0.85;">夜间 &middot; 雨天 &middot; 逆光 &middot; 遮挡 &middot; 小目标 &middot; 摄像头抖动</div>
         </div>
         <div class="meta"><span>{APP_VERSION}</span><span>{TEAM_NAME}</span></div>
     </div>
@@ -1820,8 +1795,8 @@ def page_extreme_scenarios():
     st.markdown("""
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:0.5rem;">
         <div style="width:4px;height:24px;background:#1565C0;border-radius:2px;"></div>
-        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">Scenario Matrix</div>
-        <div style="font-size:0.78rem;color:#5F6B7A;">6 challenging conditions &middot; Verified detection performance</div>
+        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">场景矩阵</div>
+        <div style="font-size:0.78rem;color:#5F6B7A;">6种挑战条件 &middot; 已验证的检测性能</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1866,7 +1841,7 @@ def page_extreme_scenarios():
         <div style="font-size:1.5rem;">{active_sc['icon']}</div>
         <div style="font-weight:600;font-size:1rem;color:#1B2838;">{active_sc['title']}</div>
         <div class="alert-badge" style="background:{active_sc['color']}15;color:{active_sc['color']};font-size:0.7rem;">
-            ACTIVE
+            当前选中
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -1941,24 +1916,24 @@ def page_extreme_scenarios():
     st.markdown("""
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:0.5rem;">
         <div style="width:4px;height:24px;background:#E65100;border-radius:2px;"></div>
-        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">Cross-Scenario Comparison</div>
+        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">跨场景对比</div>
     </div>
     """, unsafe_allow_html=True)
 
     # 对比图
     comp_data = pd.DataFrame({
-        "Scenario": ["夜间", "雨天", "逆光", "遮挡", "小目标", "抖动"],
-        "Detection Rate (%)": [92, 88, 85, 78, 72, 82],
-        "False Alarm Rate (%)": [5, 8, 10, 8, 15, 12],
+        "场景": ["夜间", "雨天", "逆光", "遮挡", "小目标", "抖动"],
+        "检出率 (%)": [92, 88, 85, 78, 72, 82],
+        "虚警率 (%)": [5, 8, 10, 8, 15, 12],
     })
-    comp_data = comp_data.set_index("Scenario")
+    comp_data = comp_data.set_index("场景")
 
     col_c1, col_c2 = st.columns(2)
     with col_c1:
-        st.bar_chart(comp_data[["Detection Rate (%)"]], use_container_width=True)
+        st.bar_chart(comp_data[["检出率 (%)"]], use_container_width=True)
         st.caption("检出率 (%): 越高越好")
     with col_c2:
-        st.bar_chart(comp_data[["False Alarm Rate (%)"]], use_container_width=True)
+        st.bar_chart(comp_data[["虚警率 (%)"]], use_container_width=True)
         st.caption("虚警率 (%): 越低越好")
 
     # 对比表
@@ -1983,7 +1958,7 @@ def page_extreme_scenarios():
     st.markdown("""
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:0.5rem;">
         <div style="width:4px;height:24px;background:#6A1B9A;border-radius:2px;"></div>
-        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">Small Target Detection</div>
+        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">小目标检测</div>
         <div style="font-size:0.78rem;color:#5F6B7A;">远距离落石 &lt; 50px &middot; SAHI 切片推理</div>
     </div>
     """, unsafe_allow_html=True)
@@ -2036,7 +2011,7 @@ def page_extreme_scenarios():
     st.markdown(f"""
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:0.5rem;">
         <div style="width:4px;height:24px;background:#2E7D32;border-radius:2px;"></div>
-        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">Field Test: {active_site.name}</div>
+        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">实地测试: {active_site.name}</div>
         <div style="font-size:0.78rem;color:#5F6B7A;">{active_site.region} &middot; 真实落石场景</div>
     </div>
     """, unsafe_allow_html=True)
@@ -2168,8 +2143,8 @@ def page_alert_standards():
     st.markdown(f"""
     <div class="brand-header">
         <div>
-            <div class="logo">Alert Grading Standards</div>
-            <div style="font-size:0.8rem;opacity:0.85;">4-Level system &middot; Decision tree &middot; Response procedures &middot; Push channels</div>
+            <div class="logo">预警分级标准</div>
+            <div style="font-size:0.8rem;opacity:0.85;">四级体系 &middot; 决策树 &middot; 响应流程 &middot; 推送渠道</div>
         </div>
         <div class="meta"><span>{APP_VERSION}</span><span>{TEAM_NAME}</span></div>
     </div>
@@ -2181,7 +2156,7 @@ def page_alert_standards():
     st.markdown("""
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:0.5rem;">
         <div style="width:4px;height:24px;background:#1565C0;border-radius:2px;"></div>
-        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">Four-Level Alert System</div>
+        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">四级预警体系</div>
         <div style="font-size:0.78rem;color:#5F6B7A;">对齐《公路自然灾害监测预警系统技术指南》</div>
     </div>
     """, unsafe_allow_html=True)
@@ -2214,7 +2189,7 @@ def page_alert_standards():
     st.markdown("""
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:0.75rem;">
         <div style="width:4px;height:24px;background:#E65100;border-radius:2px;"></div>
-        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">Alert Grading Decision Tree</div>
+        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">预警分级决策树</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -2345,7 +2320,7 @@ def page_alert_standards():
     st.markdown("""
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:0.5rem;">
         <div style="width:4px;height:24px;background:#2E7D32;border-radius:2px;"></div>
-        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">Response Procedures & Push Configuration</div>
+        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">响应流程与推送配置</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -2437,7 +2412,7 @@ def page_alert_standards():
     st.markdown("""
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:0.5rem;">
         <div style="width:4px;height:24px;background:#6A1B9A;border-radius:2px;"></div>
-        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">Push Channel Configuration</div>
+        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">推送渠道配置</div>
         <div style="font-size:0.78rem;color:#5F6B7A;">微信 &middot; 邮件 &middot; 企业微信 &middot; SSE弹窗</div>
     </div>
     """, unsafe_allow_html=True)
@@ -2471,7 +2446,7 @@ def page_alert_standards():
     st.markdown("""
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:0.5rem;">
         <div style="width:4px;height:24px;background:#D32F2F;border-radius:2px;"></div>
-        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">Alert Content Template</div>
+        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">预警内容模板</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -2548,8 +2523,8 @@ def page_multi_camera():
     st.markdown(f"""
     <div class="brand-header">
         <div>
-            <div class="logo">Multi-Camera Monitor</div>
-            <div style="font-size:0.8rem;opacity:0.85;">Up to 4 streams &middot; Synchronized view &middot; Aggregated alerts</div>
+            <div class="logo">多路监控</div>
+            <div style="font-size:0.8rem;opacity:0.85;">最多4路 &middot; 同步视图 &middot; 聚合预警</div>
         </div>
         <div class="meta"><span>{APP_VERSION}</span></div>
     </div>
@@ -2735,10 +2710,10 @@ def page_multi_camera():
 
     # KPI 行
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Active Cameras", total_cams)
-    c2.metric("Total Frames", total_frames)
-    c3.metric("Total Alerts", total_alerts)
-    c4.metric("Avg FPS", round(sum(r["fps"] for r in mc_results.values()) / max(total_cams, 1), 1))
+    c1.metric("活跃摄像头", total_cams)
+    c2.metric("总帧数", total_frames)
+    c3.metric("总预警", total_alerts)
+    c4.metric("平均 FPS", round(sum(r["fps"] for r in mc_results.values()) / max(total_cams, 1), 1))
 
     # 按等级统计聚合
     level_counts = {"red": 0, "orange": 0, "yellow": 0, "blue": 0}
@@ -2770,7 +2745,7 @@ def page_multi_camera():
         <div style="display:flex;align-items:center;gap:12px;">
             <div style="width:4px;height:24px;background:#1565C0;border-radius:2px;"></div>
             <div style="font-weight:600;font-size:1rem;color:#1B2838;">
-                {"Grid View" if st.session_state.mc_active_view < 0 else f"Camera: {mc_results.get(st.session_state.mc_active_view, {}).get('name', '')}"}
+                {"网格视图" if st.session_state.mc_active_view < 0 else f"摄像头: {mc_results.get(st.session_state.mc_active_view, {}).get('name', '')}"}
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -2923,7 +2898,7 @@ def page_multi_camera():
         st.markdown("""
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:0.5rem;">
             <div style="width:4px;height:24px;background:#1565C0;border-radius:2px;"></div>
-            <div style="font-weight:600;font-size:1rem;color:#1B2838;">Aggregated Alert Timeline</div>
+            <div style="font-weight:600;font-size:1rem;color:#1B2838;">聚合预警时间线</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -2958,8 +2933,8 @@ def page_alert_records():
     st.markdown(f"""
     <div class="brand-header">
         <div>
-            <div class="logo">Alert Records</div>
-            <div style="font-size:0.8rem;opacity:0.85;">History &middot; Filter &middot; Export</div>
+            <div class="logo">预警记录</div>
+            <div style="font-size:0.8rem;opacity:0.85;">历史记录 &middot; 筛选 &middot; 导出</div>
         </div>
         <div class="meta"><span>{APP_VERSION}</span></div>
     </div>
@@ -2997,11 +2972,11 @@ def page_alert_records():
     # ── 今日统计卡片 ──
     today_counts = store.count_today_by_level()
     tc1, tc2, tc3, tc4, tc5 = st.columns(5)
-    tc1.metric("Level I (Red)", today_counts.get("red", 0))
-    tc2.metric("Level II (Orange)", today_counts.get("orange", 0))
-    tc3.metric("Level III (Yellow)", today_counts.get("yellow", 0))
-    tc4.metric("Level IV (Blue)", today_counts.get("blue", 0))
-    tc5.metric("Total Today", sum(today_counts.values()))
+    tc1.metric("I级 (红色)", today_counts.get("red", 0))
+    tc2.metric("II级 (橙色)", today_counts.get("orange", 0))
+    tc3.metric("III级 (黄色)", today_counts.get("yellow", 0))
+    tc4.metric("IV级 (蓝色)", today_counts.get("blue", 0))
+    tc5.metric("今日合计", sum(today_counts.values()))
 
     # ── 查询 ──
     start_str = date_range[0].strftime("%Y-%m-%d") if len(date_range) > 0 else ""
@@ -3084,15 +3059,15 @@ def page_alert_records():
 
         # ── 工单流转 ──
         st.divider()
-        with st.expander("Workflow Management", expanded=False):
+        with st.expander("工单管理", expanded=False):
             wf_col1, wf_col2 = st.columns([2, 3])
             with wf_col1:
-                wf_alert_id = st.number_input("Alert ID", min_value=1, value=1, key="wf_alert_id")
-                wf_operator = st.text_input("Operator", value="admin", key="wf_operator",
+                wf_alert_id = st.number_input("预警ID", min_value=1, value=1, key="wf_alert_id")
+                wf_operator = st.text_input("操作人", value="admin", key="wf_operator",
                                            help="操作人员姓名或工号")
-                wf_note = st.text_input("Note", placeholder="备注信息 (可选)", key="wf_note")
+                wf_note = st.text_input("备注", placeholder="备注信息 (可选)", key="wf_note")
             with wf_col2:
-                wf_state = st.selectbox("Target State",
+                wf_state = st.selectbox("目标状态",
                     options=["confirmed", "false_alarm", "dispatched", "arrived", "handled", "archived"],
                     format_func=lambda x: {
                         "confirmed": "确认真实落石",
@@ -3104,7 +3079,7 @@ def page_alert_records():
                     }.get(x, x),
                     key="wf_state")
                 st.write("")
-                if st.button("Execute Transition", key="wf_execute", use_container_width=True):
+                if st.button("执行流转", key="wf_execute", use_container_width=True):
                     try:
                         import requests, os
                         port = os.getenv("API_PORT", "8000")
@@ -3118,7 +3093,7 @@ def page_alert_records():
                         else:
                             st.error(result.get("msg"))
                     except Exception as e:
-                        st.error(f"API unavailable: {e}")
+                        st.error(f"API不可用: {e}")
 
             # 显示当前状态
             if wf_alert_id:
@@ -3127,10 +3102,10 @@ def page_alert_records():
                     port = os.getenv("API_PORT", "8000")
                     r = requests.get(f"http://localhost:{port}/api/alerts/{wf_alert_id}/workflow", timeout=5)
                     wf_data = r.json()
-                    st.markdown(f"**Current**: {wf_data.get('current_label', wf_data.get('current_state', 'N/A'))}")
+                    st.markdown(f"**当前状态**: {wf_data.get('current_label', wf_data.get('current_state', 'N/A'))}")
                     history = wf_data.get("history", [])
                     if history:
-                        st.markdown("**History**:")
+                        st.markdown("**历史记录**:")
                         for h in history[-5:]:
                             st.caption(f"{h.get('time','')} | {h.get('operator','')} | "
                                       f"{h.get('from','')} -> {h.get('to','')} | {h.get('note','')}")
@@ -3158,7 +3133,7 @@ def page_alert_records():
             writer = csv.writer(csv_buffer)
             writer.writerow([
                 "ID", "时间", "预警等级", "数量", "最高置信度",
-                "Track IDs", "类别摘要", "保存帧", "推送状态",
+                "跟踪ID", "类别摘要", "保存帧", "推送状态",
                 "落石直径(cm)", "监测点位", "创建时间",
             ])
             for r in export_rows:
@@ -3197,8 +3172,8 @@ def page_site_management():
     st.markdown(f"""
     <div class="brand-header">
         <div>
-            <div class="logo">Site Manager</div>
-            <div style="font-size:0.8rem;opacity:0.85;">4 preset monitoring sites &middot; Guangxi + ASEAN region</div>
+            <div class="logo">点位管理</div>
+            <div style="font-size:0.8rem;opacity:0.85;">4个预设监测点位 &middot; 广西 + 东盟区域</div>
         </div>
         <div class="meta"><span>{APP_VERSION}</span></div>
     </div>
@@ -3208,7 +3183,7 @@ def page_site_management():
     all_sites = list_sites()
 
     # ── 当前激活点位 ──
-    st.subheader("Active Site")
+    st.subheader("当前点位")
     with st.container():
         _render_site_card(active_site, is_active=True, show_detail=True)
 
@@ -3224,8 +3199,8 @@ def page_site_management():
 
     # ── 全部预设点位 ──
     st.divider()
-    st.subheader("Preset Sites")
-    st.caption(f"{len(all_sites)} sites available. Click 'Activate' to switch.")
+    st.subheader("预设点位")
+    st.caption(f"{len(all_sites)} 个点位可用，点击下方按钮切换。")
 
     cols = st.columns(2)
     for i, site in enumerate(all_sites):
@@ -3235,20 +3210,20 @@ def page_site_management():
 
             if not is_active:
                 if st.button(
-                    "Activate This Site",
+                    "启用此点位",
                     key=f"switch_{site.site_id}",
                     use_container_width=True,
                 ):
                     try:
                         new_site = set_active_site(site.site_id)
-                        st.success(f"Activated: {new_site.name}")
+                        st.success(f"已启用: {new_site.name}")
                         st.rerun()
                     except ValueError as e:
                         st.error(str(e))
 
     # ── ROI 配置 ──
     st.divider()
-    st.subheader("ROI Calibration")
+    st.subheader("ROI 标定")
 
     from rockfall.site_config import load_site_config
     roi_params, polygon, road_mask = load_site_config(active_site.site_id)
@@ -3297,8 +3272,8 @@ def page_settings():
     st.markdown(f"""
     <div class="brand-header">
         <div>
-            <div class="logo">Settings</div>
-            <div style="font-size:0.8rem;opacity:0.85;">Detection thresholds &middot; Alert levels &middot; Frame strategy</div>
+            <div class="logo">参数设置</div>
+            <div style="font-size:0.8rem;opacity:0.85;">检测阈值 &middot; 预警等级 &middot; 跳帧策略</div>
         </div>
         <div class="meta"><span>{APP_VERSION}</span></div>
     </div>
@@ -3501,19 +3476,19 @@ def page_system():
     st.markdown(f"""
     <div class="brand-header">
         <div>
-            <div class="logo">System Management</div>
-            <div style="font-size:0.8rem;opacity:0.85;">Health Check &middot; Audit Log &middot; Storage &middot; Workflow Stats</div>
+            <div class="logo">系统管理</div>
+            <div style="font-size:0.8rem;opacity:0.85;">健康检查 &middot; 审计日志 &middot; 存储管理 &middot; 工单统计</div>
         </div>
         <div class="meta"><span>{APP_VERSION}</span></div>
     </div>
     """, unsafe_allow_html=True)
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Health Check", "Audit Log", "Storage", "Workflow Stats", "Data Integrity"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["健康检查", "审计日志", "存储管理", "工单统计", "数据完整性"])
 
     # ── Tab 1: 系统健康检查 ──
     with tab1:
-        st.markdown("### System Health Check")
-        if st.button("Run Health Check", key="sys_health_check", use_container_width=True):
+        st.markdown("### 系统健康检查")
+        if st.button("运行健康检查", key="sys_health_check", use_container_width=True):
             try:
                 import requests, os
                 port = os.getenv("API_PORT", "8000")
@@ -3528,9 +3503,9 @@ def page_system():
                         background:{'#E8F5E9' if healthy else '#FFEBEE'};
                         border:2px solid {'#2E7D32' if healthy else '#D32F2F'};">
                 <div style="font-size:1.2rem;font-weight:700;color:{'#2E7D32' if healthy else '#D32F2F'};">
-                    {'HEALTHY' if healthy else 'UNHEALTHY'}
+                    {'正常' if healthy else '异常'}
                 </div>
-                <div style="font-size:0.75rem;color:#5F6B7A;">Uptime: {health.get('uptime_hours', 'N/A')}h | Fail count: {health.get('fail_count', 0)}</div>
+                <div style="font-size:0.75rem;color:#5F6B7A;">运行时间: {health.get('uptime_hours', 'N/A')}h | 故障次数: {health.get('fail_count', 0)}</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -3549,7 +3524,7 @@ def page_system():
 
     # ── Tab 2: 审计日志 ──
     with tab2:
-        st.markdown("### Audit Log")
+        st.markdown("### 审计日志")
         try:
             import requests, os
             port = os.getenv("API_PORT", "8000")
@@ -3558,23 +3533,23 @@ def page_system():
             rows = data.get("rows", [])
             total = data.get("total", 0)
 
-            st.caption(f"Total: {total} records (showing last {len(rows)})")
+            st.caption(f"共 {total} 条记录 (显示最近 {len(rows)} 条)")
 
             if rows:
                 df = pd.DataFrame([{
-                    "ID": r["id"], "Action": r["action"], "Operator": r["operator"],
-                    "Detail": r["detail"][:80], "Alert ID": r["alert_id"],
-                    "Result": r["result"], "Time": r["created_at"],
+                    "ID": r["id"], "操作": r["action"], "操作人": r["operator"],
+                    "详情": r["detail"][:80], "预警ID": r["alert_id"],
+                    "结果": r["result"], "时间": r["created_at"],
                 } for r in rows])
                 st.dataframe(df, use_container_width=True, hide_index=True)
             else:
-                st.info("No audit records yet")
+                st.info("暂无审计记录")
         except Exception as e:
-            st.warning(f"Audit API unavailable: {e}")
+            st.warning(f"审计API不可用: {e}")
 
     # ── Tab 3: 存储管理 ──
     with tab3:
-        st.markdown("### Storage Management")
+        st.markdown("### 存储管理")
         try:
             import requests, os
             port = os.getenv("API_PORT", "8000")
@@ -3583,34 +3558,34 @@ def page_system():
 
             c1, c2 = st.columns(2)
             with c1:
-                st.markdown("**Directory Usage**")
+                st.markdown("**目录使用情况**")
                 for name, info in stats.items():
                     if name == "total_mb":
                         continue
-                    st.metric(name, f"{info['size_mb']:.0f} MB", delta=f"{info['file_count']} files")
+                    st.metric(name, f"{info['size_mb']:.0f} MB", delta=f"{info['file_count']} 个文件")
             with c2:
                 total_mb = stats.get("total_mb", 0)
                 quota_mb = 10000
-                st.metric("Total Storage", f"{total_mb:.0f} MB",
-                         delta=f"Quota: {quota_mb}MB ({total_mb/quota_mb*100:.0f}%)" if quota_mb > 0 else "")
+                st.metric("总存储量", f"{total_mb:.0f} MB",
+                         delta=f"配额: {quota_mb}MB ({total_mb/quota_mb*100:.0f}%)" if quota_mb > 0 else "")
 
             st.divider()
             c1, c2 = st.columns(2)
             with c1:
-                retention = st.number_input("Retention days", 7, 365, 30, key="sys_retention")
+                retention = st.number_input("保留天数", 7, 365, 30, key="sys_retention")
             with c2:
                 st.write("")
-                if st.button("Run Cleanup (Dry Run)", key="sys_cleanup_dry", use_container_width=True):
+                if st.button("运行清理 (试运行)", key="sys_cleanup_dry", use_container_width=True):
                     r = requests.post(f"http://localhost:{port}/api/health/cleanup",
                                      data={"retention_days": retention, "dry_run": True})
                     result = r.json()
-                    st.info(f"Would delete {result['deleted_count']} files, freeing {result['freed_mb']}MB")
+                    st.info(f"将删除 {result['deleted_count']} 个文件, 释放 {result['freed_mb']} MB")
         except Exception as e:
-            st.warning(f"Storage API unavailable: {e}")
+            st.warning(f"存储API不可用: {e}")
 
     # ── Tab 4: 工单统计 ──
     with tab4:
-        st.markdown("### Workflow Statistics")
+        st.markdown("### 工单统计")
         try:
             import requests, os
             port = os.getenv("API_PORT", "8000")
@@ -3624,23 +3599,23 @@ def page_system():
                     st.metric(info.get("label", state), count)
 
             st.divider()
-            st.markdown("**Workflow State Transitions**")
+            st.markdown("**工单状态流转**")
             st.markdown("""
-            | From | To | Description |
+            | 从 | 到 | 说明 |
             |------|-----|-------------|
-            | pending | confirmed | Alert verified as real rockfall |
-            | pending | false_alarm | Alert marked as false alarm |
-            | confirmed | dispatched | Dispatched to field crew |
-            | dispatched | arrived | Crew arrived on site |
-            | arrived | handled | Situation resolved |
-            | handled | archived | Case archived |
+            | 待确认 | 已确认 | 预警核验为真实落石 |
+            | 待确认 | 误报 | 预警标记为误报 |
+            | 已确认 | 已派单 | 已派单给现场人员 |
+            | 已派单 | 已到场 | 人员到达现场 |
+            | 已到场 | 已处理 | 情况已处置 |
+            | 已处理 | 已归档 | 工单已归档 |
             """)
         except Exception as e:
-            st.warning(f"Workflow API unavailable: {e}")
+            st.warning(f"工单API不可用: {e}")
 
     # ── Tab 5: 数据完整性校验 (哈希链) ──
     with tab5:
-        st.markdown("### Data Integrity — Hash Chain Verification")
+        st.markdown("### 数据完整性 — 哈希链校验")
         st.caption("SHA256 链式校验: 每条预警记录链接上一条的哈希值, 形成防篡改证据链。")
 
         try:
