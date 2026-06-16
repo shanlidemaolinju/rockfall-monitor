@@ -1,19 +1,11 @@
 # RockGuard · Streamlit Cloud 部署依赖
-# 包含完整 ML 推理链: YOLO + OpenCV + PyTorch CPU
-# Streamlit Cloud 自动读取此文件: pip install -r requirements.txt
+# 精简版 — 仅保留 Streamlit 运行必需的包
 
-# --- YOLO + FastSAM 模型推理 ---
+# --- YOLO 模型推理 (自动拉取 torch + numpy) ---
 ultralytics>=8.3.0
 
-# --- 计算机视觉 (headless 版适配无 GPU 服务器) ---
+# --- 计算机视觉 (headless = 无 GUI 依赖, 适合服务器) ---
 opencv-python-headless>=4.10.0
-
-# --- 数值计算 ---
-numpy>=1.26.0,<2.0.0
-
-# --- PyTorch CPU (Streamlit Cloud 无 GPU) ---
-torch>=2.0.0
-torchvision>=0.15.0
 
 # --- 配置管理 ---
 python-dotenv>=1.0.0
@@ -21,22 +13,13 @@ python-dotenv>=1.0.0
 # --- HTTP 客户端 (PushPlus 推送) ---
 requests>=2.28.0
 
-# --- 数据库连接池 ---
+# --- 数据库 ---
 sqlalchemy>=2.0.0
 pymysql>=1.1.0
-alembic>=1.13.0
 
-# --- Web 服务 (FastAPI) ---
-fastapi>=0.115.0
-uvicorn[standard]>=0.34.0
-python-multipart>=0.0.9
-jinja2>=3.1.0
-starlette>=0.40.0
-
-# --- Streamlit Web 封装 ---
+# --- Streamlit ---
 streamlit>=1.40.0
 pandas>=2.0.0
-watchdog>=6.0.0
 
 # --- 性能监控 ---
 psutil>=5.9.0
@@ -46,12 +29,3 @@ scipy>=1.10.0
 
 # --- Excel 导出 ---
 openpyxl>=3.1.0
-
-# --- 加密 + 安全 ---
-cryptography>=42.0.0
-
-# --- Prometheus 监控 ---
-prometheus-client>=0.21.0
-
-# --- Sentry 错误监控 ---
-sentry-sdk[fastapi]>=2.0.0
