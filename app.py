@@ -2163,7 +2163,7 @@ def page_extreme_scenarios():
 ALERT_STANDARDS = {
     "red": {
         "level": "I 级 · 特别严重",
-        "icon": "I",
+        "icon": "🔴",
         "color": "#D32F2F",
         "bg": "#FFEBEE",
         "trigger": "置信度 > 0.90 或 落石直径 > 30cm 或 检测到坠落状态",
@@ -2180,7 +2180,7 @@ ALERT_STANDARDS = {
     },
     "orange": {
         "level": "II 级 · 严重",
-        "icon": "II",
+        "icon": "🟠",
         "color": "#E65100",
         "bg": "#FFF3E0",
         "trigger": "置信度 0.70-0.90 或 落石直径 20-30cm 或 检测到滚动状态",
@@ -2197,7 +2197,7 @@ ALERT_STANDARDS = {
     },
     "yellow": {
         "level": "III 级 · 较重",
-        "icon": "III",
+        "icon": "🟡",
         "color": "#F9A825",
         "bg": "#FFFDE7",
         "trigger": "置信度 0.50-0.70 或 落石直径 10-20cm",
@@ -2213,7 +2213,7 @@ ALERT_STANDARDS = {
     },
     "blue": {
         "level": "IV 级 · 一般",
-        "icon": "IV",
+        "icon": "🔵",
         "color": "#1565C0",
         "bg": "#E3F2FD",
         "trigger": "置信度 0.30-0.50 或 落石直径 < 10cm",
