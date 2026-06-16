@@ -2541,18 +2541,6 @@ def page_alert_standards():
             </div>
         </div>
 
-        # Build full table HTML in one string to avoid split rendering
-        table_rows = ""
-        for k, s in standards.items():
-            conf_range = { "red": "&gt; 0.90", "orange": "0.70-0.90", "yellow": "0.50-0.70", "blue": "0.30-0.50" }[k]
-            diam_range = { "red": "&gt; 30cm", "orange": "20-30cm", "yellow": "10-20cm", "blue": "&lt; 10cm" }[k]
-            table_rows += f"""
-                <tr style="border-bottom:1px solid #E3E8EF;">
-                    <td style="padding:0.3rem;color:{s['color']};font-weight:600;">{s['icon']} {k.upper()}</td>
-                    <td style="text-align:right;padding:0.3rem;">{conf_range}</td>
-                    <td style="text-align:right;padding:0.3rem;">{diam_range}</td>
-                </tr>"""
-        st.markdown(f"""
         <div class="card">
             <div style="font-weight:600;font-size:0.85rem;color:#1B2838;margin-bottom:0.5rem;">分级阈值速查</div>
             <table style="width:100%;font-size:0.72rem;border-collapse:collapse;">
@@ -2561,10 +2549,18 @@ def page_alert_standards():
                     <th style="text-align:right;padding:0.3rem;">置信度</th>
                     <th style="text-align:right;padding:0.3rem;">直径</th>
                 </tr>
-                {table_rows}
-            </table>
-        </div>
         """, unsafe_allow_html=True)
+        for k, s in standards.items():
+            conf_range = { "red": "&gt; 0.90", "orange": "0.70-0.90", "yellow": "0.50-0.70", "blue": "0.30-0.50" }[k]
+            diam_range = { "red": "&gt; 30cm", "orange": "20-30cm", "yellow": "10-20cm", "blue": "&lt; 10cm" }[k]
+            st.markdown(f"""
+            <tr style="border-bottom:1px solid #E3E8EF;">
+                <td style="padding:0.3rem;color:{s['color']};font-weight:600;">{s['icon']} {k.upper()}</td>
+                <td style="text-align:right;padding:0.3rem;">{conf_range}</td>
+                <td style="text-align:right;padding:0.3rem;">{diam_range}</td>
+            </tr>
+            """, unsafe_allow_html=True)
+        st.markdown("</table></div>", unsafe_allow_html=True)
 
     # 升级规则
     st.markdown("""
