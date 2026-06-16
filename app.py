@@ -263,6 +263,30 @@ st.markdown(f"""
 
     /* === 分割线 === */
     hr.divider {{ border: none; border-top: 1px solid #E3E8EF; margin: 1.5rem 0; }}
+
+    /* === 预警分级决策树 === */
+    .tree-container {{
+        background: linear-gradient(135deg, #F5F7FA 0%, #fff 100%);
+        border: 1px solid #E3E8EF; border-radius: 12px;
+        padding: 1.5rem 1rem; overflow-x: auto;
+    }}
+    .tree-root {{
+        display: flex; flex-direction: column; align-items: center; gap: 0;
+    }}
+    .tree-node {{
+        padding: 0.5rem 1rem; border-radius: 8px; text-align: center;
+        font-weight: 600; font-size: 0.82rem; margin: 0.25rem 0;
+    }}
+    .tree-node.root {{ background: #1565C0; color: #fff; font-size: 0.9rem; padding: 0.6rem 1.5rem; }}
+    .tree-node.decision {{ background: #fff; border: 2px solid #1565C0; color: #1B2838; min-width: 200px; }}
+    .tree-node.leaf-red {{ background: #FFEBEE; border: 2px solid #D32F2F; color: #D32F2F; }}
+    .tree-node.leaf-orange {{ background: #FFF3E0; border: 2px solid #E65100; color: #E65100; }}
+    .tree-node.leaf-yellow {{ background: #FFFDE7; border: 2px solid #F9A825; color: #F57F17; }}
+    .tree-node.leaf-blue {{ background: #E3F2FD; border: 2px solid #1565C0; color: #1565C0; }}
+    .tree-node.leaf-green {{ background: #E8F5E9; border: 2px solid #2E7D32; color: #2E7D32; }}
+    .tree-branch {{ display: flex; gap: 1rem; justify-content: center; margin: 0.3rem 0; flex-wrap: wrap; }}
+    .tree-arrow {{ text-align: center; color: #5F6B7A; font-size: 0.8rem; font-weight: 600; }}
+    .tree-label {{ font-size: 0.65rem; color: #5F6B7A; text-align: center; margin: 0.1rem 0; }}
 </style>
 """, unsafe_allow_html=True)
 
