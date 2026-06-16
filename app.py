@@ -2264,7 +2264,7 @@ _BUILTIN_ALERT_STANDARDS = {
         "response": [
             "通知公路管理部门关注",
             "微信推送预警信息给值班人员",
-            "建议限速通行 (<=40km/h)",
+            "建议限速通行 (≤40km/h)",
             "安排人员30分钟内到场巡查",
             "加密监测频率至 5fps",
         ],
@@ -2293,7 +2293,7 @@ _BUILTIN_ALERT_STANDARDS = {
         "icon": "🔵",
         "color": "#1565C0",
         "bg": "#E3F2FD",
-        "trigger": "置信度 0.30-0.50 或 落石直径 < 10cm",
+        "trigger": "置信度 0.30-0.50 或 落石直径 &lt; 10cm",
         "response": [
             "静默记录至本地数据库",
             "不触发主动通知推送",
@@ -2401,7 +2401,7 @@ def page_alert_standards():
         <div class="tree-node decision">最高置信度 max_conf ?</div>
         <div class="tree-branch">
           <div style="text-align:center;">
-            <div class="tree-label">> 0.90</div>
+            <div class="tree-label">&gt; 0.90</div>
             <div class="tree-node leaf-red">🔴 I 级</div>
           </div>
           <div style="text-align:center;">
@@ -2410,7 +2410,7 @@ def page_alert_standards():
             <div class="tree-node decision">落石直径 ?</div>
             <div class="tree-branch">
               <div style="text-align:center;">
-                <div class="tree-label">> 30cm</div>
+                <div class="tree-label">&gt; 30cm</div>
                 <div class="tree-node leaf-red">🔴 I 级 (升级)</div>
               </div>
               <div style="text-align:center;">
@@ -2418,7 +2418,7 @@ def page_alert_standards():
                 <div class="tree-node leaf-orange">🟠 II 级</div>
               </div>
               <div style="text-align:center;">
-                <div class="tree-label">< 20cm</div>
+                <div class="tree-label">&lt; 20cm</div>
                 <div class="tree-arrow">▼</div>
                 <div class="tree-node decision">运动状态 ?</div>
                 <div class="tree-branch">
@@ -2440,7 +2440,7 @@ def page_alert_standards():
             <div class="tree-node decision">落石直径 ?</div>
             <div class="tree-branch">
               <div style="text-align:center;">
-                <div class="tree-label">> 20cm</div>
+                <div class="tree-label">&gt; 20cm</div>
                 <div class="tree-node leaf-orange">🟠 II 级 (升级)</div>
               </div>
               <div style="text-align:center;">
@@ -2448,16 +2448,16 @@ def page_alert_standards():
                 <div class="tree-node leaf-yellow">🟡 III 级</div>
               </div>
               <div style="text-align:center;">
-                <div class="tree-label">< 10cm</div>
+                <div class="tree-label">&lt; 10cm</div>
                 <div class="tree-arrow">▼</div>
                 <div class="tree-node decision">持续帧数 ?</div>
                 <div class="tree-branch">
                   <div style="text-align:center;">
-                    <div class="tree-label">> 10帧</div>
+                    <div class="tree-label">&gt; 10帧</div>
                     <div class="tree-node leaf-yellow">🟡 III 级</div>
                   </div>
                   <div style="text-align:center;">
-                    <div class="tree-label">< 10帧</div>
+                    <div class="tree-label">&lt; 10帧</div>
                     <div class="tree-node leaf-blue">🔵 IV 级</div>
                   </div>
                 </div>
@@ -2468,13 +2468,13 @@ def page_alert_standards():
             <div class="tree-label">0.30 - 0.50</div>
             <div class="tree-arrow">▼</div>
             <div class="tree-node leaf-blue">🔵 IV 级</div>
-            <div class="tree-label" style="margin-top:0.25rem;">直径 > 10cm → 升级至 III 级</div>
+            <div class="tree-label" style="margin-top:0.25rem;">直径 &gt; 10cm → 升级至 III 级</div>
           </div>
         </div>
 
         <!-- Decision Final -->
         <div style="text-align:center;margin-top:0.5rem;">
-          <div class="tree-label">< 0.30</div>
+          <div class="tree-label">&lt; 0.30</div>
           <div class="tree-node leaf-green">🟢 正常 (不预警)</div>
         </div>
 
@@ -2541,6 +2541,18 @@ def page_alert_standards():
             </div>
         </div>
 
+        # Build full table HTML in one string to avoid split rendering
+        table_rows = ""
+        for k, s in standards.items():
+            conf_range = { "red": "&gt; 0.90", "orange": "0.70-0.90", "yellow": "0.50-0.70", "blue": "0.30-0.50" }[k]
+            diam_range = { "red": "&gt; 30cm", "orange": "20-30cm", "yellow": "10-20cm", "blue": "&lt; 10cm" }[k]
+            table_rows += f"""
+                <tr style="border-bottom:1px solid #E3E8EF;">
+                    <td style="padding:0.3rem;color:{s['color']};font-weight:600;">{s['icon']} {k.upper()}</td>
+                    <td style="text-align:right;padding:0.3rem;">{conf_range}</td>
+                    <td style="text-align:right;padding:0.3rem;">{diam_range}</td>
+                </tr>"""
+        st.markdown(f"""
         <div class="card">
             <div style="font-weight:600;font-size:0.85rem;color:#1B2838;margin-bottom:0.5rem;">分级阈值速查</div>
             <table style="width:100%;font-size:0.72rem;border-collapse:collapse;">
@@ -2549,18 +2561,10 @@ def page_alert_standards():
                     <th style="text-align:right;padding:0.3rem;">置信度</th>
                     <th style="text-align:right;padding:0.3rem;">直径</th>
                 </tr>
+                {table_rows}
+            </table>
+        </div>
         """, unsafe_allow_html=True)
-        for k, s in standards.items():
-            conf_range = { "red": "> 0.90", "orange": "0.70-0.90", "yellow": "0.50-0.70", "blue": "0.30-0.50" }[k]
-            diam_range = { "red": "> 30cm", "orange": "20-30cm", "yellow": "10-20cm", "blue": "< 10cm" }[k]
-            st.markdown(f"""
-            <tr style="border-bottom:1px solid #E3E8EF;">
-                <td style="padding:0.3rem;color:{s['color']};font-weight:600;">{s['icon']} {k.upper()}</td>
-                <td style="text-align:right;padding:0.3rem;">{conf_range}</td>
-                <td style="text-align:right;padding:0.3rem;">{diam_range}</td>
-            </tr>
-            """, unsafe_allow_html=True)
-        st.markdown("</table></div>", unsafe_allow_html=True)
 
     # 升级规则
     st.markdown("""
