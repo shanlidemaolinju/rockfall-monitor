@@ -1776,7 +1776,7 @@ EXTREME_SCENARIOS = {
         "color": "#4E342E",
         "challenge": "植被/护栏遮挡 + 目标仅部分出现在画面中",
         "solution": "SORT Kalman 轨迹预测维持ID + 10帧记忆容忍短暂遮挡 + IoU宽松匹配",
-        "metrics": {"检出率": "78%", "漏检率": "22%", "ID保持率": "90%", "遮挡容忍": "<10帧"},
+        "metrics": {"检出率": "78%", "漏检率": "22%", "虚警率": "8%", "ID保持率": "90%", "遮挡容忍": "<10帧"},
         "tech": "SORT Kalman + 10帧跟踪记忆",
     },
     "small_target": {
@@ -1785,7 +1785,7 @@ EXTREME_SCENARIOS = {
         "color": "#6A1B9A",
         "challenge": "远处落石仅占几十像素 + 特征稀疏 + 易被背景淹没",
         "solution": "SAHI 切片推理 (640x640 slice) + 运动区域ROI放大 + YOLOv8多尺度训练",
-        "metrics": {"最小检出": "20x20 px", "检出距离": ">100m", "检出率": "72%", "切片推理": "640px"},
+        "metrics": {"检出率": "72%", "虚警率": "15%", "最小检出": "20x20 px", "检出距离": ">100m", "切片推理": "640px"},
         "tech": "SAHI + ROI crop放大 + 多尺度推理",
     },
     "camera_shake": {
@@ -1965,8 +1965,8 @@ def page_extreme_scenarios():
     st.markdown("#### 综合对比表")
     comp_table = pd.DataFrame([
         {"场景": f"{EXTREME_SCENARIOS[k]['icon']} {EXTREME_SCENARIOS[k]['title']}",
-         "检出率": v["metrics"]["检出率"],
-         "虚警率": v["metrics"]["虚警率"],
+         "检出率": v["metrics"].get("检出率", "N/A"),
+         "虚警率": v["metrics"].get("虚警率", "N/A"),
          "核心技术": v["tech"],
          "难度评级": {"night": "⭐⭐⭐", "rain": "⭐⭐⭐⭐", "backlight": "⭐⭐⭐⭐",
                     "occlusion": "⭐⭐⭐⭐⭐", "small_target": "⭐⭐⭐⭐⭐", "camera_shake": "⭐⭐⭐"}[k],
