@@ -1,0 +1,234 @@
+{
+  "name": "guilin_g65_s1",
+  "video": {
+    "file": "3.flv",
+    "total_frames": 15705,
+    "fps": 25.0,
+    "resolution": "1920x1080",
+    "duration_sec": 628.2
+  },
+  "detection": {
+    "processed_frames": 300,
+    "max_frames": 300,
+    "stride": 2,
+    "img_size": 640,
+    "elapsed_sec": 103.3,
+    "device": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel"
+  },
+  "alerts": {
+    "total_alert_frames": 89,
+    "red": 7,
+    "orange": 33,
+    "yellow": 49,
+    "blue": 0
+  },
+  "key_frames": [
+    {
+      "index": 0,
+      "frame_idx": 8,
+      "time_sec": 0.32,
+      "alert_level": "red",
+      "track_count": 4,
+      "max_confidence": 0.1817,
+      "thumbnail": "frames/000_red.jpg"
+    },
+    {
+      "index": 1,
+      "frame_idx": 10,
+      "time_sec": 0.4,
+      "alert_level": "red",
+      "track_count": 4,
+      "max_confidence": 0.1817,
+      "thumbnail": "frames/001_red.jpg"
+    },
+    {
+      "index": 2,
+      "frame_idx": 12,
+      "time_sec": 0.48,
+      "alert_level": "red",
+      "track_count": 4,
+      "max_confidence": 0.1817,
+      "thumbnail": "frames/002_red.jpg"
+    },
+    {
+      "index": 3,
+      "frame_idx": 14,
+      "time_sec": 0.56,
+      "alert_level": "red",
+      "track_count": 4,
+      "max_confidence": 0.1817,
+      "thumbnail": "frames/003_red.jpg"
+    },
+    {
+      "index": 4,
+      "frame_idx": 16,
+      "time_sec": 0.64,
+      "alert_level": "red",
+      "track_count": 4,
+      "max_confidence": 0.1817,
+      "thumbnail": "frames/004_red.jpg"
+    },
+    {
+      "index": 5,
+      "frame_idx": 18,
+      "time_sec": 0.72,
+      "alert_level": "red",
+      "track_count": 4,
+      "max_confidence": 0.1817,
+      "thumbnail": "frames/005_red.jpg"
+    },
+    {
+      "index": 6,
+      "frame_idx": 20,
+      "time_sec": 0.8,
+      "alert_level": "red",
+      "track_count": 4,
+      "max_confidence": 0.1817,
+      "thumbnail": "frames/006_red.jpg"
+    },
+    {
+      "index": 7,
+      "frame_idx": 54,
+      "time_sec": 2.16,
+      "alert_level": "orange",
+      "track_count": 1,
+      "max_confidence": 0.3532,
+      "thumbnail": "frames/007_orange.jpg"
+    },
+    {
+      "index": 8,
+      "frame_idx": 56,
+      "time_sec": 2.24,
+      "alert_level": "orange",
+      "track_count": 2,
+      "max_confidence": 0.3532,
+      "thumbnail": "frames/008_orange.jpg"
+    },
+    {
+      "index": 9,
+      "frame_idx": 58,
+      "time_sec": 2.32,
+      "alert_level": "orange",
+      "track_count": 2,
+      "max_confidence": 0.3532,
+      "thumbnail": "frames/009_orange.jpg"
+    },
+    {
+      "index": 10,
+      "frame_idx": 60,
+      "time_sec": 2.4,
+      "alert_level": "orange",
+      "track_count": 2,
+      "max_confidence": 0.3532,
+      "thumbnail": "frames/010_orange.jpg"
+    },
+    {
+      "index": 11,
+      "frame_idx": 62,
+      "time_sec": 2.48,
+      "alert_level": "orange",
+      "track_count": 2,
+      "max_confidence": 0.3532,
+      "thumbnail": "frames/011_orange.jpg"
+    },
+    {
+      "index": 12,
+      "frame_idx": 64,
+      "time_sec": 2.56,
+      "alert_level": "orange",
+      "track_count": 2,
+      "max_confidence": 0.3532,
+      "thumbnail": "frames/012_orange.jpg"
+    },
+    {
+      "index": 13,
+      "frame_idx": 66,
+      "time_sec": 2.64,
+      "alert_level": "orange",
+      "track_count": 2,
+      "max_confidence": 0.3532,
+      "thumbnail": "frames/013_orange.jpg"
+    },
+    {
+      "index": 14,
+      "frame_idx": 68,
+      "time_sec": 2.72,
+      "alert_level": "orange",
+      "track_count": 2,
+      "max_confidence": 0.3532,
+      "thumbnail": "frames/014_orange.jpg"
+    },
+    {
+      "index": 15,
+      "frame_idx": 416,
+      "time_sec": 16.64,
+      "alert_level": "yellow",
+      "track_count": 1,
+      "max_confidence": 0.1508,
+      "thumbnail": "frames/015_yellow.jpg"
+    },
+    {
+      "index": 16,
+      "frame_idx": 418,
+      "time_sec": 16.72,
+      "alert_level": "yellow",
+      "track_count": 1,
+      "max_confidence": 0.1508,
+      "thumbnail": "frames/016_yellow.jpg"
+    },
+    {
+      "index": 17,
+      "frame_idx": 420,
+      "time_sec": 16.8,
+      "alert_level": "yellow",
+      "track_count": 2,
+      "max_confidence": 0.1508,
+      "thumbnail": "frames/017_yellow.jpg"
+    },
+    {
+      "index": 18,
+      "frame_idx": 422,
+      "time_sec": 16.88,
+      "alert_level": "yellow",
+      "track_count": 2,
+      "max_confidence": 0.1508,
+      "thumbnail": "frames/018_yellow.jpg"
+    },
+    {
+      "index": 19,
+      "frame_idx": 424,
+      "time_sec": 16.96,
+      "alert_level": "yellow",
+      "track_count": 2,
+      "max_confidence": 0.1508,
+      "thumbnail": "frames/019_yellow.jpg"
+    },
+    {
+      "index": 20,
+      "frame_idx": 426,
+      "time_sec": 17.04,
+      "alert_level": "yellow",
+      "track_count": 2,
+      "max_confidence": 0.1508,
+      "thumbnail": "frames/020_yellow.jpg"
+    },
+    {
+      "index": 21,
+      "frame_idx": 428,
+      "time_sec": 17.12,
+      "alert_level": "yellow",
+      "track_count": 2,
+      "max_confidence": 0.1508,
+      "thumbnail": "frames/021_yellow.jpg"
+    },
+    {
+      "index": 22,
+      "frame_idx": 120,
+      "time_sec": 4.8,
+      "alert_level": "yellow",
+      "track_count": 2,
+      "max_confidence": 0.1068,
+      "thumbnail": "frames/022_yellow.jpg"
+    }
+  ]
+}

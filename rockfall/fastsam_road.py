@@ -28,7 +28,9 @@ from .logger import log_event
 _SAM_MODEL: FastSAM | None = None
 _MODEL_LOADED = False
 _MODEL_LOAD_ERROR: str | None = None
-_DEVICE = "cuda" if cv2.cuda.getCudaEnabledDeviceCount() > 0 else "cpu"
+# FastSAM 强制 CPU: 与 YOLO 共用 CUDA 会导致 STATUS_STACK_BUFFER_OVERRUN
+# FastSAM 只在初始 ROI 检测运行一次(3帧), CPU 耗时~10s 完全可以接受
+_DEVICE = "cpu"
 
 
 def is_model_ready() -> bool:

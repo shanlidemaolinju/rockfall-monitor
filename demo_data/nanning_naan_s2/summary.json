@@ -1,0 +1,207 @@
+{
+  "name": "nanning_naan_s2",
+  "video": {
+    "file": "2.flv",
+    "total_frames": 15701,
+    "fps": 25.0,
+    "resolution": "1920x1080",
+    "duration_sec": 628.0
+  },
+  "detection": {
+    "processed_frames": 300,
+    "max_frames": 300,
+    "stride": 2,
+    "img_size": 640,
+    "elapsed_sec": 122.9,
+    "device": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel"
+  },
+  "alerts": {
+    "total_alert_frames": 15,
+    "red": 15,
+    "orange": 0,
+    "yellow": 0,
+    "blue": 0
+  },
+  "key_frames": [
+    {
+      "index": 0,
+      "frame_idx": 8,
+      "time_sec": 0.32,
+      "alert_level": "red",
+      "track_count": 2,
+      "max_confidence": 0.4271,
+      "thumbnail": "frames/000_red.jpg"
+    },
+    {
+      "index": 1,
+      "frame_idx": 10,
+      "time_sec": 0.4,
+      "alert_level": "red",
+      "track_count": 2,
+      "max_confidence": 0.4271,
+      "thumbnail": "frames/001_red.jpg"
+    },
+    {
+      "index": 2,
+      "frame_idx": 12,
+      "time_sec": 0.48,
+      "alert_level": "red",
+      "track_count": 2,
+      "max_confidence": 0.4271,
+      "thumbnail": "frames/002_red.jpg"
+    },
+    {
+      "index": 3,
+      "frame_idx": 14,
+      "time_sec": 0.56,
+      "alert_level": "red",
+      "track_count": 2,
+      "max_confidence": 0.4271,
+      "thumbnail": "frames/003_red.jpg"
+    },
+    {
+      "index": 4,
+      "frame_idx": 16,
+      "time_sec": 0.64,
+      "alert_level": "red",
+      "track_count": 2,
+      "max_confidence": 0.4271,
+      "thumbnail": "frames/004_red.jpg"
+    },
+    {
+      "index": 5,
+      "frame_idx": 18,
+      "time_sec": 0.72,
+      "alert_level": "red",
+      "track_count": 2,
+      "max_confidence": 0.4271,
+      "thumbnail": "frames/005_red.jpg"
+    },
+    {
+      "index": 6,
+      "frame_idx": 20,
+      "time_sec": 0.8,
+      "alert_level": "red",
+      "track_count": 2,
+      "max_confidence": 0.4271,
+      "thumbnail": "frames/006_red.jpg"
+    },
+    {
+      "index": 7,
+      "frame_idx": 526,
+      "time_sec": 21.04,
+      "alert_level": "red",
+      "track_count": 3,
+      "max_confidence": 0.1786,
+      "thumbnail": "frames/007_red.jpg"
+    },
+    {
+      "index": 8,
+      "frame_idx": 2,
+      "time_sec": 0.08,
+      "alert_level": "green",
+      "track_count": 2,
+      "max_confidence": 0.4271,
+      "thumbnail": "frames/008_green.jpg"
+    },
+    {
+      "index": 9,
+      "frame_idx": 4,
+      "time_sec": 0.16,
+      "alert_level": "green",
+      "track_count": 2,
+      "max_confidence": 0.4271,
+      "thumbnail": "frames/009_green.jpg"
+    },
+    {
+      "index": 10,
+      "frame_idx": 6,
+      "time_sec": 0.24,
+      "alert_level": "green",
+      "track_count": 2,
+      "max_confidence": 0.4271,
+      "thumbnail": "frames/010_green.jpg"
+    },
+    {
+      "index": 11,
+      "frame_idx": 22,
+      "time_sec": 0.88,
+      "alert_level": "green",
+      "track_count": 0,
+      "max_confidence": 0,
+      "thumbnail": "frames/011_green.jpg"
+    },
+    {
+      "index": 12,
+      "frame_idx": 24,
+      "time_sec": 0.96,
+      "alert_level": "green",
+      "track_count": 0,
+      "max_confidence": 0,
+      "thumbnail": "frames/012_green.jpg"
+    },
+    {
+      "index": 13,
+      "frame_idx": 26,
+      "time_sec": 1.04,
+      "alert_level": "green",
+      "track_count": 0,
+      "max_confidence": 0,
+      "thumbnail": "frames/013_green.jpg"
+    },
+    {
+      "index": 14,
+      "frame_idx": 28,
+      "time_sec": 1.12,
+      "alert_level": "green",
+      "track_count": 0,
+      "max_confidence": 0,
+      "thumbnail": "frames/014_green.jpg"
+    },
+    {
+      "index": 15,
+      "frame_idx": 30,
+      "time_sec": 1.2,
+      "alert_level": "green",
+      "track_count": 0,
+      "max_confidence": 0,
+      "thumbnail": "frames/015_green.jpg"
+    },
+    {
+      "index": 16,
+      "frame_idx": 32,
+      "time_sec": 1.28,
+      "alert_level": "green",
+      "track_count": 0,
+      "max_confidence": 0,
+      "thumbnail": "frames/016_green.jpg"
+    },
+    {
+      "index": 17,
+      "frame_idx": 34,
+      "time_sec": 1.36,
+      "alert_level": "green",
+      "track_count": 0,
+      "max_confidence": 0,
+      "thumbnail": "frames/017_green.jpg"
+    },
+    {
+      "index": 18,
+      "frame_idx": 36,
+      "time_sec": 1.44,
+      "alert_level": "green",
+      "track_count": 0,
+      "max_confidence": 0,
+      "thumbnail": "frames/018_green.jpg"
+    },
+    {
+      "index": 19,
+      "frame_idx": 38,
+      "time_sec": 1.52,
+      "alert_level": "green",
+      "track_count": 0,
+      "max_confidence": 0,
+      "thumbnail": "frames/019_green.jpg"
+    }
+  ]
+}

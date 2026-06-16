@@ -183,6 +183,8 @@ class RockDetector:
         self.model = RockDetector._model_cache[model_path]
         self._active_model_path = model_path
         self._active_model_version = _registry_version or Path(model_path).name
+        # 存储配置标志供 detect_frame 使用 (import 在 __init__ 局部作用域)
+        self._registry_ab_enabled = MODEL_REGISTRY_AB_SPLIT_ENABLED
 
         # SAHI 在 CPU 上自动禁用 (分块推理在 CPU 上极慢, 毫无实时性)
         if SAHI_ENABLED and self._device_str == "cpu":
@@ -644,7 +646,7 @@ class RockDetector:
 
             # 记录推理耗时到模型注册表 (供 A/B 测试和自动回滚)
             _inference_ms = (time.time() - _inference_start) * 1000
-            if MODEL_REGISTRY_AB_SPLIT_ENABLED and self._active_model_version:
+            if getattr(self, '_registry_ab_enabled', False) and self._active_model_version:
                 try:
                     from .model_registry import get_registry
                     get_registry().record_inference_metrics(

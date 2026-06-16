@@ -36,6 +36,11 @@ class MainWindow(QMainWindow):
         self._sound_enabled = True
         self._sound_alarm_active = False
 
+        # ---- GPU 监控定时器 (2s 刷新) ----
+        self._gpu_timer = QtCore.QTimer(self)
+        self._gpu_timer.timeout.connect(self._poll_gpu)
+        self._gpu_timer.start(2000)
+
         # ---- 控制面板 ----
         right_panel = self._build_panel()
 
@@ -111,6 +116,17 @@ class MainWindow(QMainWindow):
         self.lbl_tracks.setAlignment(Qt.AlignmentFlag.AlignCenter)
         stats_grid.addWidget(QLabel("跟踪ID"), 2, 1)
         stats_grid.addWidget(self.lbl_tracks, 3, 1)
+
+        # GPU 利用率 (NVIDIA only, 无 GPU 时显示 N/A)
+        self.lbl_gpu_util = QLabel("-")
+        self.lbl_gpu_util.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        stats_grid.addWidget(QLabel("GPU 利用率"), 4, 0)
+        stats_grid.addWidget(self.lbl_gpu_util, 5, 0)
+
+        self.lbl_gpu_mem = QLabel("-")
+        self.lbl_gpu_mem.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        stats_grid.addWidget(QLabel("GPU 显存"), 4, 1)
+        stats_grid.addWidget(self.lbl_gpu_mem, 5, 1)
 
         stats_group.setLayout(stats_grid)
         layout.addWidget(stats_group)
@@ -272,6 +288,38 @@ class MainWindow(QMainWindow):
 
     def _clear_log(self):
         self.log_view.clear()
+
+    # ---- GPU 轮询 ----
+
+    def _poll_gpu(self):
+        """每 2s 刷新 GPU 利用率和显存 (pynvml, 惰性初始化)。"""
+        try:
+            import pynvml
+            if not hasattr(self, '_nvml_handle'):
+                pynvml.nvmlInit()
+                count = pynvml.nvmlDeviceGetCount()
+                if count > 0:
+                    self._nvml_handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+                else:
+                    self._nvml_handle = None
+            if self._nvml_handle is not None:
+                util = pynvml.nvmlDeviceGetUtilizationRates(self._nvml_handle)
+                mem = pynvml.nvmlDeviceGetMemoryInfo(self._nvml_handle)
+                self.lbl_gpu_util.setText(f"{util.gpu}%")
+                self.lbl_gpu_mem.setText(f"{mem.used / 1024**2:.0f}MB")
+                ucolor = "#00cc66" if util.gpu < 60 else ("#ff8c42" if util.gpu < 85 else "#ff4444")
+                mcolor = "#00cc66" if mem.used / mem.total < 0.6 else ("#ff8c42" if mem.used / mem.total < 0.85 else "#ff4444")
+                self.lbl_gpu_util.setStyleSheet(f"font-weight: bold; color: {ucolor};")
+                self.lbl_gpu_mem.setStyleSheet(f"font-weight: bold; color: {mcolor};")
+                return
+        except Exception:
+            pass
+
+        # GPU 不可用
+        self.lbl_gpu_util.setText("N/A")
+        self.lbl_gpu_util.setStyleSheet("color: #9E9E9E;")
+        self.lbl_gpu_mem.setText("N/A")
+        self.lbl_gpu_mem.setStyleSheet("color: #9E9E9E;")
 
     # ---- 参数滑块回调 ----
 

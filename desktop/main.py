@@ -40,12 +40,16 @@ def main():
     device_str, device_name = get_device()
     print(f"[推理设备] {device_name} ({device_str})")
 
-    # 禁用cuDNN + 预初始化CUDA (YOLO先拿GPU控制权)
+    # CUDA 稳定配置 (RTX4060 Laptop — 避免 cuDNN/OpenCV 栈溢出)
     try:
         import torch
+        torch.backends.cudnn.enabled = False       # 禁用 cuDNN (laptop GPU 栈溢出主因)
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
         torch.cuda.empty_cache()
+        # 限制 PyTorch 显存使用, 避免与 OpenCV/系统争抢
+        if torch.cuda.is_available():
+            torch.cuda.set_per_process_memory_fraction(0.85)
     except Exception:
         pass
 

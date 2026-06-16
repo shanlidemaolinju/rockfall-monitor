@@ -27,28 +27,100 @@ _THIS_DIR = Path(__file__).resolve().parent
 if str(_THIS_DIR) not in sys.path:
     sys.path.insert(0, str(_THIS_DIR))
 
-from rockfall.detector import RockDetector
-from rockfall.alert_store import AlertStore, get_alert_store
-from rockfall.performance import PerformanceMonitor, get_device_info
-from rockfall.replay import generate_alert_replays, stitch_annotated_clip
-from rockfall import __version__ as _core_version
-from rockfall.site_config import (
-    list_sites, get_active_site, set_active_site,
-    get_site_state, get_active_site_name, get_active_location,
-    PRESET_SITES, MonitoringSite,
-)
-from rockfall.config import (
-    RESULTS_DIR, DATA_DIR, UPLOADS_DIR,
-    DETECTION_CONFIDENCE, DETECTION_IMG_SIZE,
-    ALERT_BLUE_CONFIDENCE_LOW, ALERT_BLUE_CONFIDENCE_HIGH,
-    ALERT_YELLOW_CONFIDENCE_HIGH, ALERT_ORANGE_CONFIDENCE_HIGH,
-    MOTION_MIN_AREA, MOTION_SCORE_LOW, MOTION_SCORE_HIGH,
-    SKIP_IDLE, SKIP_ACTIVE, SKIP_CRITICAL,
-    MOG2_HISTORY, MOG2_VAR_THRESHOLD, MOG2_LEARNING_RATE,
-    validate_config,
-    CLASS_NAMES,
-    get_device as config_get_device,
-)
+# ── 依赖可用性探测 (Streamlit Cloud 可能缺失 torch/ultralytics) ──
+_IMPORT_ERRORS: list[str] = []
+_ROCKFALL_AVAILABLE = True
+
+try:
+    from rockfall.detector import RockDetector
+except ImportError as e:
+    _IMPORT_ERRORS.append(f"rockfall.detector: {e}")
+    RockDetector = None  # type: ignore
+
+try:
+    from rockfall.alert_store import AlertStore, get_alert_store
+except ImportError as e:
+    _IMPORT_ERRORS.append(f"rockfall.alert_store: {e}")
+    AlertStore = None  # type: ignore
+    get_alert_store = None  # type: ignore
+
+try:
+    from rockfall.performance import PerformanceMonitor, get_device_info
+except ImportError as e:
+    _IMPORT_ERRORS.append(f"rockfall.performance: {e}")
+    PerformanceMonitor = None  # type: ignore
+    get_device_info = None  # type: ignore
+
+try:
+    from rockfall.replay import generate_alert_replays, stitch_annotated_clip
+except ImportError:
+    generate_alert_replays = None  # type: ignore
+    stitch_annotated_clip = None  # type: ignore
+
+try:
+    from rockfall import __version__ as _core_version
+except ImportError:
+    _core_version = "0.0.0"
+
+try:
+    from rockfall.site_config import (
+        list_sites, get_active_site, set_active_site,
+        get_site_state, get_active_site_name, get_active_location,
+        PRESET_SITES, MonitoringSite,
+    )
+except ImportError as e:
+    _IMPORT_ERRORS.append(f"rockfall.site_config: {e}")
+    list_sites = lambda: []  # type: ignore
+    get_active_site = None  # type: ignore
+    set_active_site = None  # type: ignore
+    get_site_state = None  # type: ignore
+    get_active_site_name = lambda: "Unknown"  # type: ignore
+    get_active_location = lambda: "Unknown"  # type: ignore
+    PRESET_SITES = {}  # type: ignore
+    MonitoringSite = None  # type: ignore
+
+try:
+    from rockfall.config import (
+        RESULTS_DIR, DATA_DIR, UPLOADS_DIR,
+        DETECTION_CONFIDENCE, DETECTION_IMG_SIZE,
+        ALERT_BLUE_CONFIDENCE_LOW, ALERT_BLUE_CONFIDENCE_HIGH,
+        ALERT_YELLOW_CONFIDENCE_HIGH, ALERT_ORANGE_CONFIDENCE_HIGH,
+        MOTION_MIN_AREA, MOTION_SCORE_LOW, MOTION_SCORE_HIGH,
+        SKIP_IDLE, SKIP_ACTIVE, SKIP_CRITICAL,
+        MOG2_HISTORY, MOG2_VAR_THRESHOLD, MOG2_LEARNING_RATE,
+        validate_config,
+        CLASS_NAMES,
+        get_device as config_get_device,
+    )
+except ImportError as e:
+    _IMPORT_ERRORS.append(f"rockfall.config: {e}")
+    # 提供安全的默认值
+    from pathlib import Path as _Path
+    _ROOT = _Path(__file__).resolve().parent
+    RESULTS_DIR = _ROOT / "data" / "results"
+    DATA_DIR = _ROOT / "data"
+    UPLOADS_DIR = _ROOT / "data" / "uploads"
+    DETECTION_CONFIDENCE = 0.3
+    DETECTION_IMG_SIZE = 640
+    ALERT_BLUE_CONFIDENCE_LOW = 0.3
+    ALERT_BLUE_CONFIDENCE_HIGH = 0.5
+    ALERT_YELLOW_CONFIDENCE_HIGH = 0.7
+    ALERT_ORANGE_CONFIDENCE_HIGH = 0.9
+    MOTION_MIN_AREA = 500
+    MOTION_SCORE_LOW = 0.001
+    MOTION_SCORE_HIGH = 0.01
+    SKIP_IDLE = 3
+    SKIP_ACTIVE = 1
+    SKIP_CRITICAL = 1
+    MOG2_HISTORY = 500
+    MOG2_VAR_THRESHOLD = 16
+    MOG2_LEARNING_RATE = 0.01
+    validate_config = lambda: []  # type: ignore
+    CLASS_NAMES = {0: "rock"}
+    config_get_device = lambda: ("cpu", "CPU (fallback)")  # type: ignore
+
+if _IMPORT_ERRORS:
+    _ROCKFALL_AVAILABLE = False
 
 # ══════════════════════════════════════════════════════════════
 # 页面配置
@@ -190,6 +262,9 @@ st.markdown(f"""
 @st.cache_resource(show_spinner=False)
 def get_detector() -> RockDetector | None:
     """加载 YOLO 模型, 返回 RockDetector 实例。模型不存在时返回 None。"""
+    if RockDetector is None:
+        st.error("RockDetector 未能导入 — 请检查依赖安装: `pip install ultralytics torch`")
+        return None
     try:
         return RockDetector()
     except FileNotFoundError as e:
@@ -201,8 +276,11 @@ def get_detector() -> RockDetector | None:
 
 
 @st.cache_resource(show_spinner=False)
-def get_store() -> AlertStore:
+def get_store() -> AlertStore | None:
     """获取 AlertStore 单例 (自动探测 MySQL/SQLite 后端)。"""
+    if get_alert_store is None:
+        st.error("AlertStore 未能导入 — 请检查依赖安装")
+        return None
     return get_alert_store()
 
 
@@ -359,6 +437,36 @@ def render_sidebar():
 
         st.divider()
 
+        # ── 主题切换 ──
+        if "dark_mode" not in st.session_state:
+            st.session_state.dark_mode = False
+        dark = st.checkbox("🌙 暗色模式", value=st.session_state.dark_mode,
+                          help="切换亮色/暗色主题")
+
+        if dark != st.session_state.dark_mode:
+            st.session_state.dark_mode = dark
+            st.rerun()
+
+        if st.session_state.dark_mode:
+            st.markdown("""
+            <style>
+            /* 暗色主题 — 对齐 FastAPI dashboard.html 配色 */
+            .stApp { background: #0d1117; }
+            .stSidebar { background: #161b22; }
+            .stSidebar [data-testid="stMarkdownContainer"] * { color: #c9d1d9 !important; }
+            .stSidebar .stRadio label, .stSidebar .stCheckbox label { color: #c9d1d9 !important; }
+            .stMain h1, .stMain h2, .stMain h3, .stMain h4 { color: #c9d1d9; }
+            .stMain p, .stMain span, .stMain div { color: #c9d1d9; }
+            .stMetric label { color: #8b949e !important; }
+            .stMetric [data-testid="stMetricValue"] { color: #c9d1d9 !important; }
+            [data-testid="stExpander"] { background: #161b22; border-color: #30363d; }
+            .stButton button { background: #21262d; color: #c9d1d9; border-color: #30363d; }
+            .stDataFrame { background: #161b22; }
+            </style>
+            """, unsafe_allow_html=True)
+
+        st.divider()
+
         # ── 底部信息 ──
         st.markdown(f"""
         <div style="font-size:0.7rem;color:{TEXT_SECONDARY};">
@@ -491,6 +599,7 @@ def _update_perf_dashboard(placeholders: dict, detail_placeholder, snap) -> None
 # ══════════════════════════════════════════════════════════════
 
 # 预定义演示场景 (与站点配置对应)
+# 添加新场景: python scripts/generate_all_demos.py --add <site_id> <video_path>
 DEMO_SCENES = {
     "nanning_naan_s1": {
         "title": "南宁那安快速路 1 号边坡",
@@ -498,6 +607,39 @@ DEMO_SCENES = {
         "icon": "City",
         "data_dir": "demo_data/nanning_naan_s1",
         "site_id": "nanning_naan_s1",
+        "tags": ["晴天", "日间", "城市快速路"],
+    },
+    "nanning_naan_s2": {
+        "title": "南宁那安快速路 2 号边坡",
+        "subtitle": "雨天湿滑路面 — 可见度降低场景",
+        "icon": "Rain",
+        "data_dir": "demo_data/nanning_naan_s2",
+        "site_id": "nanning_naan_s2",
+        "tags": ["雨天", "湿滑", "低可见度"],
+    },
+    "qinzhou_s1": {
+        "title": "钦州滨海公路 1 号边坡",
+        "subtitle": "北部湾沿海路段 — 风化岩体监测",
+        "icon": "Coast",
+        "data_dir": "demo_data/qinzhou_s1",
+        "site_id": "qinzhou_s1",
+        "tags": ["沿海", "风化", "盐雾"],
+    },
+    "guilin_g65_s1": {
+        "title": "桂林 G65 包茂高速 K2485",
+        "subtitle": "喀斯特地貌 — 夜间低光照落石检测",
+        "icon": "Night",
+        "data_dir": "demo_data/guilin_g65_s1",
+        "site_id": "guilin_g65_s1",
+        "tags": ["喀斯特", "夜间", "低光照"],
+    },
+    "baise_s1": {
+        "title": "百色 G80 广昆高速 K780",
+        "subtitle": "桂西山区 — 背光+遮挡复杂场景",
+        "icon": "Mountain",
+        "data_dir": "demo_data/baise_s1",
+        "site_id": "baise_s1",
+        "tags": ["山区", "背光", "遮挡"],
     },
 }
 
@@ -535,17 +677,64 @@ def page_demo_showcase():
 
     # ── 加载演示数据 ──
     available = []
+    unavailable = []
     for sid, scene in DEMO_SCENES.items():
         summary = _load_demo_summary(sid)
         if summary is not None:
             available.append((sid, scene, summary))
+        else:
+            unavailable.append((sid, scene))
 
     if not available:
-        st.warning("Demo data not found. Run: python scripts/generate_demo.py")
+        st.warning("Demo data not found. Generate it with:")
+        st.code("python scripts/generate_all_demos.py /path/to/video.mp4 --scene nanning_naan_s1")
+        st.markdown("""
+        **已注册但未生成的场景** (上传对应视频后运行 `scripts/generate_all_demos.py`):
+        """)
+        if unavailable:
+            for sid, scene in unavailable:
+                st.markdown(f"- **{scene['title']}** — _{scene['subtitle']}_ → `{scene['data_dir']}/`")
+        else:
+            st.info("请在 DEMO_SCENES 中注册场景，然后运行生成脚本。")
         return
 
+    # ── 场景选择器 (多场景时显示) ──
     if "demo_scene" not in st.session_state:
         st.session_state.demo_scene = available[0][0]
+
+    if len(available) > 1:
+        scene_options = {sid: f"{sc['title']} — {sc['subtitle']}" for sid, sc, _ in available}
+        selected = st.selectbox(
+            "选择演示场景",
+            options=list(scene_options.keys()),
+            format_func=lambda x: scene_options[x],
+            index=list(scene_options.keys()).index(st.session_state.demo_scene)
+            if st.session_state.demo_scene in scene_options else 0,
+        )
+        st.session_state.demo_scene = selected
+    else:
+        # 单场景时显示标签
+        sid, sc, _ = available[0]
+        tags_html = " ".join(
+            f'<span style="display:inline-block;padding:0.1rem 0.5rem;background:{PRIMARY_BLUE_LIGHT};'
+            f'border-radius:4px;font-size:0.7rem;color:{PRIMARY_BLUE};">{t}</span>'
+            for t in sc.get("tags", [])
+        )
+        st.markdown(f"""
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:0.5rem;">
+            <span style="font-size:0.78rem;color:{TEXT_SECONDARY};">Active Scene:</span>
+            <span style="font-weight:600;color:{TEXT_PRIMARY};">{sc['title']}</span>
+            {tags_html}
+        </div>
+        """, unsafe_allow_html=True)
+
+    # ── 显示未生成场景的提示 ──
+    if unavailable:
+        with st.expander(f"+ {len(unavailable)} 个场景待生成数据", expanded=False):
+            for sid, sc in unavailable:
+                st.markdown(
+                    f"- **{sc['title']}**: `python scripts/generate_all_demos.py <video> --scene {sid}`"
+                )
 
     active_sid = st.session_state.demo_scene
     active_scene = DEMO_SCENES.get(active_sid)
@@ -837,8 +1026,11 @@ def page_realtime_monitor():
             status_text = st.empty()
 
             # ── 性能监控 ──
-            monitor = PerformanceMonitor()
-            monitor.start()
+            if PerformanceMonitor is not None:
+                monitor = PerformanceMonitor()
+                monitor.start()
+            else:
+                monitor = None
             _last_cb_time = [time.time()]  # 用列表避免闭包问题
 
             def _progress_cb(current: int, total: int):
@@ -849,9 +1041,10 @@ def page_realtime_monitor():
                 now = time.time()
                 delta_ms = (now - _last_cb_time[0]) * 1000
                 _last_cb_time[0] = now
-                monitor.record_frame(inference_ms=delta_ms)
+                if monitor is not None:
+                    monitor.record_frame(inference_ms=delta_ms)
                 # 每 5 帧更新一次仪表盘
-                if current % 5 == 0:
+                if current % 5 == 0 and monitor is not None:
                     snap = monitor.snapshot()
                     _update_perf_dashboard(perf_placeholders, perf_detail, snap)
 
@@ -871,13 +1064,15 @@ def page_realtime_monitor():
             detector.img_size = _orig_img_size
             progress_bar.progress(1.0)
             status_text.text("检测完成")
-            monitor.stop()
+            if monitor is not None:
+                monitor.stop()
 
             elapsed = time.time() - start_time
 
             # ── 性能摘要 ──
-            final_snap = monitor.snapshot()
-            _update_perf_dashboard(perf_placeholders, perf_detail, final_snap)
+            if monitor is not None:
+                final_snap = monitor.snapshot()
+                _update_perf_dashboard(perf_placeholders, perf_detail, final_snap)
 
             if isinstance(result, dict) and "error" not in result:
                 all_frame_results = result.get("detections", [])
@@ -3206,13 +3401,30 @@ def page_settings():
 
     with c1:
         if st.button("应用参数", type="primary", use_container_width=True):
-            # 更新检测器实例参数
+            # 更新检测器实例参数 (当前会话立即生效)
             detector.confidence = new_conf
             detector.img_size = new_img_size
             detector.min_area = new_min_area
             detector.alert_blue_conf_high = blue_high
             detector.alert_yellow_conf_high = yellow_high
             detector.alert_orange_conf_high = orange_high
+
+            # 更新 RuntimeConfig 单例 (跨会话持久化, 新检测器启动时自动读取)
+            from rockfall.config import RuntimeConfig as _RC
+            _RC.set_batch({
+                "DETECTION_CONFIDENCE": new_conf,
+                "DETECTION_IMG_SIZE": new_img_size,
+                "MOTION_MIN_AREA": new_min_area,
+                "ALERT_BLUE_CONFIDENCE_HIGH": blue_high,
+                "ALERT_YELLOW_CONFIDENCE_HIGH": yellow_high,
+                "ALERT_ORANGE_CONFIDENCE_HIGH": orange_high,
+                "SKIP_IDLE": new_skip_idle,
+                "SKIP_ACTIVE": new_skip_active,
+                "SKIP_CRITICAL": new_skip_critical,
+                "MOTION_SCORE_LOW": new_motion_low[0],
+                "MOTION_SCORE_HIGH": new_motion_low[1],
+                "MOG2_LEARNING_RATE": new_mog2_lr,
+            })
 
             # 更新会话状态
             st.session_state.detection_confidence = new_conf
@@ -3229,10 +3441,12 @@ def page_settings():
             st.session_state.motion_score_high = new_motion_low[1]
             st.session_state.mog2_learning_rate = new_mog2_lr
 
-            st.success("参数已应用 (当前会话有效)")
+            st.success("参数已应用 (RuntimeConfig 跨会话持久化)")
 
     with c2:
         if st.button("恢复默认", use_container_width=True):
+            from rockfall.config import RuntimeConfig as _RC
+            _RC.reset()  # 清除所有运行时覆盖
             for k, v in DEFAULT_PARAMS.items():
                 st.session_state[k] = v
             # 恢复检测器参数
@@ -3246,25 +3460,36 @@ def page_settings():
 
     # ── 当前配置状态 ──
     with st.expander("当前完整配置", expanded=False):
-        st.json({
-            "detection": {
-                "confidence": detector.confidence,
-                "img_size": detector.img_size,
-                "min_area": detector.min_area,
-            },
-            "alert_thresholds": {
-                "blue_low": blue_low,
-                "blue_high": detector.alert_blue_conf_high,
-                "yellow_high": detector.alert_yellow_conf_high,
-                "orange_high": detector.alert_orange_conf_high,
-            },
-            "skip_strategy": {
-                "idle": st.session_state.get("skip_idle", SKIP_IDLE),
-                "active": st.session_state.get("skip_active", SKIP_ACTIVE),
-                "critical": st.session_state.get("skip_critical", SKIP_CRITICAL),
-            },
-            "device": config_get_device(),
-        })
+        from rockfall.config import RuntimeConfig as _RC
+        _overrides = _RC.get_all_overrides()
+        col_json, col_overrides = st.columns([1, 1])
+        with col_json:
+            st.caption("检测器当前参数")
+            st.json({
+                "detection": {
+                    "confidence": detector.confidence,
+                    "img_size": detector.img_size,
+                    "min_area": detector.min_area,
+                },
+                "alert_thresholds": {
+                    "blue_low": blue_low,
+                    "blue_high": detector.alert_blue_conf_high,
+                    "yellow_high": detector.alert_yellow_conf_high,
+                    "orange_high": detector.alert_orange_conf_high,
+                },
+                "skip_strategy": {
+                    "idle": st.session_state.get("skip_idle", SKIP_IDLE),
+                    "active": st.session_state.get("skip_active", SKIP_ACTIVE),
+                    "critical": st.session_state.get("skip_critical", SKIP_CRITICAL),
+                },
+                "device": config_get_device(),
+            })
+        with col_overrides:
+            st.caption("RuntimeConfig 覆盖")
+            if _overrides:
+                st.json(_overrides)
+            else:
+                st.info("无覆盖 (全部使用默认值)")
 
 
 # ══════════════════════════════════════════════════════════════
@@ -3283,7 +3508,7 @@ def page_system():
     </div>
     """, unsafe_allow_html=True)
 
-    tab1, tab2, tab3, tab4 = st.tabs(["Health Check", "Audit Log", "Storage", "Workflow Stats"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Health Check", "Audit Log", "Storage", "Workflow Stats", "Data Integrity"])
 
     # ── Tab 1: 系统健康检查 ──
     with tab1:
@@ -3413,6 +3638,69 @@ def page_system():
         except Exception as e:
             st.warning(f"Workflow API unavailable: {e}")
 
+    # ── Tab 5: 数据完整性校验 (哈希链) ──
+    with tab5:
+        st.markdown("### Data Integrity — Hash Chain Verification")
+        st.caption("SHA256 链式校验: 每条预警记录链接上一条的哈希值, 形成防篡改证据链。")
+
+        try:
+            from rockfall.hash_chain import build_chain, verify_chain_batch
+            from rockfall.alert_store import get_alert_store as _gs
+            _store = _gs()
+            _recent = _store.query_alerts(limit=50, offset=0)
+
+            if _recent:
+                genesis = "0" * 64
+
+                # 批量验证哈希链
+                result = verify_chain_batch(_recent, genesis)
+                total = result.get("total", len(_recent))
+                ok = result.get("valid", 0)
+                bad = result.get("invalid", 0)
+                breaks = result.get("breaks", [])
+
+                # 状态展示
+                if bad == 0:
+                    st.success(f"所有 {ok} 条记录哈希链完整, 数据未被篡改。")
+                else:
+                    st.error(f"发现 {bad} 条记录哈希链断裂！断裂位置: {breaks}")
+
+                # 哈希链详情表
+                st.markdown("**哈希链样本 (最近 10 条)**")
+                hashes = build_chain(_recent, genesis)
+                chain_data = []
+                for i, record in enumerate(_recent[:10]):
+                    h = hashes[i] if i < len(hashes) else "N/A"
+                    chain_data.append({
+                        "ID": record.get("id", ""),
+                        "时间": str(record.get("time", ""))[:19],
+                        "等级": record.get("alert_level", ""),
+                        "Hash": h[:16] + "..." if len(h) > 16 else h,
+                    })
+                st.dataframe(chain_data, use_container_width=True, hide_index=True)
+
+                # 验证原理说明
+                with st.expander("哈希链验证原理", expanded=False):
+                    st.markdown("""
+                    **SHA256 哈希链防篡改机制:**
+                    1. 每条预警记录的 `data_hash = SHA256(time|level|count|conf|tracks|...|prev_hash)`
+                    2. `prev_hash` 指向上一条记录的 `data_hash`
+                    3. 首条记录使用创世哈希 (全零)
+                    4. **任何记录被修改** → 其 `data_hash` 不匹配 → 后续所有记录的 `prev_hash` 全部断裂
+
+                    **验证公式:**
+                    ```
+                    recalculated_hash = SHA256(record_fields + prev_record_hash)
+                    if recalculated_hash != stored_hash → 记录被篡改!
+                    ```
+                    """)
+            else:
+                st.info("暂无预警记录可用于哈希链验证。检测到落石后会自动生成。")
+        except ImportError as e:
+            st.warning(f"哈希链模块不可用: {e}")
+        except Exception as e:
+            st.warning(f"哈希链验证暂不可用: {e}")
+
 
 # ══════════════════════════════════════════════════════════════
 # 主入口
@@ -3420,6 +3708,27 @@ def page_system():
 
 def main():
     """Streamlit 主入口 — 按侧边栏选择渲染对应页面。"""
+
+    # ── 启动时检查依赖可用性 ──
+    if _IMPORT_ERRORS:
+        st.error("## 依赖缺失 — 应用无法正常启动")
+        st.markdown("""
+        以下 Python 包未能成功导入。请检查 `requirements.txt` 是否完整安装：
+        """)
+        for err in _IMPORT_ERRORS:
+            st.code(err, language=None)
+        st.info("""
+        **如何修复 (Streamlit Cloud):**
+        1. 确保 `requirements.txt` 包含 `torch`, `ultralytics`, `opencv-python-headless`
+        2. 确保 `packages.txt` 包含 `ffmpeg`, `libgomp1`, `libgl1-mesa-glx`
+        3. 重新部署 (Streamlit Cloud 会在每次 push 后自动重新安装依赖)
+
+        **如何修复 (本地):**
+        ```bash
+        pip install -r requirements.txt
+        ```
+        """)
+        st.stop()
 
     # 启动时检查配置
     warnings = validate_config()

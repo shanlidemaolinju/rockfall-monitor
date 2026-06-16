@@ -44,6 +44,7 @@ def main():
     parser.add_argument("--max-frames", type=int, default=300, help="最大推理帧数")
     parser.add_argument("--stride", type=int, default=2, help="帧采样步长")
     parser.add_argument("--img-size", type=int, default=640, help="推理分辨率")
+    parser.add_argument("--conf", type=float, default=None, help="检测置信度阈值 (默认使用配置文件值 0.30)")
     parser.add_argument("--out", default=None, help="输出目录 (默认 demo_data/<name>/")
     args = parser.parse_args()
 
@@ -67,17 +68,30 @@ def main():
     print("🔧 加载 YOLO 模型...")
     detector = RockDetector()
     detector.img_size = args.img_size
+    if args.conf is not None:
+        detector.confidence = args.conf
+        print(f"🎯 置信度阈值: {args.conf}")
     print(f"🖥️  推理设备: {detector._device_name}")
     print()
 
     # ── 运行检测 ──
     print("🔍 开始检测...")
     t0 = time.time()
+
+    # 使用全帧作为 ROI (演示模式 — 最大化检出率)
+    # 生产环境建议使用 FastSAM 自动分割或手动框选精确 ROI
+    cap_test = cv2.VideoCapture(str(video_path))
+    fw = int(cap_test.get(cv2.CAP_PROP_FRAME_WIDTH))
+    fh = int(cap_test.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    cap_test.release()
+    full_frame_poly = np.array([[0, 0], [fw, 0], [fw, fh], [0, fh]], np.int32)
+
     result = detector.detect_video(
         str(video_path),
         save_frames=True,
         push_alerts=False,
         track=True,
+        polygon=full_frame_poly,
         max_frames=args.max_frames,
         stride=args.stride,
     )
