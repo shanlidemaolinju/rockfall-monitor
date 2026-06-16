@@ -201,7 +201,39 @@ def main():
         with open(out_dir / "summary.json", "w", encoding="utf-8") as f:
             json.dump(summary, f, ensure_ascii=False, indent=2)
 
-        # 精简版结果 (不含完整 boxes 列表以减小体积)
+        # 精简版结果 + 轨迹数据 (用于 Kalman 图表)
+        track_frames = []
+        for fr in detections:
+            boxes = fr.get("boxes", [])
+            # 只收集有 Kalman 预测值的 track (匹配成功的)
+            matched = [
+                {
+                    "track_id": b["track_id"],
+                    "actual_cx": int(round((b["bbox"][0] + b["bbox"][2]) / 2)),
+                    "actual_cy": int(round((b["bbox"][1] + b["bbox"][3]) / 2)),
+                    "predicted_cx": int(round(b["predicted_center"][0])),
+                    "predicted_cy": int(round(b["predicted_center"][1])),
+                    "confidence": round(b["confidence"], 3),
+                }
+                for b in boxes
+                if b.get("predicted_center") and b["predicted_center"][0] is not None
+            ]
+            if matched:
+                track_frames.append({
+                    "frame": fr["frame"],
+                    "time_sec": fr.get("time_sec", 0),
+                    "alert_level": fr.get("alert_level", "green"),
+                    "tracks": matched,
+                })
+
+        # 控制文件体积: 最多 100 帧
+        if len(track_frames) > 100:
+            # 优先保留预警等级高的帧
+            level_order = {"red": 0, "orange": 1, "yellow": 2, "blue": 3, "green": 4}
+            track_frames.sort(key=lambda f: level_order.get(f["alert_level"], 5))
+            track_frames = track_frames[:100]
+            track_frames.sort(key=lambda f: f["frame"])
+
         light_result = {
             "source": result.get("source", ""),
             "total_frames": result.get("total_frames", 0),
@@ -219,6 +251,7 @@ def main():
                 }
                 for fr in detections
             ],
+            "track_frames": track_frames,
         }
         with open(out_dir / "result.json", "w", encoding="utf-8") as f:
             json.dump(light_result, f, ensure_ascii=False, indent=2)

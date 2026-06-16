@@ -963,6 +963,7 @@ class RockDetector:
                         "confirmed": t["confirmed"],
                         "class_id": t.get("class_id", 0),
                         "class_name": t.get("class_name", "落石"),
+                        "predicted_center": t.get("predicted_center"),
                     }
                     for t in tracks_info
                 ],

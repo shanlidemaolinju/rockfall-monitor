@@ -95,6 +95,7 @@ class KalmanBoxTracker:
         self.missed = 0
         self.trajectory = [(x, y)]        # [(x, y), ...] 中心点轨迹
         self.bbox = bbox.tolist()
+        self._last_prediction: np.ndarray | None = None  # 最近一次 Kalman 预测框
         self.confidence = 0.0
         self._confidences: list[float] = []  # 置信度历史 (用于移动平均)
         self._speeds: list[float] = []    # 帧间速度历史 (px/frame)
@@ -120,7 +121,9 @@ class KalmanBoxTracker:
         h = max(np.sqrt(s / max(r, 1e-6)), 1)
         x1 = x - w / 2
         y1 = y - h / 2
-        return np.array([x1, y1, x1 + w, y1 + h])
+        pred = np.array([x1, y1, x1 + w, y1 + h])
+        self._last_prediction = pred
+        return pred
 
     def update(self, bbox: np.ndarray):
         """用检测框更新 Kalman 状态"""
@@ -312,7 +315,15 @@ class RockTracker:
 
         # 步骤5: 返回活跃轨迹
         results = []
-        for t in self.tracks:
+        for i, t in enumerate(self.tracks):
+            # 仅匹配成功的 track 携带预测值（避免干扰）
+            pred_bbox = t._last_prediction if i in matched_trk else None
+            if pred_bbox is not None:
+                pred_cx = round((pred_bbox[0] + pred_bbox[2]) / 2, 1)
+                pred_cy = round((pred_bbox[1] + pred_bbox[3]) / 2, 1)
+            else:
+                pred_cx, pred_cy = None, None
+
             results.append({
                 "id": t.id,
                 "bbox": t.bbox,
@@ -328,6 +339,7 @@ class RockTracker:
                 "class_name": t.class_name,
                 "motion_state": t.motion_state,
                 "trajectory": [(round(x, 1), round(y, 1)) for x, y in t.trajectory[-20:]],
+                "predicted_center": [pred_cx, pred_cy] if pred_cx is not None else None,
             })
         return results
 

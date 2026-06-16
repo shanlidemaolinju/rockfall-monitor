@@ -635,6 +635,22 @@ def _load_demo_summary(scene_id: str) -> dict | None:
         return None
 
 
+def _load_demo_result(scene_id: str) -> dict | None:
+    """加载预生成的演示检测结果 (含轨迹数据)"""
+    import json as _json
+    scene = DEMO_SCENES.get(scene_id)
+    if not scene:
+        return None
+    result_path = _THIS_DIR / scene["data_dir"] / "result.json"
+    if not result_path.exists():
+        return None
+    try:
+        with open(result_path, "r", encoding="utf-8") as f:
+            return _json.load(f)
+    except Exception:
+        return None
+
+
 def page_demo_showcase():
     """预设演示页面: 预计算结果零等待加载"""
     # ── 品牌顶栏 ──
@@ -1500,48 +1516,67 @@ def page_algorithm_showcase():
     </div>
     """, unsafe_allow_html=True)
 
-    # 对比数据 (基于 demo 实测)
-    col_chart, col_metric = st.columns([3, 2])
+    # 对比数据 (从 demo summary.json 读取实测值)
+    active_sid_perf = st.session_state.get("demo_scene", "")
+    demo_summary_perf = _load_demo_summary(active_sid_perf) if active_sid_perf else None
 
-    with col_chart:
-        # FPS 对比柱状图
-        comp_data = pd.DataFrame({
-            "场景": ["静止 (无运动)", "弱运动", "强运动", "持续落石"],
-            "纯 YOLO (fps)": [25, 25, 25, 25],
-            "本方案 (fps)": [5, 12, 18, 22],
-            "YOLO 调用节省": [80, 52, 28, 12],
-        })
-        st.bar_chart(
-            comp_data.set_index("场景")[["纯 YOLO (fps)", "本方案 (fps)"]],
-            use_container_width=True,
-        )
-        st.caption("注: 推理帧率受跳帧策略影响，纯YOLO全帧推理固定 25 FPS (视频帧率)")
+    if demo_summary_perf:
+        video_info = demo_summary_perf.get("video", {})
+        det_info = demo_summary_perf.get("detection", {})
+        total_frames = video_info.get("total_frames", 0) or det_info.get("processed_frames", 1)
+        video_fps = video_info.get("fps", 25.0)
+        processed = det_info.get("processed_frames", total_frames)
+        elapsed = det_info.get("elapsed_sec", 1.0)
+        device = det_info.get("device", "未知")
 
-    with col_metric:
-        st.markdown("""
-        <div style="padding:0.5rem 0;">
-        """, unsafe_allow_html=True)
+        pure_yolo_fps = video_fps  # 全帧推理理论值
+        our_fps = round(processed / elapsed, 1) if elapsed > 0 else 0
+        skip_pct = round((1 - processed / max(total_frames, 1)) * 100, 0)
 
-        k1, k2 = st.columns(2)
-        with k1:
-            st.metric("平均 GPU 推理", "781 fps", delta="RTX 4060", delta_color="off")
-        with k2:
-            st.metric("平均 CPU 推理", "~45 fps", delta="i7-13620H", delta_color="off")
+        col_chart, col_metric = st.columns([3, 2])
 
-        k3, k4 = st.columns(2)
-        with k3:
-            st.metric("运动跳过率", "60-80%", delta="帧过滤比例")
-        with k4:
+        with col_chart:
+            comp_data = pd.DataFrame({
+                "指标": ["帧率 (FPS)", "处理帧数"],
+                "纯 YOLO (理论值)": [pure_yolo_fps, total_frames],
+                "本方案 (实测值)": [our_fps, processed],
+            })
+            st.bar_chart(
+                comp_data.set_index("指标"),
+                use_container_width=True,
+            )
+            st.caption(f"数据来源: {active_sid_perf} · 纯 YOLO FPS 为视频帧率 (理论上限)")
+
+        with col_metric:
+            st.markdown("""<div style="padding:0.5rem 0;">""", unsafe_allow_html=True)
+
+            k1, k2 = st.columns(2)
+            with k1:
+                st.metric("本方案 FPS", f"{our_fps}", delta=f"纯YOLO上限 {pure_yolo_fps}", delta_color="off")
+            with k2:
+                st.metric("处理帧数", f"{processed:,}", delta=f"总帧 {total_frames:,}", delta_color="off")
+
+            k3, k4 = st.columns(2)
+            with k3:
+                st.metric("YOLO 调用节省", f"{skip_pct}%", delta="帧过滤比例")
+            with k4:
+                st.metric("模型大小", "6.2 MB", delta="YOLOv8 Nano")
+
+            st.markdown(f"""
+            <div style="margin-top:0.75rem;padding:0.75rem;background:#E8F5E9;border-radius:8px;
+                        border-left:3px solid #2E7D32;font-size:0.8rem;">
+                <b>关键优势</b><br>
+                运动前置过滤使 YOLO 推理量减少 <b>{skip_pct}%</b><br>
+                处理 {total_frames:,} 帧仅需 <b>{elapsed:.1f}秒</b> · 设备: <b>{device}</b>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        # fallback: 无 demo 数据时显示说明
+        col_chart, col_metric = st.columns([3, 2])
+        with col_chart:
+            st.info("暂无实测数据。请先运行生成脚本。")
+        with col_metric:
             st.metric("模型大小", "6.2 MB", delta="YOLOv8 Nano")
-
-        st.markdown("""
-        <div style="margin-top:0.75rem;padding:0.75rem;background:#E8F5E9;border-radius:8px;
-                    border-left:3px solid #2E7D32;font-size:0.8rem;">
-            <b>关键优势</b><br>
-            运动前置过滤使 YOLO 推理量减少 <b>60-80%</b>，<br>
-            在边缘设备 (Jetson/RDK X5) 上可从 <b>8fps → 22fps</b>
-        </div>
-        """, unsafe_allow_html=True)
 
     # 跳帧策略说明
     with st.expander("自适应跳帧策略详解", expanded=False):
@@ -1601,36 +1636,77 @@ def page_algorithm_showcase():
         st.markdown("""
         <div class="card">
             <div style="font-weight:600;font-size:0.9rem;color:#1B2838;margin-bottom:0.5rem;">
-                SORT 跟踪效果
+                SORT 跟踪效果 (实测)
             </div>
         """, unsafe_allow_html=True)
 
-        # 模拟 Kalman 预测 vs 实际轨迹数据
-        kf_data = pd.DataFrame({
-            "帧号": list(range(1, 21)),
-            "实际 X": [100, 105, 112, 118, 125, 133, 140, 148, 155, 163,
-                      170, 177, 183, 190, 197, 204, 210, 217, 224, 230],
-            "预测 X": [100, 106, 113, 119, 127, 134, 141, 149, 156, 164,
-                      171, 178, 184, 191, 198, 205, 211, 218, 225, 231],
-            "实际 Y": [200, 205, 211, 216, 222, 229, 235, 242, 249, 256,
-                      263, 270, 277, 284, 291, 298, 305, 312, 319, 326],
-            "预测 Y": [200, 206, 212, 217, 224, 230, 237, 244, 251, 258,
-                      265, 272, 279, 286, 293, 300, 307, 314, 321, 327],
-        })
+        # ── 从 demo 数据加载真实 Kalman 轨迹 ──
+        active_sid_kf = st.session_state.get("demo_scene", "")
+        demo_result = _load_demo_result(active_sid_kf) if active_sid_kf else None
+        track_frames = demo_result.get("track_frames", []) if demo_result else []
 
-        st.line_chart(
-            kf_data.set_index("帧号")[["实际 X", "预测 X"]],
-            use_container_width=True,
-        )
-        st.caption("X 坐标: 实际值 (蓝色) vs Kalman 预测值 (橙色)")
+        if track_frames:
+            # 选择 track 最多的一帧展示
+            best_frame = max(track_frames, key=lambda f: len(f["tracks"]))
+            tracks = best_frame["tracks"]
 
-        st.markdown("""
-        <div style="margin-top:0.5rem;font-size:0.78rem;color:#5F6B7A;line-height:1.6;">
-            <b>预测误差</b>: |Actual - Predicted| < 2 pixels<br>
-            <b>匹配成功率</b>: IoU > 0.3 匹配率 > 95%<br>
-            <b>轨迹连续性</b>: 支持短暂遮挡 (10帧容忍)
-        </div>
-        """, unsafe_allow_html=True)
+            # 构建散点图数据: 每个 track 一行，actual 和 predicted 分开
+            scatter_rows = []
+            for t in tracks:
+                scatter_rows.append({
+                    "track_id": f"Track {t['track_id']}",
+                    "X": t["actual_cx"],
+                    "Y": t["actual_cy"],
+                    "type": "实际位置",
+                })
+                scatter_rows.append({
+                    "track_id": f"Track {t['track_id']}",
+                    "X": t["predicted_cx"],
+                    "Y": t["predicted_cy"],
+                    "type": "Kalman 预测",
+                })
+
+            scatter_df = pd.DataFrame(scatter_rows)
+            st.scatter_chart(
+                scatter_df, x="X", y="Y", color="track_id",
+                size=80, use_container_width=True,
+            )
+            st.caption(f"第 {best_frame['frame']} 帧 · {len(tracks)} 个跟踪目标 · 实心=实际位置 · 空心=Kalman预测")
+
+            # ── 误差统计表 ──
+            st.markdown("**预测误差统计**")
+            error_data = []
+            all_errors = []
+            # 按 track_id 分组计算误差
+            from collections import defaultdict
+            track_errors: dict = defaultdict(list)
+            for tf in track_frames:
+                for t in tf["tracks"]:
+                    err = round(((t["actual_cx"] - t["predicted_cx"]) ** 2 +
+                                  (t["actual_cy"] - t["predicted_cy"]) ** 2) ** 0.5, 1)
+                    track_errors[t["track_id"]].append(err)
+                    all_errors.append(err)
+
+            for tid, errs in sorted(track_errors.items()):
+                error_data.append({
+                    "Track ID": tid,
+                    "出现帧数": len(errs),
+                    "平均误差 (px)": round(sum(errs) / len(errs), 1),
+                    "最大误差 (px)": round(max(errs), 1),
+                })
+
+            if error_data:
+                st.dataframe(
+                    pd.DataFrame(error_data),
+                    use_container_width=True, hide_index=True,
+                )
+                avg_all = round(sum(all_errors) / len(all_errors), 1) if all_errors else 0
+                max_all = round(max(all_errors), 1) if all_errors else 0
+                st.caption(f"全局: 平均误差 **{avg_all} px** · 最大误差 **{max_all} px** · "
+                           f"共 {len(track_frames)} 帧 · {len(track_errors)} 个目标")
+        else:
+            st.info("暂无真实轨迹数据。请运行 `python scripts/generate_demo.py <video> --scene <场景>` 生成。")
+            st.caption("生成后 result.json 将包含 track_frames 轨迹数据。")
 
     # Kalman 对比表
     st.markdown("""
