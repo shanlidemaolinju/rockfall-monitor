@@ -2322,7 +2322,7 @@ def page_alert_standards():
                     {std['trigger'][:60]}...
                 </div>
                 <div style="margin-top:0.4rem;font-size:0.65rem;color:{std['color']};font-weight:600;">
-                    推送: {std['push_channels'][0]}
+                    推送: {std['push_channels'][0] if std['push_channels'] else '不推送'}
                 </div>
             </div>
             """, unsafe_allow_html=True)
