@@ -265,12 +265,18 @@ _PUBLIC_PATHS = {
 
 
 def _is_public_path(path: str) -> bool:
-    """判断路径是否为公开路径（支持前缀匹配）。"""
+    """判断路径是否为公开路径（支持前缀匹配）。
+
+    SPA 路由（如 /settings, /alerts）为公开，仅 API 路径需要认证。
+    """
     if path in _PUBLIC_PATHS:
         return True
     for prefix in _PUBLIC_PATH_PREFIXES:
         if path == prefix or path.startswith(prefix + "/"):
             return True
+    # React SPA 路由 (非 API 路径): 公开访问，由前端路由守卫控制
+    if not path.startswith("/api/") and not path.startswith("/detect/"):
+        return True
     return False
 
 
@@ -1258,6 +1264,193 @@ def api_config_update(request: Request, payload: dict):
 
 
 # ============================================================
+# 预警分级决策树 & 响应流程
+# ============================================================
+
+@app.get("/api/alert-classifier/decision-tree")
+def api_decision_tree():
+    """
+    获取预警分级决策树数据结构 (供前端可视化渲染)。
+
+    返回完整的决策树节点列表，每个节点包含:
+      - id: 节点唯一标识
+      - type: "root" | "decision" | "leaf-red" | "leaf-orange" | "leaf-yellow" | "leaf-blue" | "leaf-green"
+      - label: 显示文本
+      - children: 子节点列表 (decision 节点)
+      - branch_labels: 分支标签 (decision → children 的映射)
+    """
+    tree = {
+        "id": "root",
+        "type": "root",
+        "label": "输入: 检测帧 + 跟踪轨迹",
+        "children": [
+            {
+                "id": "conf_90",
+                "type": "decision",
+                "label": "最高置信度 max_conf ?",
+                "branches": [
+                    {
+                        "label": "> 0.90",
+                        "result": {"type": "leaf-red", "label": "🔴 I 级 · 特别严重", "level": "red"},
+                    },
+                    {
+                        "label": "0.70 - 0.90",
+                        "node": {
+                            "id": "diam_30_conf70",
+                            "type": "decision",
+                            "label": "落石直径 ?",
+                            "branches": [
+                                {
+                                    "label": "> 30cm",
+                                    "result": {"type": "leaf-red", "label": "🔴 I 级 (升级)", "level": "red"},
+                                },
+                                {
+                                    "label": "20 - 30cm",
+                                    "result": {"type": "leaf-orange", "label": "🟠 II 级 · 严重", "level": "orange"},
+                                },
+                                {
+                                    "label": "< 20cm",
+                                    "node": {
+                                        "id": "motion_conf70",
+                                        "type": "decision",
+                                        "label": "运动状态 ?",
+                                        "branches": [
+                                            {
+                                                "label": "坠落",
+                                                "result": {"type": "leaf-orange", "label": "🟠 II 级 · 严重", "level": "orange"},
+                                            },
+                                            {
+                                                "label": "滚动",
+                                                "result": {"type": "leaf-yellow", "label": "🟡 III 级 · 较重", "level": "yellow"},
+                                            },
+                                        ],
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                    {
+                        "label": "0.50 - 0.70",
+                        "node": {
+                            "id": "diam_20_conf50",
+                            "type": "decision",
+                            "label": "落石直径 ?",
+                            "branches": [
+                                {
+                                    "label": "> 20cm",
+                                    "result": {"type": "leaf-orange", "label": "🟠 II 级 (升级)", "level": "orange"},
+                                },
+                                {
+                                    "label": "10 - 20cm",
+                                    "result": {"type": "leaf-yellow", "label": "🟡 III 级 · 较重", "level": "yellow"},
+                                },
+                                {
+                                    "label": "< 10cm",
+                                    "node": {
+                                        "id": "frames_conf50",
+                                        "type": "decision",
+                                        "label": "持续帧数 ?",
+                                        "branches": [
+                                            {
+                                                "label": "> 10 帧",
+                                                "result": {"type": "leaf-yellow", "label": "🟡 III 级 · 较重", "level": "yellow"},
+                                            },
+                                            {
+                                                "label": "< 10 帧",
+                                                "result": {"type": "leaf-blue", "label": "🔵 IV 级 · 一般", "level": "blue"},
+                                            },
+                                        ],
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                    {
+                        "label": "0.30 - 0.50",
+                        "node": {
+                            "id": "conf_30_50",
+                            "type": "decision",
+                            "label": "落石直径 ?",
+                            "branches": [
+                                {
+                                    "label": "> 10cm → 升级至 III 级",
+                                    "result": {"type": "leaf-yellow", "label": "🟡 III 级 · 较重", "level": "yellow"},
+                                },
+                                {
+                                    "label": "≤ 10cm",
+                                    "result": {"type": "leaf-blue", "label": "🔵 IV 级 · 一般", "level": "blue"},
+                                },
+                            ],
+                        },
+                    },
+                ],
+            },
+            {
+                "id": "conf_below_30",
+                "type": "leaf-green",
+                "label": "🟢 正常 (不预警)",
+                "level": "green",
+            },
+        ],
+    }
+    return tree
+
+
+@app.get("/api/alert-classifier/response-workflow/{alert_level}")
+def api_response_workflow(alert_level: str):
+    """
+    获取指定预警等级的响应流程配置。
+
+    alert_level: red | orange | yellow | blue | green
+
+    返回:
+      - level: 等级标识
+      - label: 中文标签
+      - trigger_conditions: 触发条件列表
+      - disposal_steps: 处置流程步骤
+      - push_channels: 推送渠道
+      - requires_sound: 是否触发声光报警
+    """
+    from rockfall.alert_classifier import get_response_workflow
+    workflow = get_response_workflow(alert_level)
+    return workflow
+
+
+@app.get("/api/alert-classifier/response-workflows")
+def api_all_response_workflows():
+    """获取所有预警等级的响应流程配置。"""
+    from rockfall.alert_classifier import get_response_workflow, LEVEL_RED, LEVEL_ORANGE, LEVEL_YELLOW, LEVEL_BLUE
+    return {
+        level: get_response_workflow(level)
+        for level in [LEVEL_RED, LEVEL_ORANGE, LEVEL_YELLOW, LEVEL_BLUE]
+    }
+
+
+@app.post("/api/alert-classifier/classify")
+def api_classify_alert(payload: dict):
+    """
+    手动调用决策树进行预警分级 (供前端调试/验证)。
+
+    请求体:
+        {"max_conf": 0.85, "rock_diameter_cm": 25, "motion_state": "快速坠落", "track_age": 8}
+
+    返回:
+        {"level": "orange", "label": "🟠 Ⅱ级·严重", "classification_path": [...]}
+    """
+    from rockfall.alert_classifier import classify_alert_level, LEVEL_LABELS
+    level = classify_alert_level(
+        max_conf=float(payload.get("max_conf", 0)),
+        rock_diameter_cm=float(payload.get("rock_diameter_cm", 0)),
+        motion_state=str(payload.get("motion_state", "")),
+        track_age=int(payload.get("track_age", 0)),
+    )
+    return {
+        "level": level,
+        "label": LEVEL_LABELS.get(level, "未知"),
+    }
+
+
+# ============================================================
 # 健康检查
 # ============================================================
 
@@ -1515,19 +1708,32 @@ def detect_uploaded_video(
     # 保存文件到隔离目录
     safe_path = validator.save_quarantined(file_content, file.filename or "unknown.mp4")
 
-    # ── FLV → MP4 自动转换 (OpenCV 对 FLV 支持不稳定) ──
+    # ── FLV 兼容: 尝试用 OpenCV 重新封装为 AVI ──
     _filename_lower = (file.filename or "").lower()
     if _filename_lower.endswith(".flv"):
-        import subprocess as _sp, shutil as _sh
-        _mp4_path = Path(safe_path).with_suffix(".mp4")
-        _result = _sp.run(
-            ["ffmpeg", "-y", "-i", str(safe_path), "-c:v", "libx264",
-             "-preset", "fast", "-crf", "23", "-c:a", "aac",
-             "-movflags", "+faststart", str(_mp4_path)],
-            capture_output=True, text=True, timeout=300,
-        )
-        if _result.returncode == 0 and _mp4_path.exists():
-            safe_path = str(_mp4_path)  # 后续使用转码后的 MP4
+        import cv2
+        _converted = Path(safe_path).with_suffix(".avi")
+        _cap = cv2.VideoCapture(str(safe_path))
+        if _cap.isOpened():
+            _fps = _cap.get(cv2.CAP_PROP_FPS) or 25.0
+            _w = int(_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            _h = int(_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            _writer = cv2.VideoWriter(
+                str(_converted),
+                cv2.VideoWriter_fourcc(*"XVID"),
+                _fps, (_w, _h),
+            )
+            while True:
+                _ok, _frame = _cap.read()
+                if not _ok:
+                    break
+                _writer.write(_frame)
+            _writer.release()
+            _cap.release()
+            if _converted.exists():
+                safe_path = str(_converted)
+        else:
+            _cap.release()
 
     # 创建带自动清理的临时文件包装
     class _SafeUploadFile:
@@ -2370,10 +2576,24 @@ def workflow_stats():
 # ============================================================
 # 生产模式: 挂载 React 前端 (npm run build → server/static/)
 # ============================================================
-# 若 build 目录存在则挂载为 SPA (API 路由优先, 其余回退到 index.html)
 _SPA_DIR = Path(__file__).parent / "static"
-if _SPA_DIR.exists() and (_SPA_DIR / "index.html").exists():
-    app.mount("/", StaticFiles(directory=str(_SPA_DIR), html=True), name="spa")
+_SPA_READY = _SPA_DIR.exists() and (_SPA_DIR / "index.html").exists()
+if _SPA_READY:
+    # 静态资源 (JS/CSS/图片) — 带路径前缀
+    _assets_dir = _SPA_DIR / "assets"
+    if _assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="spa_assets")
+
+    # SPA catch-all: 所有非 API 路径兜底返回 index.html
+    @app.get("/{full_path:path}", name="spa_fallback")
+    async def spa_fallback(request: Request, full_path: str):
+        from fastapi.responses import FileResponse
+        spa_index = _SPA_DIR / "index.html"
+        # 不拦截 API/WebSocket/detect 请求
+        if full_path.startswith(("api/", "ws/", "detect/")):
+            raise HTTPException(status_code=404)
+        return FileResponse(spa_index, media_type="text/html")
+
     log_event("system", msg=f"React SPA 已挂载: {_SPA_DIR}")
 else:
     log_event("system", msg="React SPA 未构建 — 使用经典 Web 看板 (npm run build 以启用)")

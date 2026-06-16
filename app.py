@@ -80,6 +80,17 @@ except ImportError as e:
     MonitoringSite = None  # type: ignore
 
 try:
+    from rockfall.alert_classifier import (
+        get_response_workflow, classify_alert_level,
+        LEVEL_LABELS as _ALERT_CLASSIFIER_LABELS,
+    )
+except ImportError as e:
+    _IMPORT_ERRORS.append(f"rockfall.alert_classifier: {e}")
+    get_response_workflow = None  # type: ignore
+    classify_alert_level = None  # type: ignore
+    _ALERT_CLASSIFIER_LABELS = {}  # type: ignore
+
+try:
     from rockfall.config import (
         RESULTS_DIR, DATA_DIR, UPLOADS_DIR,
         DETECTION_CONFIDENCE, DETECTION_IMG_SIZE,
@@ -2160,7 +2171,49 @@ def page_extreme_scenarios():
 # 模块 4: 预警标准文档化 + 决策树
 # ══════════════════════════════════════════════════════════════
 
-ALERT_STANDARDS = {
+def _get_alert_standards():
+    """从 alert_classifier 获取四级预警标准 (单例缓存, 降级时用内置默认值)。"""
+    if get_response_workflow is not None:
+        try:
+            workflows = {
+                "red": get_response_workflow("red"),
+                "orange": get_response_workflow("orange"),
+                "yellow": get_response_workflow("yellow"),
+                "blue": get_response_workflow("blue"),
+            }
+            return {
+                k: {
+                    "level": v["label"].split(" ", 1)[1] if " " in v["label"] else v["label"],
+                    "icon": {"red": "🔴", "orange": "🟠", "yellow": "🟡", "blue": "🔵"}[k],
+                    "color": {"red": "#D32F2F", "orange": "#E65100", "yellow": "#F9A825", "blue": "#1565C0"}[k],
+                    "bg": {"red": "#FFEBEE", "orange": "#FFF3E0", "yellow": "#FFFDE7", "blue": "#E3F2FD"}[k],
+                    "trigger": " 或 ".join(v["trigger_conditions"]),
+                    "response": v["disposal_steps"],
+                    "push_channels": v["push_channels"],
+                    "push_content": _get_push_content_template(k),
+                    "cooldown": {"red": "30秒", "orange": "60秒", "yellow": "120秒", "blue": "—"}[k],
+                    "requires_sound": v["requires_sound"],
+                }
+                for k, v in workflows.items()
+            }
+        except Exception:
+            pass
+    # 降级: 内置默认值 (与 alert_classifier.py 同步)
+    return _BUILTIN_ALERT_STANDARDS
+
+
+def _get_push_content_template(level: str) -> str:
+    """推送内容模板"""
+    templates = {
+        "red": "【I级预警】时间+地点+落石数量+最大直径+置信度+处置建议",
+        "orange": "【II级预警】时间+地点+落石数量+直径+处置建议",
+        "yellow": "【III级预警】时间+地点+置信度 — 自动记录",
+        "blue": "无推送 — 仅本地数据库记录",
+    }
+    return templates.get(level, "")
+
+
+_BUILTIN_ALERT_STANDARDS = {
     "red": {
         "level": "I 级 · 特别严重",
         "icon": "🔴",
@@ -2231,6 +2284,8 @@ ALERT_STANDARDS = {
 
 def page_alert_standards():
     """预警标准文档化页面: 四级预警触发条件 + 决策树 + 响应流程"""
+    standards = _get_alert_standards()  # 数据来源: alert_classifier.py (单例缓存)
+
     st.markdown(f"""
     <div class="brand-header">
         <div>
@@ -2254,7 +2309,7 @@ def page_alert_standards():
 
     # 四级卡片概览
     level_cols = st.columns(4)
-    for col, (key, std) in zip(level_cols, ALERT_STANDARDS.items()):
+    for col, (key, std) in zip(level_cols, standards.items()):
         with col:
             st.markdown(f"""
             <div style="padding:0.75rem;background:{std['bg']};border:2px solid {std['color']};
@@ -2418,11 +2473,11 @@ def page_alert_standards():
     # 选择等级查看详情
     selected_level = st.selectbox(
         "选择预警等级查看详情",
-        options=list(ALERT_STANDARDS.keys()),
-        format_func=lambda k: f"{ALERT_STANDARDS[k]['icon']} {ALERT_STANDARDS[k]['level']}",
+        options=list(standards.keys()),
+        format_func=lambda k: f"{standards[k]['icon']} {standards[k]['level']}",
     )
 
-    std = ALERT_STANDARDS[selected_level]
+    std = standards[selected_level]
 
     col_a, col_b = st.columns([3, 2])
 
@@ -2471,7 +2526,7 @@ def page_alert_standards():
                     <th style="text-align:right;padding:0.3rem;">直径</th>
                 </tr>
         """, unsafe_allow_html=True)
-        for k, s in ALERT_STANDARDS.items():
+        for k, s in standards.items():
             conf_range = { "red": "> 0.90", "orange": "0.70-0.90", "yellow": "0.50-0.70", "blue": "0.30-0.50" }[k]
             diam_range = { "red": "> 30cm", "orange": "20-30cm", "yellow": "10-20cm", "blue": "< 10cm" }[k]
             st.markdown(f"""

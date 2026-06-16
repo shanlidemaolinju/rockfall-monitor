@@ -115,6 +115,7 @@ class AlertContext:
     max_speed: float = 0.0
     max_age: int = 0
     is_falling: bool = False
+    motion_state: str = ""          # 最危险的运动状态 (用于决策树分支)
     frame_area: float = 0.0
     frame_height: int = 0
     track_ids: list = None
@@ -1085,6 +1086,13 @@ class RockDetector:
         height_ratio = max_height_px / frame_h if frame_h > 0 else 0
         rock_diameter_cm = round((height_ratio / ROCK_SMALL_HEIGHT_RATIO) * 10, 1) if ROCK_SMALL_HEIGHT_RATIO > 0 else 0
 
+        # 聚合最危险的运动状态: 坠落 > 横向滚动 > 缓慢滚动 > 快速移动 > 静止
+        _motion_priority = {"快速坠落": 0, "横向滚动": 1, "缓慢滚动": 2, "快速移动": 3, "静止": 4}
+        motion_state = min(
+            (t.get("motion_state", "") for t in valid),
+            key=lambda ms: _motion_priority.get(ms, 99),
+        )
+
         return AlertContext(
             max_conf=max(t.get("smoothed_confidence", t["confidence"]) for t in valid),
             max_area=max(t["area"] for t in valid),
@@ -1094,6 +1102,7 @@ class RockDetector:
             max_speed=max(t.get("speed", 0) for t in valid),
             max_age=max(t.get("age", 0) for t in valid),
             is_falling=any(t.get("motion_state") == "快速坠落" for t in valid),
+            motion_state=motion_state,
             frame_area=frame_w * frame_h,
             frame_height=frame_h,
             track_ids=[t["id"] for t in valid],
@@ -1102,76 +1111,58 @@ class RockDetector:
 
     def _grade_alert(self, ctx) -> str:
         """
-        四级预警分级 (对齐《公路自然灾害监测预警系统技术指南》第5.3节强制要求)。
+        四级预警分级 — 决策树判定 + 安全网增强。
 
-        分级逻辑 (按置信度 + 落石尺寸综合判定, 取较高等级):
-          Ⅰ 级 (特别严重，红色):   置信度 > 0.9 或 直径 > 30cm
-          Ⅱ 级 (严重，橙色):       置信度 0.7-0.9 或 直径 20-30cm
-          Ⅲ 级 (较重，黄色):       置信度 0.5-0.7 或 直径 10-20cm
-          Ⅳ 级 (一般，蓝色):       置信度 0.3-0.5 或 直径 < 10cm
-          未达阈值:                 "green" (不触发预警)
+        核心逻辑委托给 alert_classifier.classify_alert_level()，基于:
+          - 置信度 (max_conf)
+          - 落石直径 (rock_diameter_cm)
+          - 运动状态 (motion_state: 坠落/滚动)
+          - 持续帧数 (max_age)
 
-        增强因子 (提升一级):
-          - 坠落状态 + 置信度 >= 0.3 → 最低黄色
-          - 长轨迹 (≥8帧) → 置信度 × 1.15
-          - 多目标 (≥3) → 最低黄色
-          - 高速运动 (>2×坠落阈值) → 最低黄色
+        安全网增强 (独立于决策树，仅向上提升):
+          - 多目标群发 (≥3 个) → 不低于 Ⅲ 级
+          - 多目标总面积超标 → 不低于 Ⅲ 级
+          - 高速运动确认 → 不低于 Ⅲ 级
         """
+        from .alert_classifier import classify_alert_level, LEVEL_ORDER, LEVEL_YELLOW, LEVEL_GREEN
+
         if ctx.total_count == 0:
-            return "green"
+            return LEVEL_GREEN
 
-        # ---- 长轨迹置信度增强 ----
-        effective_conf = ctx.max_conf
-        if ctx.max_age >= 8 and ctx.max_conf >= ALERT_FALLING_MIN_CONF:
-            effective_conf = min(ctx.max_conf * 1.15, 1.0)
+        # ── 主决策树判定 ──
+        level = classify_alert_level(
+            max_conf=ctx.max_conf,
+            rock_diameter_cm=ctx.rock_diameter_cm,
+            motion_state=ctx.motion_state,
+            track_age=ctx.max_age,
+        )
 
-        # ---- 置信度等级 (实例阈值支持桌面滑块调节) ----
-        conf_level = "green"
-        if effective_conf >= ALERT_BLUE_CONFIDENCE_LOW:
-            conf_level = "blue"
-        if effective_conf >= self.alert_blue_conf_high:
-            conf_level = "yellow"
-        if effective_conf >= self.alert_yellow_conf_high:
-            conf_level = "orange"
-        if effective_conf >= self.alert_orange_conf_high:
-            conf_level = "red"
+        # ── 安全网增强: 独立风险因子不低于 Ⅲ 级 (yellow) ──
+        # 这些因子不参与决策树分支, 但作为兜底防止漏报
+        enhanced = level
 
-        # ---- 尺寸等级 (落石直径) ----
-        size_level = "green"
-        if ctx.rock_diameter_cm > 0:
-            if ctx.rock_diameter_cm < 10:
-                size_level = "blue"
-            if ctx.rock_diameter_cm >= 10:
-                size_level = "yellow"
-            if ctx.rock_diameter_cm >= 20:
-                size_level = "orange"
-            if ctx.rock_diameter_cm >= 30:
-                size_level = "red"
-
-        # ---- 综合判定: 取置信度和尺寸中的较高等级 ----
-        level_order = ["green", "blue", "yellow", "orange", "red"]
-        base_level = conf_level if level_order.index(conf_level) >= level_order.index(size_level) else size_level
-
-        # ---- 增强因子: 提升一级 ----
-        enhanced = base_level
-        # 坠落状态 → 至少 yellow
-        if ctx.is_falling and effective_conf >= ALERT_FALLING_MIN_CONF:
-            if level_order.index(enhanced) < level_order.index("yellow"):
-                enhanced = "yellow"
-        # 多目标群发 → 至少 yellow
+        # 多目标群发 (≥3 个已确认目标) → 至少 yellow
         if ctx.total_count >= ALERT_MULTI_COUNT:
-            if level_order.index(enhanced) < level_order.index("yellow"):
-                enhanced = "yellow"
-        # 多目标总面积 → 至少 yellow
-        multi_total_area_thresh = ALERT_MULTI_TOTAL_AREA_RATIO * ctx.frame_area if ctx.frame_area > 0 else 0
+            if LEVEL_ORDER.index(enhanced) < LEVEL_ORDER.index(LEVEL_YELLOW):
+                enhanced = LEVEL_YELLOW
+
+        # 多目标总面积超标 → 至少 yellow
+        multi_total_area_thresh = (
+            ALERT_MULTI_TOTAL_AREA_RATIO * ctx.frame_area
+            if ctx.frame_area > 0 else 0
+        )
         if ctx.total_area >= multi_total_area_thresh and ctx.total_area > 0:
-            if level_order.index(enhanced) < level_order.index("yellow"):
-                enhanced = "yellow"
-        # 高速运动 (坠落判定辅助)
-        high_speed = ctx.max_speed > (FALLING_Y_SPEED_THRESHOLD * 2) and ctx.max_speed > 0
-        if high_speed and effective_conf >= ALERT_FALLING_MIN_CONF and ctx.max_age >= 3:
-            if level_order.index(enhanced) < level_order.index("yellow"):
-                enhanced = "yellow"
+            if LEVEL_ORDER.index(enhanced) < LEVEL_ORDER.index(LEVEL_YELLOW):
+                enhanced = LEVEL_YELLOW
+
+        # 高速运动 (>2× 坠落速度阈值) + 已确认 + 置信度达标 → 至少 yellow
+        high_speed = (
+            ctx.max_speed > (FALLING_Y_SPEED_THRESHOLD * 2)
+            and ctx.max_speed > 0
+        )
+        if high_speed and ctx.max_conf >= ALERT_FALLING_MIN_CONF and ctx.max_age >= 3:
+            if LEVEL_ORDER.index(enhanced) < LEVEL_ORDER.index(LEVEL_YELLOW):
+                enhanced = LEVEL_YELLOW
 
         return enhanced
 

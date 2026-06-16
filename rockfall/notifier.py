@@ -420,36 +420,12 @@ def _frame_to_base64(frame_bgr: np.ndarray, quality: int = 60) -> str | None:
 # ---- 推送内容构建 (模块级, 无状态) ----
 
 def _build_disposal_suggestions(alert_level: str, rock_diameter_cm: float = 0) -> str:
-    """根据预警等级生成处置建议"""
-    suggestions = {
-        "red": [
-            "1. 立即封闭相关车道，设置警示标志",
-            "2. 电话通知值班领导 (5分钟内响应)",
-            "3. 通知交警部门协助交通管制",
-            "4. 调取现场实时画面确认灾情规模",
-            "5. 启动公路地质灾害应急预案",
-            "6. 派遣巡查人员赴现场评估",
-        ],
-        "orange": [
-            "1. 通知公路管理部门关注该路段",
-            "2. 建议限速通行 (≤40km/h)，设置预警标志",
-            "3. 安排人员在30分钟内到场巡查",
-            "4. 加密监测频率至5fps",
-            "5. 准备应急物资和抢修设备",
-        ],
-        "yellow": [
-            "1. 系统自动记录预警事件",
-            "2. 纳入当日监测日报汇总",
-            "3. 关注后续帧是否有等级升级趋势",
-            "4. 建议2小时内安排远程视频巡检",
-        ],
-        "blue": [
-            "1. 静默记录至本地数据库",
-            "2. 用于历史趋势分析和模型优化",
-            "3. 无需主动处置",
-        ],
-    }
-    lines = suggestions.get(alert_level, suggestions["blue"])
+    """根据预警等级生成处置建议 (委派给 alert_classifier.get_response_workflow)"""
+    from .alert_classifier import get_response_workflow
+
+    workflow = get_response_workflow(alert_level)
+    lines = [f"{i+1}. {step}" for i, step in enumerate(workflow["disposal_steps"])]
+
     if rock_diameter_cm > 0:
         lines.insert(1, f"落石估算直径: {rock_diameter_cm:.0f}cm")
     return "\n".join(lines)

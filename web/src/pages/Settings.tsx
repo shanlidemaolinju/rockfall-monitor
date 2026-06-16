@@ -1,12 +1,21 @@
 /**
- * 系统设置 — 运行时参数调节
+ * 系统设置 — 运行时参数调节 + 预警分级决策树 + 响应流程配置
  */
 
-import { useEffect, useState } from 'react';
-import { Card, Typography, Slider, Button, Space, message, Spin, Divider } from 'antd';
+import { useEffect, useState, lazy, Suspense } from 'react';
+import { Card, Typography, Slider, Button, Space, message, Spin, Divider, Collapse } from 'antd';
+import { ApartmentOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { fetchRuntimeConfig, updateRuntimeConfig } from '../services/api';
 
 const { Text, Title } = Typography;
+
+// ─── 懒加载面板 ───
+const DecisionTreePanel = lazy(() => import('../components/common/DecisionTreePanel'));
+const ResponseWorkflowPanel = lazy(() => import('../components/common/ResponseWorkflowPanel'));
+
+const PanelFallback = () => (
+  <Spin size="small" style={{ display: 'block', margin: '24px auto' }} />
+);
 
 export default function Settings() {
   const [loading, setLoading] = useState(true);
@@ -61,7 +70,7 @@ export default function Settings() {
     <Card
       title="⚙️ 系统设置"
       bordered={false}
-      style={{ background: '#161b22', border: '1px solid #30363d', maxWidth: 800 }}
+      style={{ background: '#161b22', border: '1px solid #30363d', maxWidth: 960 }}
     >
       <Title level={5} style={{ color: '#c9d1d9' }}>🎯 检测参数</Title>
       <div style={{ marginBottom: 16 }}>
@@ -102,6 +111,66 @@ export default function Settings() {
           注意：检测流水线需重启才能应用新配置
         </Text>
       </div>
+
+      <Divider style={{ borderColor: '#30363d', marginTop: 32 }} />
+
+      {/* ━━━ 预警分级决策树 ━━━ */}
+      <Collapse
+        ghost
+        expandIconPosition="end"
+        items={[
+          {
+            key: 'decision-tree',
+            label: (
+              <Space size={6}>
+                <ApartmentOutlined style={{ color: '#58a6ff' }} />
+                <Text strong style={{ color: '#c9d1d9', fontSize: 14 }}>
+                  🌳 预警分级决策树
+                </Text>
+                <Text style={{ color: '#8b949e', fontSize: 11 }}>
+                  置信度 × 落石直径 × 运动状态 × 持续帧数
+                </Text>
+              </Space>
+            ),
+            children: (
+              <Suspense fallback={<PanelFallback />}>
+                <DecisionTreePanel />
+              </Suspense>
+            ),
+          },
+        ]}
+        style={{ background: 'transparent' }}
+      />
+
+      <Divider style={{ borderColor: '#30363d', margin: '12px 0' }} />
+
+      {/* ━━━ 响应流程与推送配置 ━━━ */}
+      <Collapse
+        ghost
+        expandIconPosition="end"
+        items={[
+          {
+            key: 'response-workflow',
+            label: (
+              <Space size={6}>
+                <ThunderboltOutlined style={{ color: '#f0883e' }} />
+                <Text strong style={{ color: '#c9d1d9', fontSize: 14 }}>
+                  📡 响应流程与推送配置
+                </Text>
+                <Text style={{ color: '#8b949e', fontSize: 11 }}>
+                  选择预警等级查看详情
+                </Text>
+              </Space>
+            ),
+            children: (
+              <Suspense fallback={<PanelFallback />}>
+                <ResponseWorkflowPanel />
+              </Suspense>
+            ),
+          },
+        ]}
+        style={{ background: 'transparent' }}
+      />
     </Card>
   );
 }

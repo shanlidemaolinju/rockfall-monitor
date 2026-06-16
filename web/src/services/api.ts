@@ -236,4 +236,48 @@ export const fetchRoiHeatmap = (siteId = '', frame = '') =>
     .get<RoiHeatmap>('/api/roi/heatmap', { params: { site_id: siteId, frame } })
     .then((r) => r.data);
 
+// ════════════════════════════════════════════════
+// 预警分级决策树 & 响应流程
+// ════════════════════════════════════════════════
+
+export interface TreeNode {
+  id: string;
+  type: 'root' | 'decision' | 'leaf-red' | 'leaf-orange' | 'leaf-yellow' | 'leaf-blue' | 'leaf-green';
+  label: string;
+  level?: string;
+  children?: TreeNode[];
+  branches?: Branch[];
+}
+
+export interface Branch {
+  label: string;
+  result?: { type: string; label: string; level: string };
+  node?: TreeNode;
+}
+
+export interface ResponseWorkflow {
+  level: string;
+  label: string;
+  trigger_conditions: string[];
+  disposal_steps: string[];
+  push_channels: string[];
+  requires_sound: boolean;
+}
+
+export const fetchDecisionTree = () =>
+  api.get<TreeNode>('/api/alert-classifier/decision-tree').then((r) => r.data);
+
+export const fetchResponseWorkflow = (level: string) =>
+  api.get<ResponseWorkflow>(`/api/alert-classifier/response-workflow/${level}`).then((r) => r.data);
+
+export const fetchAllResponseWorkflows = () =>
+  api.get<Record<string, ResponseWorkflow>>('/api/alert-classifier/response-workflows').then((r) => r.data);
+
+export const classifyAlert = (params: {
+  max_conf: number;
+  rock_diameter_cm?: number;
+  motion_state?: string;
+  track_age?: number;
+}) => api.post('/api/alert-classifier/classify', params).then((r) => r.data);
+
 export default api;
