@@ -74,8 +74,8 @@ except ImportError as e:
     get_active_site = None  # type: ignore
     set_active_site = None  # type: ignore
     get_site_state = None  # type: ignore
-    get_active_site_name = lambda: "Unknown"  # type: ignore
-    get_active_location = lambda: "Unknown"  # type: ignore
+    get_active_site_name = lambda: "未知"  # type: ignore
+    get_active_location = lambda: "未知"  # type: ignore
     PRESET_SITES = {}  # type: ignore
     MonitoringSite = None  # type: ignore
 
@@ -117,7 +117,7 @@ except ImportError as e:
     MOG2_LEARNING_RATE = 0.01
     validate_config = lambda: []  # type: ignore
     CLASS_NAMES = {0: "rock"}
-    config_get_device = lambda: ("cpu", "CPU (fallback)")  # type: ignore
+    config_get_device = lambda: ("cpu", "CPU (后备)")  # type: ignore
 
 if _IMPORT_ERRORS:
     _ROCKFALL_AVAILABLE = False
@@ -1617,17 +1617,19 @@ def page_algorithm_showcase():
                 Kalman 预测原理
             </div>
             <div style="font-size:0.8rem;color:#5F6B7A;line-height:1.7;">
-                <b>状态向量</b> (8维):<br>
-                <code>[x, y, w, h, vx, vy, vw, vh]</code><br><br>
+                <b>状态向量</b> (9维):<br>
+                <code>[x, y, s, r, vx, vy, vs, ax, ay]</code><br>
+                &nbsp;&nbsp;x,y=中心坐标 &middot; s=面积 &middot; r=宽高比<br>
+                &nbsp;&nbsp;vx,vy,vs=速度分量 &middot; ax,ay=加速度<br><br>
                 <b>预测步骤</b>:<br>
                 ① 状态外推: <code>x' = F·x</code><br>
                 ② 协方差更新: <code>P' = F·P·Fᵀ + Q</code><br><br>
                 <b>更新步骤</b>:<br>
                 ③ Kalman增益: <code>K = P'·Hᵀ·(H·P'·Hᵀ+R)⁻¹</code><br>
                 ④ 状态修正: <code>x = x' + K·(z - H·x')</code><br><br>
-                <b>运动模型</b>: 匀速模型 (Constant Velocity)<br>
-                假设目标在帧间匀速运动，<br>
-                适合落石滚动/坠落场景。
+                <b>运动模型</b>: 匀加速模型 (Constant Acceleration)<br>
+                包含 ax,ay 加速度分量，<br>
+                更适合落石坠落场景。
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -1689,7 +1691,7 @@ def page_algorithm_showcase():
 
             for tid, errs in sorted(track_errors.items()):
                 error_data.append({
-                    "Track ID": tid,
+                    "跟踪ID": tid,
                     "出现帧数": len(errs),
                     "平均误差 (px)": round(sum(errs) / len(errs), 1),
                     "最大误差 (px)": round(max(errs), 1),

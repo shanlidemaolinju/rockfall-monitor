@@ -238,7 +238,7 @@ def main():
             "source": result.get("source", ""),
             "total_frames": result.get("total_frames", 0),
             "fps": result.get("fps", 25.0),
-            "elapsed_seconds": result.get("elapsed_seconds", 0),
+            "elapsed_seconds": round(elapsed, 1),
             "alert_frames": [
                 {
                     "frame": fr["frame"],
