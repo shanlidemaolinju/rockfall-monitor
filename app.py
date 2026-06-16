@@ -1516,9 +1516,15 @@ def page_algorithm_showcase():
     </div>
     """, unsafe_allow_html=True)
 
-    # 对比数据 (从 demo summary.json 读取实测值)
-    active_sid_perf = st.session_state.get("demo_scene", "")
-    demo_summary_perf = _load_demo_summary(active_sid_perf) if active_sid_perf else None
+    # 对比数据 (从 demo summary.json 读取实测值 — 扫描所有场景)
+    demo_summary_perf = None
+    active_sid_perf = ""
+    for sid in DEMO_SCENES:
+        sm = _load_demo_summary(sid)
+        if sm:
+            demo_summary_perf = sm
+            active_sid_perf = sid
+            break
 
     if demo_summary_perf:
         video_info = demo_summary_perf.get("video", {})
@@ -1643,9 +1649,16 @@ def page_algorithm_showcase():
         """, unsafe_allow_html=True)
 
         # ── 从 demo 数据加载真实 Kalman 轨迹 ──
-        active_sid_kf = st.session_state.get("demo_scene", "")
-        demo_result = _load_demo_result(active_sid_kf) if active_sid_kf else None
-        track_frames = demo_result.get("track_frames", []) if demo_result else []
+        # 扫描所有场景，优先用有轨迹数据的
+        track_frames = []
+        best_scene_name = ""
+        for sid in DEMO_SCENES:
+            dr = _load_demo_result(sid)
+            if dr and dr.get("track_frames"):
+                tf = dr["track_frames"]
+                if len(tf) > len(track_frames):
+                    track_frames = tf
+                    best_scene_name = sid
 
         if track_frames:
             # 选择 track 最多的一帧展示
@@ -1673,7 +1686,7 @@ def page_algorithm_showcase():
                 scatter_df, x="X", y="Y", color="track_id",
                 size=80, use_container_width=True,
             )
-            st.caption(f"第 {best_frame['frame']} 帧 · {len(tracks)} 个跟踪目标 · 实心=实际位置 · 空心=Kalman预测")
+            st.caption(f"数据来源: {best_scene_name} · 第 {best_frame['frame']} 帧 · {len(tracks)} 个跟踪目标")
 
             # ── 误差统计表 ──
             st.markdown("**预测误差统计**")
