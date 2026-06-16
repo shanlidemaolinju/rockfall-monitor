@@ -9,7 +9,7 @@ LABEL description="落石监测系统 — 公路自然灾害监测预警平台"
 
 # 系统依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgl1-mesa-glx \
+    libgl1 \
     libglib2.0-0 \
     libsm6 \
     libxext6 \

@@ -3720,7 +3720,7 @@ def main():
         st.info("""
         **如何修复 (Streamlit Cloud):**
         1. 确保 `requirements.txt` 包含 `torch`, `ultralytics`, `opencv-python-headless`
-        2. 确保 `packages.txt` 包含 `ffmpeg`, `libgomp1`, `libgl1-mesa-glx`
+        2. 确保 `packages.txt` 包含 `ffmpeg`, `libgomp1`, `libgl1`, `libglib2.0-0t64`
         3. 重新部署 (Streamlit Cloud 会在每次 push 后自动重新安装依赖)
 
         **如何修复 (本地):**

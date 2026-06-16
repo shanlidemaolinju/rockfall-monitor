@@ -173,7 +173,7 @@ docker compose exec rockfall bash
 sudo apt update
 sudo apt install -y \
   python3.10 python3.10-venv python3.10-dev \
-  libgl1-mesa-glx libglib2.0-0 libsm6 libxext6 libxrender-dev \
+  libgl1 libglib2.0-0 libsm6 libxext6 libxrender-dev \
   libgomp1 ffmpeg \
   git curl wget
 
