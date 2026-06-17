@@ -1914,7 +1914,7 @@ def page_extreme_scenarios():
     </div>
     """, unsafe_allow_html=True)
 
-    active_site = get_active_site()
+    active_site = get_active_site() if get_active_site is not None else None
 
     # ══════════════════════════════════════════════════════════
     # Section 1: Scenario Matrix
@@ -2196,8 +2196,17 @@ def page_extreme_scenarios():
 # 模块 4: 预警标准文档化 + 决策树
 # ══════════════════════════════════════════════════════════════
 
+def _esc(text: str) -> str:
+    """转义 HTML 特殊字符，防止渲染为代码。"""
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
 def _get_alert_standards():
-    """从 alert_classifier 获取四级预警标准 (单例缓存, 降级时用内置默认值)。"""
+    """从 alert_classifier 获取四级预警标准 (单例缓存, 降级时用内置默认值)。
+
+    关键: _esc() 在两条代码路径中都统一应用，防止未转义的 < > 被
+    unsafe_allow_html=True 的 markdown 渲染为 HTML 标签而显示"原代码"。
+    """
     if get_response_workflow is not None:
         try:
             workflows = {
@@ -2206,9 +2215,6 @@ def _get_alert_standards():
                 "yellow": get_response_workflow("yellow"),
                 "blue": get_response_workflow("blue"),
             }
-            def _esc(text: str) -> str:
-                """转义 HTML 特殊字符，防止渲染为代码。"""
-                return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
             return {
                 k: {
                     "level": v["label"].split(" ", 1)[1] if " " in v["label"] else v["label"],
@@ -2217,7 +2223,7 @@ def _get_alert_standards():
                     "bg": {"red": "#FFEBEE", "orange": "#FFF3E0", "yellow": "#FFFDE7", "blue": "#E3F2FD"}[k],
                     "trigger": _esc(" 或 ".join(v["trigger_conditions"])),
                     "response": [_esc(step) for step in v["disposal_steps"]],
-                    "push_channels": v["push_channels"],
+                    "push_channels": [_PUSH_CHANNEL_DISPLAY.get(ch, ch) for ch in v["push_channels"]],
                     "push_content": _get_push_content_template(k),
                     "cooldown": {"red": "30秒", "orange": "60秒", "yellow": "120秒", "blue": "—"}[k],
                     "requires_sound": v["requires_sound"],
@@ -2226,8 +2232,15 @@ def _get_alert_standards():
             }
         except Exception:
             pass
-    # 降级: 内置默认值 (与 alert_classifier.py 同步)
-    return _BUILTIN_ALERT_STANDARDS
+    # 降级: 内置默认值 — 同样应用 _esc 确保 HTML 安全
+    return {
+        k: {
+            **v,
+            "trigger": _esc(v["trigger"]),
+            "response": [_esc(step) for step in v["response"]],
+        }
+        for k, v in _BUILTIN_ALERT_STANDARDS.items()
+    }
 
 
 def _get_push_content_template(level: str) -> str:
@@ -2239,6 +2252,19 @@ def _get_push_content_template(level: str) -> str:
         "blue": "无推送 — 仅本地数据库记录",
     }
     return templates.get(level, "")
+
+
+# 推送渠道内部标识符 → 用户显示名称映射
+_PUSH_CHANNEL_DISPLAY = {
+    "pushplus": "微信 (PushPlus)",
+    "smtp": "邮件 (SMTP)",
+    "wecom": "企业微信 (Webhook)",
+    "dingtalk": "钉钉 (Webhook)",
+    "feishu": "飞书 (Webhook)",
+    "sse": "界面弹窗 (SSE)",
+    "sms": "短信",
+    "phone": "电话",
+}
 
 
 _BUILTIN_ALERT_STANDARDS = {
@@ -2297,7 +2323,7 @@ _BUILTIN_ALERT_STANDARDS = {
         "icon": "🔵",
         "color": "#1565C0",
         "bg": "#E3F2FD",
-        "trigger": "置信度 0.30-0.50 或 落石直径 &lt; 10cm",
+        "trigger": "置信度 0.30-0.50 或 落石直径 < 10cm",
         "response": [
             "静默记录至本地数据库",
             "不触发主动通知推送",
@@ -2600,8 +2626,14 @@ def page_alert_standards():
     """, unsafe_allow_html=True)
 
     # 获取当前监测点位信息
-    active_site = get_active_site()
-    site_loc = f"{active_site.name} ({active_site.highway})"
+    try:
+        active_site = get_active_site() if get_active_site is not None else None
+    except Exception:
+        active_site = None
+    if active_site is not None and hasattr(active_site, 'name'):
+        site_loc = f"{active_site.name} ({getattr(active_site, 'highway', '未知路段')})"
+    else:
+        site_loc = "示例监测点 (G210国道)"
 
     template_cols = st.columns(2)
     with template_cols[0]:
@@ -3328,7 +3360,7 @@ def page_site_management():
     </div>
     """, unsafe_allow_html=True)
 
-    active_site = get_active_site()
+    active_site = get_active_site() if get_active_site is not None else None
     all_sites = list_sites()
 
     # ── 当前激活点位 ──
