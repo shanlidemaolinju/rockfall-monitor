@@ -16,6 +16,7 @@ import sys
 import time
 import csv
 import io
+import textwrap
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -2367,7 +2368,7 @@ def page_alert_standards():
     """, unsafe_allow_html=True)
 
     # 决策树 HTML 可视化 (CSS 已移至全局样式块)
-    st.markdown("""
+    st.markdown(textwrap.dedent("""\
     <div class="tree-container">
       <div class="tree-root">
 
@@ -2457,8 +2458,8 @@ def page_alert_standards():
         </div>
 
       </div>
-    </div>
-    """, unsafe_allow_html=True)
+    </div>\
+    """), unsafe_allow_html=True)
 
     st.divider()
 
@@ -2484,7 +2485,7 @@ def page_alert_standards():
     col_a, col_b = st.columns([3, 2])
 
     with col_a:
-        st.markdown(f"""
+        st.markdown(textwrap.dedent(f"""\
         <div class="card" style="border-left:4px solid {std['color']};">
             <div style="font-weight:700;font-size:1rem;color:{std['color']};margin-bottom:0.5rem;">
                 {std['icon']} {std['level']}
@@ -2502,11 +2503,11 @@ def page_alert_standards():
                     {"".join(f'<div>• {step}</div>' for step in std['response'])}
                 </div>
             </div>
-        </div>
-        """, unsafe_allow_html=True)
+        </div>\
+        """), unsafe_allow_html=True)
 
     with col_b:
-        st.markdown(f"""
+        st.markdown(textwrap.dedent(f"""\
         <div class="card">
             <div style="font-weight:600;font-size:0.85rem;color:#1B2838;margin-bottom:0.5rem;">推送配置</div>
             <div style="font-size:0.78rem;color:#5F6B7A;line-height:1.8;">
@@ -2526,22 +2527,22 @@ def page_alert_standards():
                     <th style="text-align:left;padding:0.3rem;">等级</th>
                     <th style="text-align:right;padding:0.3rem;">置信度</th>
                     <th style="text-align:right;padding:0.3rem;">直径</th>
-                </tr>
-        """, unsafe_allow_html=True)
+                </tr>\
+        """), unsafe_allow_html=True)
         for k, s in standards.items():
             conf_range = { "red": "&gt; 0.90", "orange": "0.70-0.90", "yellow": "0.50-0.70", "blue": "0.30-0.50" }[k]
             diam_range = { "red": "&gt; 30cm", "orange": "20-30cm", "yellow": "10-20cm", "blue": "&lt; 10cm" }[k]
-            st.markdown(f"""
+            st.markdown(textwrap.dedent(f"""\
             <tr style="border-bottom:1px solid #E3E8EF;">
                 <td style="padding:0.3rem;color:{s['color']};font-weight:600;">{s['icon']} {k.upper()}</td>
                 <td style="text-align:right;padding:0.3rem;">{conf_range}</td>
                 <td style="text-align:right;padding:0.3rem;">{diam_range}</td>
-            </tr>
-            """, unsafe_allow_html=True)
+            </tr>\
+            """), unsafe_allow_html=True)
         st.markdown("</table></div>", unsafe_allow_html=True)
 
     # 升级规则
-    st.markdown("""
+    st.markdown(textwrap.dedent("""\
     <div class="card" style="border-left:3px solid #D32F2F;margin-top:0.5rem;">
         <div style="font-weight:600;font-size:0.85rem;color:#D32F2F;">预警升级规则</div>
         <div style="font-size:0.78rem;color:#5F6B7A;line-height:1.8;margin-top:0.3rem;">
@@ -2549,8 +2550,8 @@ def page_alert_standards():
             • III级(黄) → II级(橙): 落石直径 > 20cm 或 检测到坠落状态 (垂直加速度 > 阈值)<br>
             • II级(橙) → I级(红): 落石直径 > 30cm 或 置信度突破0.90 或 多目标同时坠落 (>3个)
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+    </div>\
+    """), unsafe_allow_html=True)
 
     st.divider()
 
