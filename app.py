@@ -2254,6 +2254,15 @@ def _get_push_content_template(level: str) -> str:
     return templates.get(level, "")
 
 
+def _safe_html_dedent(text: str) -> str:
+    """去除公共缩进后，确保每行无 ≥4 空格前缀，避免触发 Markdown 代码块渲染。"""
+    dedented = textwrap.dedent(text)
+    lines = dedented.split("\n")
+    # 去除每行首部空白——HTML 不需要缩进
+    stripped = [line.lstrip() for line in lines]
+    return "\n".join(stripped)
+
+
 # 推送渠道内部标识符 → 用户显示名称映射
 _PUSH_CHANNEL_DISPLAY = {
     "pushplus": "微信 (PushPlus)",
@@ -2394,7 +2403,7 @@ def page_alert_standards():
     """, unsafe_allow_html=True)
 
     # 决策树 HTML 可视化 (CSS 已移至全局样式块)
-    st.markdown(textwrap.dedent("""\
+    st.markdown(_safe_html_dedent("""\
     <div class="tree-container">
       <div class="tree-root">
 
@@ -2511,7 +2520,7 @@ def page_alert_standards():
     col_a, col_b = st.columns([3, 2])
 
     with col_a:
-        st.markdown(textwrap.dedent(f"""\
+        st.markdown(_safe_html_dedent(f"""\
         <div class="card" style="border-left:4px solid {std['color']};">
             <div style="font-weight:700;font-size:1rem;color:{std['color']};margin-bottom:0.5rem;">
                 {std['icon']} {std['level']}
@@ -2533,7 +2542,7 @@ def page_alert_standards():
         """), unsafe_allow_html=True)
 
     with col_b:
-        st.markdown(textwrap.dedent(f"""\
+        st.markdown(_safe_html_dedent(f"""\
         <div class="card">
             <div style="font-weight:600;font-size:0.85rem;color:#1B2838;margin-bottom:0.5rem;">推送配置</div>
             <div style="font-size:0.78rem;color:#5F6B7A;line-height:1.8;">
@@ -2558,7 +2567,7 @@ def page_alert_standards():
         for k, s in standards.items():
             conf_range = { "red": "&gt; 0.90", "orange": "0.70-0.90", "yellow": "0.50-0.70", "blue": "0.30-0.50" }[k]
             diam_range = { "red": "&gt; 30cm", "orange": "20-30cm", "yellow": "10-20cm", "blue": "&lt; 10cm" }[k]
-            st.markdown(textwrap.dedent(f"""\
+            st.markdown(_safe_html_dedent(f"""\
             <tr style="border-bottom:1px solid #E3E8EF;">
                 <td style="padding:0.3rem;color:{s['color']};font-weight:600;">{s['icon']} {k.upper()}</td>
                 <td style="text-align:right;padding:0.3rem;">{conf_range}</td>
@@ -2568,7 +2577,7 @@ def page_alert_standards():
         st.markdown("</table></div>", unsafe_allow_html=True)
 
     # 升级规则
-    st.markdown(textwrap.dedent("""\
+    st.markdown(_safe_html_dedent("""\
     <div class="card" style="border-left:3px solid #D32F2F;margin-top:0.5rem;">
         <div style="font-weight:600;font-size:0.85rem;color:#D32F2F;">预警升级规则</div>
         <div style="font-size:0.78rem;color:#5F6B7A;line-height:1.8;margin-top:0.3rem;">
