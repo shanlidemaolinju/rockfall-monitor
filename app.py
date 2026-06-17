@@ -2205,14 +2205,17 @@ def _get_alert_standards():
                 "yellow": get_response_workflow("yellow"),
                 "blue": get_response_workflow("blue"),
             }
+            def _esc(text: str) -> str:
+                """转义 HTML 特殊字符，防止渲染为代码。"""
+                return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
             return {
                 k: {
                     "level": v["label"].split(" ", 1)[1] if " " in v["label"] else v["label"],
                     "icon": {"red": "🔴", "orange": "🟠", "yellow": "🟡", "blue": "🔵"}[k],
                     "color": {"red": "#D32F2F", "orange": "#E65100", "yellow": "#F9A825", "blue": "#1565C0"}[k],
                     "bg": {"red": "#FFEBEE", "orange": "#FFF3E0", "yellow": "#FFFDE7", "blue": "#E3F2FD"}[k],
-                    "trigger": " 或 ".join(v["trigger_conditions"]),
-                    "response": v["disposal_steps"],
+                    "trigger": _esc(" 或 ".join(v["trigger_conditions"])),
+                    "response": [_esc(step) for step in v["disposal_steps"]],
                     "push_channels": v["push_channels"],
                     "push_content": _get_push_content_template(k),
                     "cooldown": {"red": "30秒", "orange": "60秒", "yellow": "120秒", "blue": "—"}[k],
@@ -2363,33 +2366,8 @@ def page_alert_standards():
     </div>
     """, unsafe_allow_html=True)
 
-    # 决策树 HTML/CSS 可视化
+    # 决策树 HTML 可视化 (CSS 已移至全局样式块)
     st.markdown("""
-    <style>
-    .tree-container {
-        background: linear-gradient(135deg, #F5F7FA 0%, #fff 100%);
-        border: 1px solid #E3E8EF; border-radius: 12px;
-        padding: 1.5rem 1rem; overflow-x: auto;
-    }
-    .tree-root {
-        display: flex; flex-direction: column; align-items: center; gap: 0;
-    }
-    .tree-node {
-        padding: 0.5rem 1rem; border-radius: 8px; text-align: center;
-        font-weight: 600; font-size: 0.82rem; margin: 0.25rem 0;
-    }
-    .tree-node.root { background: #1565C0; color: #fff; font-size: 0.9rem; padding: 0.6rem 1.5rem; }
-    .tree-node.decision { background: #fff; border: 2px solid #1565C0; color: #1B2838; min-width: 200px; }
-    .tree-node.leaf-red { background: #FFEBEE; border: 2px solid #D32F2F; color: #D32F2F; }
-    .tree-node.leaf-orange { background: #FFF3E0; border: 2px solid #E65100; color: #E65100; }
-    .tree-node.leaf-yellow { background: #FFFDE7; border: 2px solid #F9A825; color: #F57F17; }
-    .tree-node.leaf-blue { background: #E3F2FD; border: 2px solid #1565C0; color: #1565C0; }
-    .tree-node.leaf-green { background: #E8F5E9; border: 2px solid #2E7D32; color: #2E7D32; }
-    .tree-branch { display: flex; gap: 1rem; justify-content: center; margin: 0.3rem 0; flex-wrap: wrap; }
-    .tree-arrow { text-align: center; color: #5F6B7A; font-size: 0.8rem; font-weight: 600; }
-    .tree-label { font-size: 0.65rem; color: #5F6B7A; text-align: center; margin: 0.1rem 0; }
-    </style>
-
     <div class="tree-container">
       <div class="tree-root">
 
