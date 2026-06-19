@@ -130,6 +130,7 @@ def filter_detections_by_motion(
 def filter_detections_by_mog2_center(
     detections: list,
     fg_mask: np.ndarray | None,
+    relax_radius: int = 0,
 ) -> list:
     """
     MOG2中心点运动滤波 (Zhang 2024, applsci-14-04454-v3)
@@ -137,9 +138,15 @@ def filter_detections_by_mog2_center(
     仅保留检测框中心点落在MOG2前景掩膜内的检测。
     中心点不在前景区域 → 静态岩石误检 → 丢弃。
 
+    自适应松弛模式 (relax_radius > 0):
+      当全局运动微弱时（远景小落石），MOG2前景可能稀疏到
+      不覆盖检测框中心点。此时扩展为检查中心点 ± relax_radius
+      邻域内任意像素是否为前景，任一命中即放行。
+
     参数:
-        detections: [[x1, y1, x2, y2, conf], ...]
-        fg_mask:    MOG2前景二值掩膜 (H,W) uint8, 255=前景, None=跳过
+        detections:   [[x1, y1, x2, y2, conf], ...]
+        fg_mask:      MOG2前景二值掩膜 (H,W) uint8, 255=前景, None=跳过
+        relax_radius: 松弛半径 (px), 0=严格中心点检查 (默认)
 
     返回:
         过滤后的检测列表
@@ -151,7 +158,24 @@ def filter_detections_by_mog2_center(
     for d in detections:
         cx = int((d[0] + d[2]) / 2)
         cy = int((d[1] + d[3]) / 2)
-        if 0 <= cx < w and 0 <= cy < h and fg_mask[cy, cx] == 255:
+
+        # 边界检查
+        if not (0 <= cx < w and 0 <= cy < h):
+            continue
+
+        # 严格模式: 中心点必须在前景上
+        if relax_radius <= 0:
+            if fg_mask[cy, cx] == 255:
+                result.append(d)
+            continue
+
+        # 松弛模式: 搜索中心点 ± relax_radius 邻域
+        x1 = max(cx - relax_radius, 0)
+        x2 = min(cx + relax_radius + 1, w)
+        y1 = max(cy - relax_radius, 0)
+        y2 = min(cy + relax_radius + 1, h)
+        neighborhood = fg_mask[y1:y2, x1:x2]
+        if np.any(neighborhood == 255):
             result.append(d)
     return result
 
@@ -160,3 +184,47 @@ def _box_iou_batch(boxes_a: np.ndarray, boxes_b: np.ndarray) -> np.ndarray:
     """批量计算两组边界框的IoU矩阵, 委托给 utils.box_iou_batch"""
     from .utils import box_iou_batch
     return box_iou_batch(boxes_a, boxes_b)
+
+
+def filter_detections_by_geometry(
+    detections: list,
+    aspect_min: float = 0.3,
+    aspect_max: float = 3.0,
+    area_min: int = 25,
+) -> list:
+    """
+    几何误报过滤 — 利用落石外观特征排除非目标物体。
+
+    落石特征:
+      - 近似方形/圆形, 宽高比接近 1.0
+      - 面积适中 (不过小)
+
+    排除对象:
+      - 树枝 (长条形, 宽高比极端)
+      - 飞鸟 (宽高比极端或面积太小)
+      - 光影噪点 (面积太小)
+
+    参数:
+        detections:  [[x1, y1, x2, y2, conf], ...]
+        aspect_min:  宽高比下限 (w/h)
+        aspect_max:  宽高比上限
+        area_min:    最小面积 (px²)
+
+    返回:
+        过滤后的检测列表
+    """
+    if not detections:
+        return []
+    result = []
+    for d in detections:
+        w = d[2] - d[0]
+        h = d[3] - d[1]
+        if w <= 0 or h <= 0:
+            continue
+        area = w * h
+        if area < area_min:
+            continue
+        aspect = w / h
+        if aspect_min <= aspect <= aspect_max:
+            result.append(d)
+    return result

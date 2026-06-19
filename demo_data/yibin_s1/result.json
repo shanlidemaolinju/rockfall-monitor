@@ -1,0 +1,50 @@
+{
+  "track_frames": [
+    {
+      "frame": 990,
+      "time_sec": 33.0,
+      "alert_level": "yellow",
+      "tracks": [
+        {
+          "track_id": 3,
+          "actual_cx": 528,
+          "actual_cy": 454,
+          "predicted_cx": 542,
+          "predicted_cy": 457,
+          "confidence": 0.311
+        },
+        {
+          "track_id": 4,
+          "actual_cx": 678,
+          "actual_cy": 212,
+          "predicted_cx": 681,
+          "predicted_cy": 226,
+          "confidence": 0.201
+        }
+      ]
+    },
+    {
+      "frame": 1070,
+      "time_sec": 35.67,
+      "alert_level": "yellow",
+      "tracks": [
+        {
+          "track_id": 9,
+          "actual_cx": 612,
+          "actual_cy": 310,
+          "predicted_cx": 621,
+          "predicted_cy": 314,
+          "confidence": 0.214
+        }
+      ]
+    }
+  ],
+  "alert_levels": {
+    "red": 19,
+    "orange": 40,
+    "yellow": 56,
+    "blue": 0,
+    "green": 385
+  },
+  "total_alert_frames": 115
+}

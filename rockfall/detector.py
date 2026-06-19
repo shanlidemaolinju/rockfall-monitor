@@ -51,6 +51,8 @@ from .config import (
     ALERT_YELLOW_HEIGHT_RATIO,
     ALERT_FALLING_MIN_CONF, ALERT_MULTI_COUNT, ALERT_MULTI_TOTAL_AREA_RATIO,
     FALLING_Y_SPEED_THRESHOLD,
+    PRECURSOR_ESCALATION_ENABLED, PRECURSOR_ESCALATION_PERSIST_SEC,
+    PRECURSOR_ESCALATION_RED_SEC, PRECURSOR_ESCALATION_DECAY_RATE,
     CAMERA_RECONNECT_BASE, CAMERA_RECONNECT_MAX, CAMERA_RECONNECT_BACKOFF,
     CAMERA_RECONNECT_MAX_ATTEMPTS,
     SKIP_IDLE, SKIP_ACTIVE, SKIP_CRITICAL,
@@ -68,7 +70,9 @@ from .config import (
     THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT, THUMBNAIL_JPEG_QUALITY,
     EDGE_ENHANCE_ENABLED, EDGE_ENHANCE_ALPHA, EDGE_ENHANCE_INTERVAL,
     TFD_ENABLED, TFD_IOU_THRESHOLD, TFD_MORPH_KERNEL, TFD_THRESHOLD,
-    MOG2_FILTER_ENABLED,
+    MOG2_FILTER_ENABLED, MOG2_RELAX_RADIUS, MOG2_RELAX_FG_THRESHOLD,
+    GEO_FILTER_ENABLED, GEO_FILTER_ASPECT_MIN, GEO_FILTER_ASPECT_MAX,
+    GEO_FILTER_AREA_MIN,
     SAHI_ENABLED, SAHI_SLICE_SIZE, SAHI_OVERLAP_RATIO, SAHI_MERGE_IOU,
     SAHI_MAX_SLICES,
     FUSION_ENABLED, FUSION_MOTION_WEIGHT,
@@ -80,7 +84,7 @@ from .config import (
 from .notifier import send_alert, send_alert_async, dispatch_alert_async
 from .tracker import RockTracker
 from .edge_enhance import EdgeEnhancer
-from .motion_detect import ThreeFrameDiff, filter_detections_by_motion, filter_detections_by_mog2_center
+from .motion_detect import ThreeFrameDiff, filter_detections_by_motion, filter_detections_by_mog2_center, filter_detections_by_geometry as _filter_by_geometry
 from .sahi import SAHISlicer, sahi_inference
 from .frame_buffer import FrameRingBuffer
 from .fusion import fuse_confidence, TemporalFilter
@@ -120,6 +124,7 @@ class AlertContext:
     frame_height: int = 0
     track_ids: list = None
     rock_diameter_cm: float = 0.0   # 估算落石直径 (cm)
+    frame_time: float = 0.0           # 视频流时间戳 (秒), 供前兆升压使用
 
     def __post_init__(self):
         if self.track_ids is None:
@@ -194,7 +199,19 @@ class RockDetector:
         else:
             self._sahi_enabled = SAHI_ENABLED
 
-        self.confidence = DETECTION_CONFIDENCE
+        # ── 点位级阈值加载 ──────────────────────────────────
+        # 优先级: 点位专用阈值 > 全局 .env 配置 > 硬编码默认值
+        _site_thresholds = {}
+        if site_id:
+            try:
+                from .site_config import get_site_by_id
+                _site = get_site_by_id(site_id)
+                if _site is not None:
+                    _site_thresholds = _site.get_thresholds()
+            except Exception:
+                pass
+
+        self.confidence = _site_thresholds.get("detection_confidence", DETECTION_CONFIDENCE)
         self.img_size = DETECTION_IMG_SIZE
         self.min_area = MOTION_MIN_AREA
 
@@ -204,10 +221,15 @@ class RockDetector:
         self._gpu_mem_soft_limit_mb = 4096 # GPU 显存软上限 (MB), 超限自动降分辨率/跳帧
         self._auto_reduce_resolution = False  # 标记是否已自动降分辨率
 
-        # 四级预警阈值 (实例级, 支持桌面端滑块实时调节)
-        self.alert_blue_conf_high = ALERT_BLUE_CONFIDENCE_HIGH     # blue/yellow 分界
-        self.alert_yellow_conf_high = ALERT_YELLOW_CONFIDENCE_HIGH  # yellow/orange 分界
-        self.alert_orange_conf_high = ALERT_ORANGE_CONFIDENCE_HIGH  # orange/red 分界
+        # 四级预警阈值 (实例级, 支持点位配置 + 桌面端滑块实时调节)
+        self.alert_blue_low = _site_thresholds.get("alert_blue_low", ALERT_BLUE_CONFIDENCE_LOW)
+        self.alert_blue_conf_high = _site_thresholds.get("alert_blue_high", ALERT_BLUE_CONFIDENCE_HIGH)
+        self.alert_yellow_conf_high = _site_thresholds.get("alert_yellow_high", ALERT_YELLOW_CONFIDENCE_HIGH)
+        self.alert_orange_conf_high = _site_thresholds.get("alert_orange_high", ALERT_ORANGE_CONFIDENCE_HIGH)
+
+        # 将点位阈值同步到 alert_classifier 决策树 (单流模式, 全局生效)
+        if _site_thresholds:
+            self._apply_site_thresholds()
 
         # 流水线状态 (init_stream_state 初始化)
         self._stream_ready = False
@@ -215,6 +237,22 @@ class RockDetector:
         # 隐私脱敏过滤器 (惰性初始化，避免未启用时加载 Haar 模型)
         self._privacy_filter: PrivacyFilter | None = None
 
+        # 前兆升压: 漏桶式风险累积
+        self._precursor_risk: float = 0.0         # 累积风险值 (秒)
+        self._precursor_last_vt: float = 0.0      # 上一帧视频时间 (用于计算delta)
+
+
+    def _apply_site_thresholds(self):
+        """将实例级点位阈值同步到 alert_classifier 决策树全局变量。
+        单流模式下安全; 多流并发需改为 per-request 传递。"""
+        try:
+            import rockfall.alert_classifier as ac
+            ac.CONF_LOW = self.alert_blue_low
+            ac.CONF_MEDIUM_LOW = self.alert_blue_conf_high
+            ac.CONF_MEDIUM_HIGH = self.alert_yellow_conf_high
+            ac.CONF_HIGH = self.alert_orange_conf_high
+        except Exception:
+            pass
 
     def init_stream_state(self, fw: int, fh: int, roi_mask: np.ndarray | None = None):
         """
@@ -683,7 +721,23 @@ class RockDetector:
 
         # MOG2 中心点运动滤波 (Zhang2024) — 不依赖帧连续性, 始终可用
         if MOG2_FILTER_ENABLED and raw_dets and fg_mask is not None:
-            raw_dets = filter_detections_by_mog2_center(raw_dets, fg_mask)
+            # 自适应松弛: 当全局运动微弱时（远景小落石），MOG2前景稀疏，
+            # 单像素中心点检查易误杀 → 自动切换为邻域搜索
+            relax_radius = 0
+            if MOG2_RELAX_RADIUS > 0:
+                fg_mean = np.count_nonzero(fg_mask) / max(fg_mask.size, 1)
+                if fg_mean < MOG2_RELAX_FG_THRESHOLD:
+                    relax_radius = MOG2_RELAX_RADIUS
+            raw_dets = filter_detections_by_mog2_center(raw_dets, fg_mask, relax_radius=relax_radius)
+
+        # 几何误报过滤: 利用落石外观特征 (近似方形、面积适中) 排除长条形/极小噪点
+        if GEO_FILTER_ENABLED and raw_dets:
+            raw_dets = _filter_by_geometry(
+                raw_dets,
+                aspect_min=GEO_FILTER_ASPECT_MIN,
+                aspect_max=GEO_FILTER_ASPECT_MAX,
+                area_min=GEO_FILTER_AREA_MIN,
+            )
 
         # 多帧时序确认 — 跳帧时暂停, 原因同 TFD
         if TEMPORAL_ENABLED and self._active_skip <= 1:
@@ -745,18 +799,24 @@ class RockDetector:
         push_alerts: bool = True, track: bool = True,
         confirm_frames: int = 3, polygon: np.ndarray | None = None,
         max_frames: int | None = None, stride: int = 1,
+        start_frame: int = 0,
         progress_callback=None,
     ) -> dict:
         """对视频文件进行检测
 
-        max_frames: 最大处理帧数 (None=全部, 用于演示限制)
-        stride:     帧采样步长 (1=每帧, 2=隔帧, ...)
+        max_frames:  最大处理帧数 (None=全部, 用于演示限制)
+        stride:      帧采样步长 (1=每帧, 2=隔帧, ...)
+        start_frame: 起始帧索引 (0=从头开始, 用于跳过视频前段)
         progress_callback: 进度回调 (current, total) -> None
         """
         source = str(video_path)
         cap = cv2.VideoCapture(source)
         if not cap.isOpened():
             return {"error": f"无法打开视频文件: {video_path}"}
+
+        # 跳转到指定起始帧
+        if start_frame > 0:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
 
         # _process_stream 含 yield, 始终返回生成器; 文件模式下不 yield, 返回值在 StopIteration 中
         gen = self._process_stream(
@@ -765,6 +825,7 @@ class RockDetector:
             track=track, confirm_frames=confirm_frames,
             polygon=polygon, is_live=False,
             max_frames=max_frames, stride=stride,
+            start_frame=start_frame,
             progress_callback=progress_callback,
         )
         result = None
@@ -833,6 +894,7 @@ class RockDetector:
         render_to_web: bool = False,
         max_frames: int | None = None,
         stride: int = 1,
+        start_frame: int = 0,
         progress_callback=None,
     ) -> Generator[dict, None, None] | dict:
         """
@@ -862,8 +924,13 @@ class RockDetector:
 
         all_detections = []
         raw_dets: list = []
-        frame_idx = 0
+        frame_idx = start_frame
         processed_count = 0  # 实际推理帧计数 (max_frames 用)
+
+        # 重置前兆升压漏桶 (每次新视频源重新计时)
+        self._precursor_risk = 0.0
+        self._precursor_last_vt = 0.0
+
         disconnected = False
         reconnect_delay = CAMERA_RECONNECT_BASE
         reconnect_attempts = 0
@@ -947,7 +1014,8 @@ class RockDetector:
             tracks_info = trk.update(raw_dets) if trk else []
 
             # ---- 分级 + 推送 ----
-            alert_ctx = self.build_alert_context(tracks_info, fw, fh) if tracks_info else AlertContext()
+            frame_time_sec = frame_idx / fps if fps > 0 else 0
+            alert_ctx = self.build_alert_context(tracks_info, fw, fh, frame_time=frame_time_sec) if tracks_info else AlertContext(frame_time=frame_time_sec)
             frame_alert = self._grade_alert(alert_ctx)
 
             frame_det = {
@@ -1074,11 +1142,13 @@ class RockDetector:
     # ================================================================
 
     @staticmethod
-    def build_alert_context(tracks: list, frame_w: int = 0, frame_h: int = 0) -> AlertContext:
+    def build_alert_context(tracks: list, frame_w: int = 0, frame_h: int = 0,
+                            frame_time: float = 0) -> AlertContext:
         """从已确认轨迹中提取预警分级所需的所有聚合值"""
         valid = [t for t in tracks if t.get("confirmed")]
         if not valid:
-            return AlertContext(frame_area=frame_w * frame_h, frame_height=frame_h)
+            return AlertContext(frame_area=frame_w * frame_h, frame_height=frame_h,
+                               frame_time=frame_time)
 
         max_height_px = max(t["bbox"][3] - t["bbox"][1] for t in valid)
         # 估算落石直径: 以 1080p 为基准, 2% 高度比 ≈ 10cm 直径
@@ -1107,6 +1177,7 @@ class RockDetector:
             frame_height=frame_h,
             track_ids=[t["id"] for t in valid],
             rock_diameter_cm=rock_diameter_cm,
+            frame_time=frame_time,
         )
 
     def _grade_alert(self, ctx) -> str:
@@ -1164,7 +1235,58 @@ class RockDetector:
             if LEVEL_ORDER.index(enhanced) < LEVEL_ORDER.index(LEVEL_YELLOW):
                 enhanced = LEVEL_YELLOW
 
+        # ── 前兆升压: 漏桶式风险累积 ──
+        # 地质现实: 边坡累积损伤不可逆，短暂检出间隙≠风险归零
+        if PRECURSOR_ESCALATION_ENABLED:
+            enhanced = self._apply_precursor_escalation(enhanced, ctx.frame_time)
+
         return enhanced
+
+    # ══════════════════════════════════════════════════════════════
+    # 前兆升压: 漏桶式风险累积 → 预警等级逐步升级
+    # ══════════════════════════════════════════════════════════════
+
+    def _apply_precursor_escalation(self, current_level: str, video_time: float = 0) -> str:
+        """
+        漏桶式风险累积——模拟边坡不可逆损伤过程。
+
+        - 告警帧 (非green): 风险累积  (涨水)
+        - 正常帧 (green):  风险缓慢消退 (漏水，但很慢)
+        - 风险达 PERSIST_SEC: 升一级
+        - 风险达 RED_SEC:    直冲红色 (I级)
+
+        地质依据: 边坡岩体在持续落石过程中累积微裂隙损伤，
+        即使短暂停歇，损伤也不会立即恢复。漏桶模型比简单
+        gap-reset 更符合地质灾害演化的力学本质。
+        """
+        from .alert_classifier import LEVEL_ORDER, LEVEL_RED, LEVEL_GREEN
+
+        # 计算 delta (距上一帧的视频时间)
+        dt = video_time - self._precursor_last_vt if self._precursor_last_vt > 0 else 0
+        dt = max(dt, 0)  # 防止时间倒流
+        self._precursor_last_vt = video_time
+
+        if current_level == LEVEL_GREEN:
+            # 无告警 → 风险缓慢消退
+            self._precursor_risk = max(0.0, self._precursor_risk - dt * PRECURSOR_ESCALATION_DECAY_RATE)
+            return current_level
+
+        # 有告警 → 风险累积
+        self._precursor_risk += dt
+
+        # ── 阈值判定 ──
+        if self._precursor_risk >= PRECURSOR_ESCALATION_RED_SEC:
+            return LEVEL_RED
+
+        if self._precursor_risk >= PRECURSOR_ESCALATION_PERSIST_SEC:
+            curr_idx = LEVEL_ORDER.index(current_level)
+            # 至少升到橙色; 如果已经在橙色以上，升到红色
+            if curr_idx < LEVEL_ORDER.index(LEVEL_RED):
+                escalated = LEVEL_ORDER[min(curr_idx + 1, len(LEVEL_ORDER) - 1)]
+                if LEVEL_ORDER.index(escalated) > LEVEL_ORDER.index(current_level):
+                    return escalated
+
+        return current_level
 
     # ================================================================
     # 缩略图保存

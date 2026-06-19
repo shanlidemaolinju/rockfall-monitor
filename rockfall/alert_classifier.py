@@ -47,17 +47,57 @@ LEVEL_YELLOW = "yellow"   # 🟡 III 级 · 较重
 LEVEL_BLUE = "blue"       # 🔵 IV 级 · 一般
 LEVEL_GREEN = "green"     # 🟢 正常 (不预警)
 
-# ── 决策树阈值 ────────────────────────────────────────────
-CONF_HIGH = 0.90          # Ⅰ 级直通阈值
-CONF_MEDIUM_HIGH = 0.70   # Ⅱ/Ⅲ 级分界
-CONF_MEDIUM_LOW = 0.50    # Ⅲ/Ⅳ 级分界
-CONF_LOW = 0.30           # 预警下限
+# ── 决策树默认阈值 (可被 config.py / 环境变量覆盖) ──────────
+_CONF_HIGH = 0.90          # Ⅰ 级直通阈值
+_CONF_MEDIUM_HIGH = 0.70   # Ⅱ/Ⅲ 级分界
+_CONF_MEDIUM_LOW = 0.50    # Ⅲ/Ⅳ 级分界
+_CONF_LOW = 0.30           # 预警下限
 
-DIAMETER_XLARGE = 30      # cm, >30 → Ⅰ 级
-DIAMETER_LARGE = 20       # cm, 20-30 → Ⅱ 级
-DIAMETER_MEDIUM = 10      # cm, 10-20 → Ⅲ 级
+_DIAMETER_XLARGE = 30      # cm, >30 → Ⅰ 级
+_DIAMETER_LARGE = 20       # cm, 20-30 → Ⅱ 级
+_DIAMETER_MEDIUM = 10      # cm, 10-20 → Ⅲ 级
 
-FRAME_LONG = 10           # 帧, >10 → 提升至 Ⅲ 级
+_FRAME_LONG = 10           # 帧, >10 → 提升至 Ⅲ 级
+
+# ── 运行时可覆盖阈值 (由 config.py 环境变量驱动) ────────────
+# 延迟加载避免循环导入, 模块级函数访问时解析
+_thresholds_loaded = False
+CONF_HIGH = _CONF_HIGH
+CONF_MEDIUM_HIGH = _CONF_MEDIUM_HIGH
+CONF_MEDIUM_LOW = _CONF_MEDIUM_LOW
+CONF_LOW = _CONF_LOW
+DIAMETER_XLARGE = _DIAMETER_XLARGE
+DIAMETER_LARGE = _DIAMETER_LARGE
+DIAMETER_MEDIUM = _DIAMETER_MEDIUM
+FRAME_LONG = _FRAME_LONG
+
+
+def _load_thresholds_from_config():
+    """从 rockfall.config 加载环境变量覆盖的阈值 (仅执行一次)。"""
+    global _thresholds_loaded, \
+        CONF_HIGH, CONF_MEDIUM_HIGH, CONF_MEDIUM_LOW, CONF_LOW, \
+        DIAMETER_XLARGE, DIAMETER_LARGE, DIAMETER_MEDIUM, FRAME_LONG
+    if _thresholds_loaded:
+        return
+    _thresholds_loaded = True
+    try:
+        from .config import (
+            ALERT_BLUE_CONFIDENCE_LOW,
+            ALERT_BLUE_CONFIDENCE_HIGH,
+            ALERT_YELLOW_CONFIDENCE_HIGH,
+            ALERT_ORANGE_CONFIDENCE_HIGH,
+        )
+        # 四级预警上下限映射到决策树阈值
+        #   ALERT_BLUE_CONFIDENCE_LOW   → 预警下限 (进入 IV 级)
+        #   ALERT_BLUE_CONFIDENCE_HIGH  → Ⅲ/Ⅳ 分界
+        #   ALERT_YELLOW_CONFIDENCE_HIGH → Ⅱ/Ⅲ 分界
+        #   ALERT_ORANGE_CONFIDENCE_HIGH → Ⅰ 级直通
+        CONF_LOW = ALERT_BLUE_CONFIDENCE_LOW
+        CONF_MEDIUM_LOW = ALERT_BLUE_CONFIDENCE_HIGH
+        CONF_MEDIUM_HIGH = ALERT_YELLOW_CONFIDENCE_HIGH
+        CONF_HIGH = ALERT_ORANGE_CONFIDENCE_HIGH
+    except ImportError:
+        pass  # 保持硬编码默认值
 
 # ── 等级标签 (对齐交通部标准) ──────────────────────────────
 LEVEL_LABELS: dict[str, str] = {
@@ -106,7 +146,10 @@ def classify_alert_level(
         >>> classify_alert_level(0.20, 0, "", 0)
         'green'
     """
-    # ── 第1层: 置信度 < 0.30 → 正常 ─────────────────────
+    # 确保阈值已从环境变量加载 (首次调用时执行)
+    _load_thresholds_from_config()
+
+    # ── 第1层: 置信度 < 预警下限 → 正常 ──────────────────
     if max_conf < CONF_LOW:
         return LEVEL_GREEN
 

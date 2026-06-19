@@ -296,13 +296,17 @@ st.markdown(f"""
 # ══════════════════════════════════════════════════════════════
 
 @st.cache_resource(show_spinner=False)
-def get_detector() -> RockDetector | None:
-    """加载 YOLO 模型, 返回 RockDetector 实例。模型不存在时返回 None。"""
+def get_detector(site_id: str = "") -> RockDetector | None:
+    """加载 YOLO 模型, 返回 RockDetector 实例。模型不存在时返回 None。
+
+    site_id: 监测点位 ID，用于加载点位级阈值配置。
+             空字符串 = 使用全局默认阈值。
+    """
     if RockDetector is None:
         st.error("RockDetector 未能导入 — 请检查依赖安装: `pip install ultralytics torch`")
         return None
     try:
-        return RockDetector()
+        return RockDetector(site_id=site_id)
     except FileNotFoundError as e:
         st.error(f"模型加载失败: {e}")
         return None
@@ -320,9 +324,18 @@ def get_store() -> AlertStore | None:
     return get_alert_store()
 
 
+def _get_active_site_id() -> str:
+    """安全地获取当前活跃点位 ID，失败时返回空字符串（使用全局默认）。"""
+    try:
+        site = get_active_site()
+        return site.site_id if site else ""
+    except Exception:
+        return ""
+
+
 def get_detector_or_stop() -> RockDetector:
-    """获取检测器, 若不可用则 st.stop()。"""
-    d = get_detector()
+    """获取检测器, 若不可用则 st.stop()。自动加载当前点位阈值。"""
+    d = get_detector(site_id=_get_active_site_id())
     if d is None:
         st.error("检测器未就绪, 请检查模型文件后刷新页面。")
         st.stop()
@@ -652,6 +665,14 @@ DEMO_SCENES = {
         "site_id": "baise_s1",
         "tags": ["山区", "背光", "遮挡"],
     },
+    "yibin_s1": {
+        "title": "宜宾 G85 渝昆高速滑坡",
+        "subtitle": "四川盆地南缘 — 前兆落石→红色预警→大规模崩塌",
+        "icon": "Mountain",
+        "data_dir": "demo_data/yibin_s1",
+        "site_id": "yibin_s1",
+        "tags": ["滑坡", "前兆预警", "红色升级"],
+    },
 }
 
 
@@ -685,6 +706,30 @@ def _load_demo_result(scene_id: str) -> dict | None:
             return _json.load(f)
     except Exception:
         return None
+
+
+def _find_demo_for_site(active_site) -> dict | None:
+    """将 MonitoringSite 映射到 DEMO_SCENES 中的真实 demo 数据。
+
+    优先精确匹配 site_id，失败时按前缀匹配（如 qinzhou_s0 → qinzhou_s1）。
+    返回 (scene_id, summary_dict) 或 None。
+    """
+    if active_site is None:
+        return None
+    site_id = getattr(active_site, "site_id", "")
+    # 1) 精确匹配
+    if site_id in DEMO_SCENES:
+        summary = _load_demo_summary(site_id)
+        if summary:
+            return (site_id, summary)
+    # 2) 前缀匹配（去掉尾部 _sN 后缀）
+    prefix = site_id.rsplit("_", 1)[0] if "_" in site_id else site_id
+    for scene_id in DEMO_SCENES:
+        if scene_id == prefix or scene_id.startswith(prefix + "_"):
+            summary = _load_demo_summary(scene_id)
+            if summary:
+                return (scene_id, summary)
+    return None
 
 
 def page_demo_showcase():
@@ -2133,63 +2178,118 @@ def page_extreme_scenarios():
     st.divider()
 
     # ══════════════════════════════════════════════════════════
-    # Section 5: 现场实测数据
+    # Section 5: 现场实测数据（从 demo_data 真实摘要中读取）
     # ══════════════════════════════════════════════════════════
-    st.markdown(f"""
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:0.5rem;">
-        <div style="width:4px;height:24px;background:#2E7D32;border-radius:2px;"></div>
-        <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">实地测试: {active_site.name}</div>
-        <div style="font-size:0.78rem;color:#5F6B7A;">{active_site.region} &middot; 真实落石场景</div>
-    </div>
-    """, unsafe_allow_html=True)
+    demo_match = _find_demo_for_site(active_site)
 
-    col_q1, col_q2 = st.columns(2)
-
-    with col_q1:
-        site_location = f"{active_site.name} ({active_site.highway} {active_site.stake_mark})" if active_site.stake_mark else f"{active_site.name} ({active_site.highway})"
+    if demo_match is None:
+        # ── 无 demo 数据：诚实告知 ──
         st.markdown(f"""
-        <div class="card">
-            <div style="font-weight:600;font-size:0.9rem;color:#1B2838;margin-bottom:0.3rem;">
-                测试环境
-            </div>
-            <div style="font-size:0.78rem;color:#5F6B7A;line-height:1.7;">
-                <b>地点</b>: {site_location}<br>
-                <b>摄像头</b>: 海康威视 1080P (1920x1080 @25fps)<br>
-                <b>部署位置</b>: 路侧灯杆, 距坡面约80m<br>
-                <b>监测范围</b>: 边坡高约30m, 路面宽约15m<br>
-                <b>测试时段</b>: 日间/夜间/雨后, 共8小时视频<br>
-                <b>测试硬件</b>: NVIDIA RTX 4060 Laptop (8GB)
-            </div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:0.5rem;">
+            <div style="width:4px;height:24px;background:#2E7D32;border-radius:2px;"></div>
+            <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">实地测试: {active_site.name}</div>
+            <div style="font-size:0.78rem;color:#5F6B7A;">{active_site.region}</div>
         </div>
         """, unsafe_allow_html=True)
+        st.info(
+            f"该站点（{active_site.name}）尚无预生成的实测数据。"
+            f"请运行 `python scripts/generate_demo.py <视频文件> --scene <场景ID>` 生成。",
+        )
+    else:
+        scene_id, summary = demo_match
+        video = summary.get("video", {})
+        detection = summary.get("detection", {})
+        alerts = summary.get("alerts", {})
 
-    with col_q2:
-        st.markdown("""
-        <div class="card">
-            <div style="font-weight:600;font-size:0.9rem;color:#1B2838;margin-bottom:0.3rem;">
-                实测结果汇总
-            </div>
-            <div style="font-size:0.78rem;color:#5F6B7A;line-height:1.7;">
-                <b>总帧数</b>: 15,701 帧 (10分28秒)<br>
-                <b>总预警帧</b>: 140 帧 (0.89%)<br>
-                <b>I 级 (红色)</b>: 5 帧 | <b>II 级 (橙色)</b>: 7 帧<br>
-                <b>III 级 (黄色)</b>: 7 帧 | <b>IV 级 (蓝色)</b>: 11 帧<br>
-                <b>推理耗时</b>: 20.1 秒 (GPU)<br>
-                <b>等效实时帧率</b>: ~781 fps<br>
-                <b>误报率</b>: < 5% (人工复核)<br>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        # ── 从真实数据提取指标 ──
+        total_frames = video.get("total_frames", 0)
+        fps = video.get("fps", 0)
+        resolution = video.get("resolution", "未知")
+        duration_sec = video.get("duration_sec", 0)
+        video_file = video.get("file", "未知")
 
-    # 现场图
-    site_img = _THIS_DIR / "钦州落石_site.png"
-    if site_img.exists():
+        processed_frames = detection.get("processed_frames", total_frames)
+        elapsed_sec = detection.get("elapsed_sec", 0)
+        device = detection.get("device", "未知")
+
+        total_alerts = alerts.get("total_alert_frames", 0)
+        red = alerts.get("red", 0)
+        orange = alerts.get("orange", 0)
+        yellow = alerts.get("yellow", 0)
+        blue = alerts.get("blue", 0)
+        alert_pct = (total_alerts / processed_frames * 100) if processed_frames > 0 else 0
+        effective_fps = (processed_frames / elapsed_sec) if elapsed_sec > 0 else 0
+
+        # 格式化时长
+        if duration_sec >= 3600:
+            dur_str = f"{duration_sec/3600:.1f} 小时"
+        elif duration_sec >= 60:
+            dur_str = f"{int(duration_sec//60)}分{int(duration_sec%60)}秒"
+        else:
+            dur_str = f"{duration_sec:.1f} 秒"
+
+        # 设备类型简写
+        device_short = "GPU" if any(g in device.lower() for g in ["nvidia", "cuda", "gpu"]) else "CPU"
+
         st.markdown(f"""
-        <div style="font-weight:600;font-size:0.9rem;color:#1B2838;margin-bottom:0.3rem;">
-            {active_site.name} 现场实拍
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:0.5rem;">
+            <div style="width:4px;height:24px;background:#2E7D32;border-radius:2px;"></div>
+            <div style="font-weight:600;font-size:1.1rem;color:#1B2838;">实地测试: {active_site.name}</div>
+            <div style="font-size:0.78rem;color:#5F6B7A;">{active_site.region} &middot; 真实落石场景 &middot; 源视频: {video_file}</div>
         </div>
         """, unsafe_allow_html=True)
-        st.image(str(site_img), use_container_width=True)
+
+        col_q1, col_q2 = st.columns(2)
+
+        with col_q1:
+            site_location = f"{active_site.name} ({active_site.highway} {active_site.stake_mark})" if active_site.stake_mark else f"{active_site.name} ({active_site.highway})"
+            st.markdown(f"""
+            <div class="card">
+                <div style="font-weight:600;font-size:0.9rem;color:#1B2838;margin-bottom:0.3rem;">
+                    测试环境
+                </div>
+                <div style="font-size:0.78rem;color:#5F6B7A;line-height:1.7;">
+                    <b>地点</b>: {site_location}<br>
+                    <b>视频文件</b>: {video_file}<br>
+                    <b>摄像头参数</b>: {resolution} @{fps:.0f}fps<br>
+                    <b>视频时长</b>: {dur_str}<br>
+                    <b>处理帧数</b>: {processed_frames:,} 帧 (stride={detection.get('stride', '?')})<br>
+                    <b>测试硬件</b>: {device}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col_q2:
+            st.markdown(f"""
+            <div class="card">
+                <div style="font-weight:600;font-size:0.9rem;color:#1B2838;margin-bottom:0.3rem;">
+                    实测结果汇总
+                </div>
+                <div style="font-size:0.78rem;color:#5F6B7A;line-height:1.7;">
+                    <b>总帧数</b>: {total_frames:,} 帧 ({dur_str})<br>
+                    <b>总预警帧</b>: {total_alerts} 帧 ({alert_pct:.1f}%)<br>
+                    <b>I 级 (红色)</b>: {red} 帧 | <b>II 级 (橙色)</b>: {orange} 帧<br>
+                    <b>III 级 (黄色)</b>: {yellow} 帧 | <b>IV 级 (蓝色)</b>: {blue} 帧<br>
+                    <b>推理耗时</b>: {elapsed_sec:.1f} 秒 ({device_short})<br>
+                    <b>等效实时帧率</b>: ~{effective_fps:.0f} fps<br>
+                    <b>数据来源</b>: demo_data/{scene_id}/summary.json
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # 现场图：按站点查找（文件名 = {site_id}_site.png），回退到旧文件名
+        for img_candidate in [
+            _THIS_DIR / f"{active_site.site_id}_site.png",
+            _THIS_DIR / f"{active_site.site_id}_site.jpg",
+        ]:
+            if img_candidate.exists():
+                st.markdown(f"""
+                <div style="font-weight:600;font-size:0.9rem;color:#1B2838;margin-bottom:0.3rem;">
+                    {active_site.name} 现场实拍
+                </div>
+                """, unsafe_allow_html=True)
+                st.image(str(img_candidate), use_container_width=True)
+                break
 
 
 # ══════════════════════════════════════════════════════════════
@@ -3411,6 +3511,11 @@ def page_site_management():
                     except ValueError as e:
                         st.error(str(e))
 
+    # ── 点位阈值配置 ──
+    st.divider()
+    st.subheader("检测灵敏度")
+    _render_site_threshold_editor(active_site)
+
     # ── ROI 配置 ──
     st.divider()
     st.subheader("ROI 标定")
@@ -3436,12 +3541,111 @@ def page_site_management():
         st.info("该点位尚未进行 ROI 标定, 将使用默认 ROI 区域。")
 
 
+def _render_site_threshold_editor(site):
+    """点位灵敏度配置——快捷预设 + 精细调节"""
+    if site is None:
+        st.info("请先选择一个点位")
+        return
+
+    thresholds = site.get_thresholds()
+
+    # ── 灵敏度预设 ──
+    st.caption("快捷预设")
+    preset_cols = st.columns(4)
+    presets = {
+        "🔴 高敏": {"conf": 0.10, "blue_low": 0.10, "blue_high": 0.20, "yellow_high": 0.40, "orange_high": 0.70,
+                    "desc": "宜宾滑坡级别，宁误报不漏报"},
+        "🟠 中高": {"conf": 0.20, "blue_low": 0.20, "blue_high": 0.35, "yellow_high": 0.55, "orange_high": 0.80,
+                    "desc": "山区高风险边坡"},
+        "🟡 标准": {"conf": 0.30, "blue_low": 0.30, "blue_high": 0.50, "yellow_high": 0.70, "orange_high": 0.90,
+                    "desc": "通用默认"},
+        "🟢 低敏": {"conf": 0.45, "blue_low": 0.40, "blue_high": 0.60, "yellow_high": 0.80, "orange_high": 0.95,
+                    "desc": "城市道路，减少告警"},
+    }
+
+    preset_clicked = None
+    for i, (label, cfg) in enumerate(presets.items()):
+        with preset_cols[i]:
+            if st.button(label, key=f"preset_{label}_{site.site_id}", use_container_width=True,
+                        help=cfg["desc"]):
+                preset_clicked = cfg
+
+    # ── 精细调节 ──
+    with st.expander("精细调节", expanded=False):
+        if preset_clicked:
+            conf_val = preset_clicked["conf"]
+            blue_low_val = preset_clicked["blue_low"]
+            blue_high_val = preset_clicked["blue_high"]
+            yellow_high_val = preset_clicked["yellow_high"]
+            orange_high_val = preset_clicked["orange_high"]
+        else:
+            conf_val = thresholds["detection_confidence"]
+            blue_low_val = thresholds["alert_blue_low"]
+            blue_high_val = thresholds["alert_blue_high"]
+            yellow_high_val = thresholds["alert_yellow_high"]
+            orange_high_val = thresholds["alert_orange_high"]
+
+        c1, c2 = st.columns(2)
+        with c1:
+            new_conf = st.slider("YOLO检测置信度", 0.05, 0.80, conf_val, 0.01,
+                                help="越低检出越多，越高误报越少")
+            new_blue_low = st.slider("🔵 蓝色预警下限 (准入)", 0.05, 0.50, blue_low_val, 0.01,
+                                    help="置信度≥此值进入IV级预警")
+            new_blue_high = st.slider("🔵→🟡 蓝黄分界", 0.10, 0.60, blue_high_val, 0.01,
+                                     help="置信度≥此值升为III级")
+
+        with c2:
+            new_yellow_high = st.slider("🟡→🟠 黄橙分界", 0.30, 0.80, yellow_high_val, 0.01,
+                                       help="置信度≥此值升为II级")
+            new_orange_high = st.slider("🟠→🔴 橙红分界", 0.60, 0.99, orange_high_val, 0.01,
+                                       help="置信度≥此值升为I级")
+
+        # 当前有效值提示
+        if not preset_clicked:
+            overrides = []
+            if site.detection_confidence > 0:
+                overrides.append(f"conf={site.detection_confidence}")
+            if site.alert_blue_low > 0:
+                overrides.append(f"blue_low={site.alert_blue_low}")
+            if overrides:
+                st.caption(f"点位覆盖: {', '.join(overrides)}")
+            else:
+                st.caption("使用全局默认值 (.env)")
+
+        if st.button("💾 保存阈值", key=f"save_thresh_{site.site_id}", type="primary",
+                     use_container_width=True):
+            site.detection_confidence = new_conf
+            site.alert_blue_low = new_blue_low
+            site.alert_blue_high = new_blue_high
+            site.alert_yellow_high = new_yellow_high
+            site.alert_orange_high = new_orange_high
+
+            try:
+                from rockfall.site_config import get_site_store
+                store = get_site_store()
+                if store.get_by_id(site.site_id):
+                    store.update(site)
+                else:
+                    store.insert(site)
+                st.success(f"已保存 {site.name} 的阈值配置")
+                st.cache_resource.clear()  # 清除检测器缓存，下次使用新阈值
+                st.rerun()
+            except Exception as e:
+                st.error(f"保存失败: {e}")
+
+
 def _render_site_card(site: MonitoringSite, is_active: bool = False, show_detail: bool = False):
     """渲染单个点位卡片"""
     border_style = "2px solid #0d6efd" if is_active else "1px solid #dee2e6"
     bg_style = "#f0f7ff" if is_active else "#ffffff"
 
     with st.container():
+        # 阈值信息
+        thresholds = site.get_thresholds()
+        conf = thresholds["detection_confidence"]
+        blue_low = thresholds["alert_blue_low"]
+        thresh_str = f"🔍检测:{conf:.2f} 🔵≥{blue_low:.2f} 🟡≥{thresholds['alert_blue_high']:.2f} 🟠≥{thresholds['alert_yellow_high']:.2f} 🔴≥{thresholds['alert_orange_high']:.2f}"
+
         st.markdown(f"""
         <div style="padding:1rem; border-radius:8px; border:{border_style}; background:{bg_style}; margin-bottom:0.5rem;">
             <b>{'' if is_active else ''}{site.name}</b>
@@ -3449,6 +3653,7 @@ def _render_site_card(site: MonitoringSite, is_active: bool = False, show_detail
             <br><small>{site.region} | 🛣️ {site.highway} | 🏷️ {site.stake_mark}</small>
             <br><small>{site.description}</small>
             <br><small>🌐 经纬度: {site.latitude:.3f}, {site.longitude:.3f}</small>
+            <br><small style="font-family:monospace;color:#1565C0;">{thresh_str}</small>
         </div>
         """, unsafe_allow_html=True)
 

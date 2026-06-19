@@ -1,0 +1,244 @@
+{
+  "name": "yibin_s1",
+  "video": {
+    "file": "3.7日，四川宜宾一高速路段发生山体滑坡.mp4",
+    "total_frames": 3160,
+    "fps": 30.0,
+    "resolution": "1280x720",
+    "duration_sec": 105.3
+  },
+  "detection": {
+    "processed_frames": 500,
+    "max_frames": 500,
+    "stride": 2,
+    "start_frame": 900,
+    "img_size": 416,
+    "elapsed_sec": 14.2,
+    "device": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel"
+  },
+  "alerts": {
+    "total_alert_frames": 115,
+    "red": 19,
+    "orange": 40,
+    "yellow": 56,
+    "blue": 0
+  },
+  "key_frames": [
+    {
+      "index": 0,
+      "frame_idx": 1666,
+      "time_sec": 55.53,
+      "alert_level": "red",
+      "track_count": 1,
+      "max_confidence": 0.3237,
+      "thumbnail": "frames/000_red.jpg"
+    },
+    {
+      "index": 1,
+      "frame_idx": 1668,
+      "time_sec": 55.6,
+      "alert_level": "red",
+      "track_count": 1,
+      "max_confidence": 0.3237,
+      "thumbnail": "frames/001_red.jpg"
+    },
+    {
+      "index": 2,
+      "frame_idx": 1670,
+      "time_sec": 55.67,
+      "alert_level": "red",
+      "track_count": 2,
+      "max_confidence": 0.3237,
+      "thumbnail": "frames/002_red.jpg"
+    },
+    {
+      "index": 3,
+      "frame_idx": 1672,
+      "time_sec": 55.73,
+      "alert_level": "red",
+      "track_count": 2,
+      "max_confidence": 0.3237,
+      "thumbnail": "frames/003_red.jpg"
+    },
+    {
+      "index": 4,
+      "frame_idx": 1674,
+      "time_sec": 55.8,
+      "alert_level": "red",
+      "track_count": 2,
+      "max_confidence": 0.3237,
+      "thumbnail": "frames/004_red.jpg"
+    },
+    {
+      "index": 5,
+      "frame_idx": 1676,
+      "time_sec": 55.87,
+      "alert_level": "red",
+      "track_count": 2,
+      "max_confidence": 0.3237,
+      "thumbnail": "frames/005_red.jpg"
+    },
+    {
+      "index": 6,
+      "frame_idx": 1678,
+      "time_sec": 55.93,
+      "alert_level": "red",
+      "track_count": 2,
+      "max_confidence": 0.3237,
+      "thumbnail": "frames/006_red.jpg"
+    },
+    {
+      "index": 7,
+      "frame_idx": 1680,
+      "time_sec": 56.0,
+      "alert_level": "red",
+      "track_count": 1,
+      "max_confidence": 0.3023,
+      "thumbnail": "frames/007_red.jpg"
+    },
+    {
+      "index": 8,
+      "frame_idx": 1076,
+      "time_sec": 35.87,
+      "alert_level": "orange",
+      "track_count": 3,
+      "max_confidence": 0.2861,
+      "thumbnail": "frames/008_orange.jpg"
+    },
+    {
+      "index": 9,
+      "frame_idx": 1078,
+      "time_sec": 35.93,
+      "alert_level": "orange",
+      "track_count": 3,
+      "max_confidence": 0.2861,
+      "thumbnail": "frames/009_orange.jpg"
+    },
+    {
+      "index": 10,
+      "frame_idx": 1080,
+      "time_sec": 36.0,
+      "alert_level": "orange",
+      "track_count": 3,
+      "max_confidence": 0.2861,
+      "thumbnail": "frames/010_orange.jpg"
+    },
+    {
+      "index": 11,
+      "frame_idx": 1082,
+      "time_sec": 36.07,
+      "alert_level": "orange",
+      "track_count": 3,
+      "max_confidence": 0.2861,
+      "thumbnail": "frames/011_orange.jpg"
+    },
+    {
+      "index": 12,
+      "frame_idx": 1084,
+      "time_sec": 36.13,
+      "alert_level": "orange",
+      "track_count": 3,
+      "max_confidence": 0.2861,
+      "thumbnail": "frames/012_orange.jpg"
+    },
+    {
+      "index": 13,
+      "frame_idx": 1086,
+      "time_sec": 36.2,
+      "alert_level": "orange",
+      "track_count": 3,
+      "max_confidence": 0.2861,
+      "thumbnail": "frames/013_orange.jpg"
+    },
+    {
+      "index": 14,
+      "frame_idx": 1088,
+      "time_sec": 36.27,
+      "alert_level": "orange",
+      "track_count": 3,
+      "max_confidence": 0.2861,
+      "thumbnail": "frames/014_orange.jpg"
+    },
+    {
+      "index": 15,
+      "frame_idx": 1186,
+      "time_sec": 39.53,
+      "alert_level": "orange",
+      "track_count": 1,
+      "max_confidence": 0.2045,
+      "thumbnail": "frames/015_orange.jpg"
+    },
+    {
+      "index": 16,
+      "frame_idx": 990,
+      "time_sec": 33.0,
+      "alert_level": "yellow",
+      "track_count": 2,
+      "max_confidence": 0.3112,
+      "thumbnail": "frames/016_yellow.jpg"
+    },
+    {
+      "index": 17,
+      "frame_idx": 992,
+      "time_sec": 33.07,
+      "alert_level": "yellow",
+      "track_count": 2,
+      "max_confidence": 0.3112,
+      "thumbnail": "frames/017_yellow.jpg"
+    },
+    {
+      "index": 18,
+      "frame_idx": 994,
+      "time_sec": 33.13,
+      "alert_level": "yellow",
+      "track_count": 2,
+      "max_confidence": 0.3112,
+      "thumbnail": "frames/018_yellow.jpg"
+    },
+    {
+      "index": 19,
+      "frame_idx": 996,
+      "time_sec": 33.2,
+      "alert_level": "yellow",
+      "track_count": 2,
+      "max_confidence": 0.3112,
+      "thumbnail": "frames/019_yellow.jpg"
+    },
+    {
+      "index": 20,
+      "frame_idx": 998,
+      "time_sec": 33.27,
+      "alert_level": "yellow",
+      "track_count": 2,
+      "max_confidence": 0.3112,
+      "thumbnail": "frames/020_yellow.jpg"
+    },
+    {
+      "index": 21,
+      "frame_idx": 1000,
+      "time_sec": 33.33,
+      "alert_level": "yellow",
+      "track_count": 3,
+      "max_confidence": 0.3112,
+      "thumbnail": "frames/021_yellow.jpg"
+    },
+    {
+      "index": 22,
+      "frame_idx": 1002,
+      "time_sec": 33.4,
+      "alert_level": "yellow",
+      "track_count": 3,
+      "max_confidence": 0.3112,
+      "thumbnail": "frames/022_yellow.jpg"
+    },
+    {
+      "index": 23,
+      "frame_idx": 1004,
+      "time_sec": 33.47,
+      "alert_level": "yellow",
+      "track_count": 3,
+      "max_confidence": 0.3112,
+      "thumbnail": "frames/023_yellow.jpg"
+    }
+  ]
+}

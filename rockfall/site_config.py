@@ -52,6 +52,13 @@ class MonitoringSite:
     alert_contacts: list | None = None # 报警接收人 [{"name":"","phone":"","email":""}, ...]
     is_active: bool = True             # 是否启用
     model_override: str = ""           # 点位专用模型路径 (空=使用全局默认)
+    # ---- v2.3 点位级检测阈值 (空/0=使用全局默认) ----
+    detection_confidence: float = 0.0  # YOLO检测置信度 (0=使用全局)
+    alert_blue_low: float = 0.0        # 蓝色预警下限
+    alert_blue_high: float = 0.0       # 蓝→黄分界
+    alert_yellow_high: float = 0.0     # 黄→橙分界
+    alert_orange_high: float = 0.0     # 橙→红分界
+    # ---- 时间戳 ----
     created_at: str = ""               # 创建时间 ISO
     updated_at: str = ""               # 更新时间 ISO
 
@@ -68,6 +75,44 @@ class MonitoringSite:
     def from_dict(cls, d: dict) -> "MonitoringSite":
         valid_fields = {f.name for f in cls.__dataclass_fields__.values()}
         return cls(**{k: v for k, v in d.items() if k in valid_fields})
+
+    def get_thresholds(self) -> dict:
+        """
+        获取该点位的有效检测阈值。
+        点位字段 > 0 → 使用点位值; 否则 → 使用全局默认 (config.py)。
+        返回:
+            {detection_confidence, alert_blue_low, alert_blue_high,
+             alert_yellow_high, alert_orange_high}
+        """
+        from .config import (
+            DETECTION_CONFIDENCE as _DEF_CONF,
+            ALERT_BLUE_CONFIDENCE_LOW as _DEF_BLUE_LOW,
+            ALERT_BLUE_CONFIDENCE_HIGH as _DEF_BLUE_HIGH,
+            ALERT_YELLOW_CONFIDENCE_HIGH as _DEF_YELLOW_HIGH,
+            ALERT_ORANGE_CONFIDENCE_HIGH as _DEF_ORANGE_HIGH,
+        )
+        return {
+            "detection_confidence": (
+                self.detection_confidence if self.detection_confidence > 0
+                else _DEF_CONF
+            ),
+            "alert_blue_low": (
+                self.alert_blue_low if self.alert_blue_low > 0
+                else _DEF_BLUE_LOW
+            ),
+            "alert_blue_high": (
+                self.alert_blue_high if self.alert_blue_high > 0
+                else _DEF_BLUE_HIGH
+            ),
+            "alert_yellow_high": (
+                self.alert_yellow_high if self.alert_yellow_high > 0
+                else _DEF_YELLOW_HIGH
+            ),
+            "alert_orange_high": (
+                self.alert_orange_high if self.alert_orange_high > 0
+                else _DEF_ORANGE_HIGH
+            ),
+        }
 
 
 # ============================================================
@@ -93,6 +138,11 @@ CREATE TABLE IF NOT EXISTS monitoring_sites (
     alert_contacts JSON DEFAULT ('[]'),
     is_active TINYINT DEFAULT 1,
     model_override VARCHAR(256) DEFAULT '',
+    detection_confidence DOUBLE DEFAULT 0,
+    alert_blue_low DOUBLE DEFAULT 0,
+    alert_blue_high DOUBLE DEFAULT 0,
+    alert_yellow_high DOUBLE DEFAULT 0,
+    alert_orange_high DOUBLE DEFAULT 0,
     created_at VARCHAR(19) NOT NULL,
     updated_at VARCHAR(19) NOT NULL,
     INDEX idx_is_active (is_active)
@@ -115,6 +165,11 @@ CREATE TABLE IF NOT EXISTS monitoring_sites (
     alert_contacts TEXT DEFAULT '[]',
     is_active INTEGER DEFAULT 1,
     model_override TEXT DEFAULT '',
+    detection_confidence REAL DEFAULT 0,
+    alert_blue_low REAL DEFAULT 0,
+    alert_blue_high REAL DEFAULT 0,
+    alert_yellow_high REAL DEFAULT 0,
+    alert_orange_high REAL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 )"""
@@ -314,6 +369,11 @@ class SiteStore:
             alert_contacts=_parse_json(row.get("alert_contacts")),
             is_active=bool(row.get("is_active", 1)),
             model_override=row.get("model_override", ""),
+            detection_confidence=float(row.get("detection_confidence", 0) or 0),
+            alert_blue_low=float(row.get("alert_blue_low", 0) or 0),
+            alert_blue_high=float(row.get("alert_blue_high", 0) or 0),
+            alert_yellow_high=float(row.get("alert_yellow_high", 0) or 0),
+            alert_orange_high=float(row.get("alert_orange_high", 0) or 0),
             created_at=row.get("created_at", ""),
             updated_at=row.get("updated_at", ""),
         )
@@ -328,13 +388,18 @@ class SiteStore:
                        (site_id, name, location, region, camera_url, description,
                         latitude, longitude, highway, stake_mark, risk_level,
                         roi_polygon, alert_contacts, is_active, model_override,
+                        detection_confidence, alert_blue_low, alert_blue_high,
+                        alert_yellow_high, alert_orange_high,
                         created_at, updated_at)
-                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
                     (site.site_id, site.name, site.location, site.region,
                      site.camera_url, site.description,
                      site.latitude, site.longitude, site.highway, site.stake_mark,
                      site.risk_level, roi_json, contacts_json,
-                     1 if site.is_active else 0, site.model_override, now, now),
+                     1 if site.is_active else 0, site.model_override,
+                     site.detection_confidence, site.alert_blue_low,
+                     site.alert_blue_high, site.alert_yellow_high,
+                     site.alert_orange_high, now, now),
                 )
             conn.commit()
             return True
@@ -353,13 +418,18 @@ class SiteStore:
                        (site_id, name, location, region, camera_url, description,
                         latitude, longitude, highway, stake_mark, risk_level,
                         roi_polygon, alert_contacts, is_active, model_override,
+                        detection_confidence, alert_blue_low, alert_blue_high,
+                        alert_yellow_high, alert_orange_high,
                         created_at, updated_at)
-                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                     (site.site_id, site.name, site.location, site.region,
                      site.camera_url, site.description,
                      site.latitude, site.longitude, site.highway, site.stake_mark,
                      site.risk_level, roi_json, contacts_json,
-                     1 if site.is_active else 0, site.model_override, now, now),
+                     1 if site.is_active else 0, site.model_override,
+                     site.detection_confidence, site.alert_blue_low,
+                     site.alert_blue_high, site.alert_yellow_high,
+                     site.alert_orange_high, now, now),
                 )
                 conn.commit()
                 conn.close()
@@ -378,13 +448,20 @@ class SiteStore:
                        description=%s, latitude=%s, longitude=%s,
                        highway=%s, stake_mark=%s, risk_level=%s,
                        roi_polygon=%s, alert_contacts=%s, is_active=%s,
-                       model_override=%s, updated_at=%s
+                       model_override=%s,
+                       detection_confidence=%s, alert_blue_low=%s,
+                       alert_blue_high=%s, alert_yellow_high=%s,
+                       alert_orange_high=%s,
+                       updated_at=%s
                        WHERE site_id=%s""",
                     (site.name, site.location, site.region, site.camera_url,
                      site.description, site.latitude, site.longitude,
                      site.highway, site.stake_mark, site.risk_level,
                      roi_json, contacts_json,
                      1 if site.is_active else 0, site.model_override,
+                     site.detection_confidence, site.alert_blue_low,
+                     site.alert_blue_high, site.alert_yellow_high,
+                     site.alert_orange_high,
                      now, site.site_id),
                 )
             conn.commit()
@@ -405,13 +482,20 @@ class SiteStore:
                        description=?, latitude=?, longitude=?,
                        highway=?, stake_mark=?, risk_level=?,
                        roi_polygon=?, alert_contacts=?, is_active=?,
-                       model_override=?, updated_at=?
+                       model_override=?,
+                       detection_confidence=?, alert_blue_low=?,
+                       alert_blue_high=?, alert_yellow_high=?,
+                       alert_orange_high=?,
+                       updated_at=?
                        WHERE site_id=?""",
                     (site.name, site.location, site.region, site.camera_url,
                      site.description, site.latitude, site.longitude,
                      site.highway, site.stake_mark, site.risk_level,
                      roi_json, contacts_json,
                      1 if site.is_active else 0, site.model_override,
+                     site.detection_confidence, site.alert_blue_low,
+                     site.alert_blue_high, site.alert_yellow_high,
+                     site.alert_orange_high,
                      now, site.site_id),
                 )
                 conn.commit()
@@ -533,6 +617,24 @@ PRESET_SITES: list[MonitoringSite] = [
         highway="G322 中越跨境公路",
         stake_mark="K1042+600",
         risk_level="high",
+    ),
+    MonitoringSite(
+        site_id="yibin_s1",
+        name="宜宾高速滑坡监测点",
+        location="四川宜宾 G85渝昆高速",
+        region="四川·宜宾",
+        camera_url="",
+        description="四川盆地南缘高风险边坡，2026.3.7发生大规模滑坡，前兆小落石→大崩塌间隔43秒",
+        latitude=28.750,
+        longitude=104.620,
+        highway="G85 渝昆高速 (宜宾段)",
+        stake_mark="",
+        risk_level="high",
+        detection_confidence=0.10,
+        alert_blue_low=0.10,
+        alert_blue_high=0.20,
+        alert_yellow_high=0.40,
+        alert_orange_high=0.70,
     ),
 ]
 

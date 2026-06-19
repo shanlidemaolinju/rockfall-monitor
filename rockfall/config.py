@@ -333,6 +333,17 @@ TFD_THRESHOLD = int(os.getenv("TFD_THRESHOLD", "25"))
 # ---- MOG2中心点运动滤波 ----
 MOG2_FILTER_ENABLED = os.getenv("MOG2_FILTER_ENABLED", "false").lower() == "true"
 
+# 自适应松弛: 当MOG2前景占比低于阈值时，中心点检查放宽为邻域搜索
+# 解决远景小落石运动微弱导致前景稀疏、中心点检查误杀有效检出的问题
+MOG2_RELAX_RADIUS = int(os.getenv("MOG2_RELAX_RADIUS", "0"))          # 松弛半径 (px), 0=禁用, 推荐3
+MOG2_RELAX_FG_THRESHOLD = float(os.getenv("MOG2_RELAX_FG_THRESHOLD", "0.03"))  # 前景占比阈值
+
+# ---- 几何误报过滤: 利用落石外观特征排除树枝/飞鸟/光影 ----
+GEO_FILTER_ENABLED = os.getenv("GEO_FILTER_ENABLED", "false").lower() == "true"
+GEO_FILTER_ASPECT_MIN = float(os.getenv("GEO_FILTER_ASPECT_MIN", "0.3"))   # 宽高比下限 (落石近似方形)
+GEO_FILTER_ASPECT_MAX = float(os.getenv("GEO_FILTER_ASPECT_MAX", "3.0"))   # 宽高比上限
+GEO_FILTER_AREA_MIN = int(os.getenv("GEO_FILTER_AREA_MIN", "25"))          # 最小面积 (px²)
+
 # ---- SAHI 切片辅助推理 ----
 SAHI_ENABLED = os.getenv("SAHI_ENABLED", "false").lower() == "true"
 SAHI_SLICE_SIZE = int(os.getenv("SAHI_SLICE_SIZE", "640"))
@@ -478,6 +489,14 @@ ALERT_YELLOW_HEIGHT_RATIO = float(os.getenv("ALERT_YELLOW_HEIGHT_RATIO", "0.05")
 ALERT_FALLING_MIN_CONF = float(os.getenv("ALERT_FALLING_MIN_CONF", "0.3"))
 ALERT_MULTI_COUNT = int(os.getenv("ALERT_MULTI_COUNT", "3"))
 ALERT_MULTI_TOTAL_AREA_RATIO = float(os.getenv("ALERT_MULTI_TOTAL_AREA_RATIO", "0.01"))
+
+# ---- 前兆升压: 漏桶式风险累积 → 预警等级逐步升级 ----
+# 原理: 边坡累积损伤不可逆，检测间隙只是检出波动，不代表风险归零
+# 告警帧 → 累积风险; 无告警帧 → 风险缓慢消退
+PRECURSOR_ESCALATION_ENABLED = os.getenv("PRECURSOR_ESCALATION_ENABLED", "true").lower() == "true"
+PRECURSOR_ESCALATION_PERSIST_SEC = float(os.getenv("PRECURSOR_ESCALATION_PERSIST_SEC", "15"))    # 累计风险达此值→升一级
+PRECURSOR_ESCALATION_RED_SEC = float(os.getenv("PRECURSOR_ESCALATION_RED_SEC", "30"))           # 累计风险达此值→直冲红色
+PRECURSOR_ESCALATION_DECAY_RATE = float(os.getenv("PRECURSOR_ESCALATION_DECAY_RATE", "0.3"))    # 间隙期风险消退速率 (0.3=30%速度)
 
 # ---- 数据库连接池 (MySQL 专用, 高并发稳定) ----
 # pool_size: 常驻连接数, max_overflow: 峰值额外连接数, pre_ping: 每次检出前 ping 检测有效性
