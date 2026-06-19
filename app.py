@@ -3462,11 +3462,23 @@ def page_site_management():
     active_site = get_active_site() if get_active_site is not None else None
     all_sites = list_sites()
 
+    # 保底：确保 PRESET_SITES 中的所有点位都出现在列表中（即使 DB 同步失败）
+    from rockfall.site_config import PRESET_SITES, get_site_store
+    db_ids = {s.site_id for s in all_sites}
+    missing = [ps for ps in PRESET_SITES if ps.site_id not in db_ids]
+    if missing:
+        try:
+            store = get_site_store()
+            store.seed_from_presets(missing)
+        except Exception:
+            pass
+        all_sites.extend(missing)
+
     st.markdown(f"""
     <div class="brand-header">
         <div>
             <div class="logo">点位管理</div>
-            <div style="font-size:0.8rem;opacity:0.85;">{len(all_sites)} 个预设监测点位</div>
+            <div style="font-size:0.8rem;opacity:0.85;">{len(all_sites)} 个监测点位</div>
         </div>
         <div class="meta"><span>{APP_VERSION}</span></div>
     </div>
