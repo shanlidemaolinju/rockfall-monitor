@@ -1,50 +1,3739 @@
 {
   "track_frames": [
     {
-      "frame": 990,
-      "time_sec": 33.0,
+      "frame": 27,
+      "time_sec": 0.9,
       "alert_level": "yellow",
       "tracks": [
         {
           "track_id": 3,
-          "actual_cx": 528,
-          "actual_cy": 454,
-          "predicted_cx": 542,
-          "predicted_cy": 457,
-          "confidence": 0.311
-        },
-        {
-          "track_id": 4,
-          "actual_cx": 678,
-          "actual_cy": 212,
-          "predicted_cx": 681,
-          "predicted_cy": 226,
-          "confidence": 0.201
+          "actual_cx": 596,
+          "actual_cy": 359,
+          "predicted_cx": 602,
+          "predicted_cy": 341,
+          "confidence": 0.1
         }
       ]
     },
     {
-      "frame": 1070,
-      "time_sec": 35.67,
+      "frame": 144,
+      "time_sec": 4.8,
+      "alert_level": "orange",
+      "tracks": [
+        {
+          "track_id": 7,
+          "actual_cx": 725,
+          "actual_cy": 345,
+          "predicted_cx": 720,
+          "predicted_cy": 356,
+          "confidence": 0.164
+        }
+      ]
+    },
+    {
+      "frame": 147,
+      "time_sec": 4.9,
+      "alert_level": "orange",
+      "tracks": [
+        {
+          "track_id": 7,
+          "actual_cx": 732,
+          "actual_cy": 320,
+          "predicted_cx": 728,
+          "predicted_cy": 340,
+          "confidence": 0.167
+        }
+      ]
+    },
+    {
+      "frame": 150,
+      "time_sec": 5.0,
+      "alert_level": "orange",
+      "tracks": [
+        {
+          "track_id": 7,
+          "actual_cx": 732,
+          "actual_cy": 310,
+          "predicted_cx": 743,
+          "predicted_cy": 287,
+          "confidence": 0.126
+        }
+      ]
+    },
+    {
+      "frame": 153,
+      "time_sec": 5.1,
+      "alert_level": "orange",
+      "tracks": [
+        {
+          "track_id": 7,
+          "actual_cx": 733,
+          "actual_cy": 300,
+          "predicted_cx": 734,
+          "predicted_cy": 291,
+          "confidence": 0.618
+        }
+      ]
+    },
+    {
+      "frame": 159,
+      "time_sec": 5.3,
+      "alert_level": "orange",
+      "tracks": [
+        {
+          "track_id": 7,
+          "actual_cx": 736,
+          "actual_cy": 277,
+          "predicted_cx": 730,
+          "predicted_cy": 282,
+          "confidence": 0.5
+        }
+      ]
+    },
+    {
+      "frame": 162,
+      "time_sec": 5.4,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 7,
+          "actual_cx": 740,
+          "actual_cy": 270,
+          "predicted_cx": 736,
+          "predicted_cy": 269,
+          "confidence": 0.181
+        }
+      ]
+    },
+    {
+      "frame": 168,
+      "time_sec": 5.6,
+      "alert_level": "orange",
+      "tracks": [
+        {
+          "track_id": 7,
+          "actual_cx": 745,
+          "actual_cy": 254,
+          "predicted_cx": 743,
+          "predicted_cy": 258,
+          "confidence": 0.206
+        }
+      ]
+    },
+    {
+      "frame": 171,
+      "time_sec": 5.7,
+      "alert_level": "orange",
+      "tracks": [
+        {
+          "track_id": 7,
+          "actual_cx": 748,
+          "actual_cy": 246,
+          "predicted_cx": 747,
+          "predicted_cy": 251,
+          "confidence": 0.553
+        }
+      ]
+    },
+    {
+      "frame": 174,
+      "time_sec": 5.8,
+      "alert_level": "orange",
+      "tracks": [
+        {
+          "track_id": 7,
+          "actual_cx": 748,
+          "actual_cy": 242,
+          "predicted_cx": 750,
+          "predicted_cy": 242,
+          "confidence": 0.451
+        },
+        {
+          "track_id": 8,
+          "actual_cx": 802,
+          "actual_cy": 262,
+          "predicted_cx": 803,
+          "predicted_cy": 267,
+          "confidence": 0.658
+        },
+        {
+          "track_id": 9,
+          "actual_cx": 803,
+          "actual_cy": 255,
+          "predicted_cx": 804,
+          "predicted_cy": 261,
+          "confidence": 0.292
+        }
+      ]
+    },
+    {
+      "frame": 177,
+      "time_sec": 5.9,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 7,
+          "actual_cx": 748,
+          "actual_cy": 237,
+          "predicted_cx": 751,
+          "predicted_cy": 238,
+          "confidence": 0.559
+        },
+        {
+          "track_id": 8,
+          "actual_cx": 800,
+          "actual_cy": 254,
+          "predicted_cx": 800,
+          "predicted_cy": 261,
+          "confidence": 0.714
+        },
+        {
+          "track_id": 9,
+          "actual_cx": 802,
+          "actual_cy": 250,
+          "predicted_cx": 802,
+          "predicted_cy": 254,
+          "confidence": 0.338
+        }
+      ]
+    },
+    {
+      "frame": 180,
+      "time_sec": 6.0,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 7,
+          "actual_cx": 748,
+          "actual_cy": 234,
+          "predicted_cx": 750,
+          "predicted_cy": 234,
+          "confidence": 0.47
+        },
+        {
+          "track_id": 8,
+          "actual_cx": 800,
+          "actual_cy": 249,
+          "predicted_cx": 799,
+          "predicted_cy": 246,
+          "confidence": 0.748
+        }
+      ]
+    },
+    {
+      "frame": 183,
+      "time_sec": 6.1,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 7,
+          "actual_cx": 750,
+          "actual_cy": 232,
+          "predicted_cx": 750,
+          "predicted_cy": 231,
+          "confidence": 0.35
+        },
+        {
+          "track_id": 8,
+          "actual_cx": 798,
+          "actual_cy": 244,
+          "predicted_cx": 799,
+          "predicted_cy": 241,
+          "confidence": 0.786
+        }
+      ]
+    },
+    {
+      "frame": 186,
+      "time_sec": 6.2,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 8,
+          "actual_cx": 799,
+          "actual_cy": 240,
+          "predicted_cx": 797,
+          "predicted_cy": 237,
+          "confidence": 0.67
+        }
+      ]
+    },
+    {
+      "frame": 189,
+      "time_sec": 6.3,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 8,
+          "actual_cx": 798,
+          "actual_cy": 237,
+          "predicted_cx": 798,
+          "predicted_cy": 234,
+          "confidence": 0.379
+        }
+      ]
+    },
+    {
+      "frame": 192,
+      "time_sec": 6.4,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 8,
+          "actual_cx": 796,
+          "actual_cy": 232,
+          "predicted_cx": 797,
+          "predicted_cy": 234,
+          "confidence": 0.524
+        }
+      ]
+    },
+    {
+      "frame": 195,
+      "time_sec": 6.5,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 8,
+          "actual_cx": 795,
+          "actual_cy": 226,
+          "predicted_cx": 795,
+          "predicted_cy": 230,
+          "confidence": 0.561
+        }
+      ]
+    },
+    {
+      "frame": 198,
+      "time_sec": 6.6,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 8,
+          "actual_cx": 792,
+          "actual_cy": 223,
+          "predicted_cx": 794,
+          "predicted_cy": 224,
+          "confidence": 0.182
+        }
+      ]
+    },
+    {
+      "frame": 204,
+      "time_sec": 6.8,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 8,
+          "actual_cx": 790,
+          "actual_cy": 214,
+          "predicted_cx": 788,
+          "predicted_cy": 216,
+          "confidence": 0.323
+        }
+      ]
+    },
+    {
+      "frame": 207,
+      "time_sec": 6.9,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 8,
+          "actual_cx": 790,
+          "actual_cy": 212,
+          "predicted_cx": 788,
+          "predicted_cy": 210,
+          "confidence": 0.219
+        }
+      ]
+    },
+    {
+      "frame": 210,
+      "time_sec": 7.0,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 8,
+          "actual_cx": 791,
+          "actual_cy": 209,
+          "predicted_cx": 788,
+          "predicted_cy": 208,
+          "confidence": 0.136
+        }
+      ]
+    },
+    {
+      "frame": 453,
+      "time_sec": 15.1,
       "alert_level": "yellow",
       "tracks": [
         {
-          "track_id": 9,
+          "track_id": 11,
+          "actual_cx": 794,
+          "actual_cy": 456,
+          "predicted_cx": 794,
+          "predicted_cy": 467,
+          "confidence": 0.358
+        }
+      ]
+    },
+    {
+      "frame": 462,
+      "time_sec": 15.4,
+      "alert_level": "orange",
+      "tracks": [
+        {
+          "track_id": 11,
+          "actual_cx": 800,
+          "actual_cy": 395,
+          "predicted_cx": 808,
+          "predicted_cy": 374,
+          "confidence": 0.573
+        }
+      ]
+    },
+    {
+      "frame": 465,
+      "time_sec": 15.5,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 11,
+          "actual_cx": 803,
+          "actual_cy": 382,
+          "predicted_cx": 802,
+          "predicted_cy": 367,
+          "confidence": 0.28
+        }
+      ]
+    },
+    {
+      "frame": 468,
+      "time_sec": 15.6,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 11,
+          "actual_cx": 802,
+          "actual_cy": 370,
+          "predicted_cx": 806,
+          "predicted_cy": 359,
+          "confidence": 0.422
+        }
+      ]
+    },
+    {
+      "frame": 471,
+      "time_sec": 15.7,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 11,
+          "actual_cx": 804,
+          "actual_cy": 354,
+          "predicted_cx": 804,
+          "predicted_cy": 354,
+          "confidence": 0.175
+        }
+      ]
+    },
+    {
+      "frame": 474,
+      "time_sec": 15.8,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 11,
+          "actual_cx": 804,
+          "actual_cy": 348,
+          "predicted_cx": 804,
+          "predicted_cy": 341,
+          "confidence": 0.386
+        }
+      ]
+    },
+    {
+      "frame": 480,
+      "time_sec": 16.0,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 11,
+          "actual_cx": 804,
+          "actual_cy": 322,
+          "predicted_cx": 804,
+          "predicted_cy": 331,
+          "confidence": 0.246
+        }
+      ]
+    },
+    {
+      "frame": 483,
+      "time_sec": 16.1,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 11,
+          "actual_cx": 804,
+          "actual_cy": 314,
+          "predicted_cx": 803,
+          "predicted_cy": 315,
+          "confidence": 0.186
+        }
+      ]
+    },
+    {
+      "frame": 501,
+      "time_sec": 16.7,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 12,
+          "actual_cx": 803,
+          "actual_cy": 264,
+          "predicted_cx": 804,
+          "predicted_cy": 275,
+          "confidence": 0.6
+        }
+      ]
+    },
+    {
+      "frame": 504,
+      "time_sec": 16.8,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 12,
+          "actual_cx": 802,
+          "actual_cy": 260,
+          "predicted_cx": 802,
+          "predicted_cy": 260,
+          "confidence": 0.63
+        }
+      ]
+    },
+    {
+      "frame": 507,
+      "time_sec": 16.9,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 12,
+          "actual_cx": 802,
+          "actual_cy": 258,
+          "predicted_cx": 801,
+          "predicted_cy": 255,
+          "confidence": 0.698
+        }
+      ]
+    },
+    {
+      "frame": 510,
+      "time_sec": 17.0,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 12,
+          "actual_cx": 802,
+          "actual_cy": 252,
+          "predicted_cx": 803,
+          "predicted_cy": 255,
+          "confidence": 0.644
+        },
+        {
+          "track_id": 13,
+          "actual_cx": 652,
+          "actual_cy": 246,
+          "predicted_cx": 656,
+          "predicted_cy": 240,
+          "confidence": 0.124
+        }
+      ]
+    },
+    {
+      "frame": 513,
+      "time_sec": 17.1,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 13,
+          "actual_cx": 652,
+          "actual_cy": 246,
+          "predicted_cx": 650,
+          "predicted_cy": 252,
+          "confidence": 0.124
+        }
+      ]
+    },
+    {
+      "frame": 516,
+      "time_sec": 17.2,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 12,
+          "actual_cx": 801,
+          "actual_cy": 244,
+          "predicted_cx": 803,
+          "predicted_cy": 247,
+          "confidence": 0.741
+        },
+        {
+          "track_id": 13,
+          "actual_cx": 650,
+          "actual_cy": 250,
+          "predicted_cx": 646,
+          "predicted_cy": 263,
+          "confidence": 0.151
+        }
+      ]
+    },
+    {
+      "frame": 519,
+      "time_sec": 17.3,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 12,
+          "actual_cx": 801,
+          "actual_cy": 238,
+          "predicted_cx": 801,
+          "predicted_cy": 240,
+          "confidence": 0.671
+        }
+      ]
+    },
+    {
+      "frame": 522,
+      "time_sec": 17.4,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 12,
+          "actual_cx": 800,
+          "actual_cy": 235,
+          "predicted_cx": 800,
+          "predicted_cy": 234,
+          "confidence": 0.626
+        }
+      ]
+    },
+    {
+      "frame": 525,
+      "time_sec": 17.5,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 12,
+          "actual_cx": 800,
+          "actual_cy": 232,
+          "predicted_cx": 799,
+          "predicted_cy": 230,
+          "confidence": 0.736
+        }
+      ]
+    },
+    {
+      "frame": 528,
+      "time_sec": 17.6,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 12,
+          "actual_cx": 798,
+          "actual_cy": 228,
+          "predicted_cx": 799,
+          "predicted_cy": 227,
+          "confidence": 0.556
+        }
+      ]
+    },
+    {
+      "frame": 531,
+      "time_sec": 17.7,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 12,
+          "actual_cx": 798,
+          "actual_cy": 226,
+          "predicted_cx": 798,
+          "predicted_cy": 223,
+          "confidence": 0.518
+        }
+      ]
+    },
+    {
+      "frame": 534,
+      "time_sec": 17.8,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 12,
+          "actual_cx": 798,
+          "actual_cy": 223,
+          "predicted_cx": 797,
+          "predicted_cy": 221,
+          "confidence": 0.514
+        }
+      ]
+    },
+    {
+      "frame": 537,
+      "time_sec": 17.9,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 12,
+          "actual_cx": 798,
+          "actual_cy": 217,
+          "predicted_cx": 797,
+          "predicted_cy": 219,
+          "confidence": 0.468
+        }
+      ]
+    },
+    {
+      "frame": 540,
+      "time_sec": 18.0,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 12,
+          "actual_cx": 796,
+          "actual_cy": 215,
+          "predicted_cx": 797,
+          "predicted_cy": 215,
+          "confidence": 0.437
+        }
+      ]
+    },
+    {
+      "frame": 543,
+      "time_sec": 18.1,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 12,
+          "actual_cx": 794,
+          "actual_cy": 214,
+          "predicted_cx": 796,
+          "predicted_cy": 212,
+          "confidence": 0.42
+        }
+      ]
+    },
+    {
+      "frame": 549,
+      "time_sec": 18.3,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 12,
+          "actual_cx": 792,
+          "actual_cy": 212,
+          "predicted_cx": 793,
+          "predicted_cy": 209,
+          "confidence": 0.366
+        }
+      ]
+    },
+    {
+      "frame": 552,
+      "time_sec": 18.4,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 12,
+          "actual_cx": 794,
+          "actual_cy": 210,
+          "predicted_cx": 791,
+          "predicted_cy": 210,
+          "confidence": 0.288
+        }
+      ]
+    },
+    {
+      "frame": 555,
+      "time_sec": 18.5,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 12,
+          "actual_cx": 794,
+          "actual_cy": 206,
+          "predicted_cx": 792,
+          "predicted_cy": 209,
+          "confidence": 0.186
+        }
+      ]
+    },
+    {
+      "frame": 558,
+      "time_sec": 18.6,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 12,
+          "actual_cx": 794,
+          "actual_cy": 202,
+          "predicted_cx": 793,
+          "predicted_cy": 206,
+          "confidence": 0.329
+        }
+      ]
+    },
+    {
+      "frame": 561,
+      "time_sec": 18.7,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 12,
+          "actual_cx": 792,
+          "actual_cy": 202,
+          "predicted_cx": 794,
+          "predicted_cy": 202,
+          "confidence": 0.25
+        }
+      ]
+    },
+    {
+      "frame": 564,
+      "time_sec": 18.8,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 12,
+          "actual_cx": 792,
+          "actual_cy": 199,
+          "predicted_cx": 792,
+          "predicted_cy": 200,
+          "confidence": 0.186
+        }
+      ]
+    },
+    {
+      "frame": 567,
+      "time_sec": 18.9,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 12,
+          "actual_cx": 792,
+          "actual_cy": 196,
+          "predicted_cx": 792,
+          "predicted_cy": 197,
+          "confidence": 0.149
+        }
+      ]
+    },
+    {
+      "frame": 570,
+      "time_sec": 19.0,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 14,
+          "actual_cx": 579,
+          "actual_cy": 348,
+          "predicted_cx": 580,
+          "predicted_cy": 346,
+          "confidence": 0.42
+        }
+      ]
+    },
+    {
+      "frame": 573,
+      "time_sec": 19.1,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 14,
+          "actual_cx": 576,
+          "actual_cy": 356,
+          "predicted_cx": 578,
+          "predicted_cy": 352,
+          "confidence": 0.128
+        }
+      ]
+    },
+    {
+      "frame": 582,
+      "time_sec": 19.4,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 14,
+          "actual_cx": 548,
+          "actual_cy": 392,
+          "predicted_cx": 563,
+          "predicted_cy": 407,
+          "confidence": 0.213
+        }
+      ]
+    },
+    {
+      "frame": 648,
+      "time_sec": 21.6,
+      "alert_level": "green",
+      "tracks": [
+        {
+          "track_id": 16,
+          "actual_cx": 635,
+          "actual_cy": 208,
+          "predicted_cx": 642,
+          "predicted_cy": 206,
+          "confidence": 0.136
+        }
+      ]
+    },
+    {
+      "frame": 651,
+      "time_sec": 21.7,
+      "alert_level": "orange",
+      "tracks": [
+        {
+          "track_id": 16,
+          "actual_cx": 630,
+          "actual_cy": 212,
+          "predicted_cx": 629,
+          "predicted_cy": 216,
+          "confidence": 0.218
+        }
+      ]
+    },
+    {
+      "frame": 654,
+      "time_sec": 21.8,
+      "alert_level": "orange",
+      "tracks": [
+        {
+          "track_id": 16,
+          "actual_cx": 628,
+          "actual_cy": 214,
+          "predicted_cx": 624,
+          "predicted_cy": 217,
+          "confidence": 0.212
+        }
+      ]
+    },
+    {
+      "frame": 666,
+      "time_sec": 22.2,
+      "alert_level": "orange",
+      "tracks": [
+        {
+          "track_id": 16,
+          "actual_cx": 618,
+          "actual_cy": 236,
+          "predicted_cx": 616,
+          "predicted_cy": 230,
+          "confidence": 0.105
+        }
+      ]
+    },
+    {
+      "frame": 678,
+      "time_sec": 22.6,
+      "alert_level": "orange",
+      "tracks": [
+        {
+          "track_id": 16,
+          "actual_cx": 604,
+          "actual_cy": 254,
+          "predicted_cx": 611,
+          "predicted_cy": 266,
+          "confidence": 0.141
+        }
+      ]
+    },
+    {
+      "frame": 681,
+      "time_sec": 22.7,
+      "alert_level": "orange",
+      "tracks": [
+        {
+          "track_id": 16,
+          "actual_cx": 601,
+          "actual_cy": 258,
+          "predicted_cx": 601,
+          "predicted_cy": 260,
+          "confidence": 0.163
+        }
+      ]
+    },
+    {
+      "frame": 684,
+      "time_sec": 22.8,
+      "alert_level": "orange",
+      "tracks": [
+        {
+          "track_id": 16,
+          "actual_cx": 598,
+          "actual_cy": 260,
+          "predicted_cx": 598,
+          "predicted_cy": 264,
+          "confidence": 0.166
+        }
+      ]
+    },
+    {
+      "frame": 687,
+      "time_sec": 22.9,
+      "alert_level": "orange",
+      "tracks": [
+        {
+          "track_id": 16,
+          "actual_cx": 594,
+          "actual_cy": 268,
+          "predicted_cx": 595,
+          "predicted_cy": 266,
+          "confidence": 0.103
+        }
+      ]
+    },
+    {
+      "frame": 702,
+      "time_sec": 23.4,
+      "alert_level": "orange",
+      "tracks": [
+        {
+          "track_id": 16,
+          "actual_cx": 583,
+          "actual_cy": 295,
+          "predicted_cx": 574,
+          "predicted_cy": 290,
+          "confidence": 0.113
+        }
+      ]
+    },
+    {
+      "frame": 705,
+      "time_sec": 23.5,
+      "alert_level": "orange",
+      "tracks": [
+        {
+          "track_id": 16,
+          "actual_cx": 582,
+          "actual_cy": 298,
+          "predicted_cx": 581,
+          "predicted_cy": 300,
+          "confidence": 0.323
+        }
+      ]
+    },
+    {
+      "frame": 714,
+      "time_sec": 23.8,
+      "alert_level": "orange",
+      "tracks": [
+        {
+          "track_id": 18,
+          "actual_cx": 661,
+          "actual_cy": 228,
+          "predicted_cx": 659,
+          "predicted_cy": 229,
+          "confidence": 0.167
+        }
+      ]
+    },
+    {
+      "frame": 717,
+      "time_sec": 23.9,
+      "alert_level": "orange",
+      "tracks": [
+        {
+          "track_id": 16,
+          "actual_cx": 577,
+          "actual_cy": 322,
+          "predicted_cx": 576,
+          "predicted_cy": 320,
+          "confidence": 0.137
+        }
+      ]
+    },
+    {
+      "frame": 720,
+      "time_sec": 24.0,
+      "alert_level": "orange",
+      "tracks": [
+        {
+          "track_id": 18,
+          "actual_cx": 658,
+          "actual_cy": 236,
+          "predicted_cx": 664,
+          "predicted_cy": 236,
+          "confidence": 0.357
+        }
+      ]
+    },
+    {
+      "frame": 723,
+      "time_sec": 24.1,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 16,
+          "actual_cx": 575,
+          "actual_cy": 326,
+          "predicted_cx": 576,
+          "predicted_cy": 334,
+          "confidence": 0.235
+        },
+        {
+          "track_id": 18,
+          "actual_cx": 658,
+          "actual_cy": 237,
+          "predicted_cx": 654,
+          "predicted_cy": 244,
+          "confidence": 0.518
+        }
+      ]
+    },
+    {
+      "frame": 726,
+      "time_sec": 24.2,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 16,
+          "actual_cx": 574,
+          "actual_cy": 334,
+          "predicted_cx": 575,
+          "predicted_cy": 332,
+          "confidence": 0.316
+        },
+        {
+          "track_id": 18,
+          "actual_cx": 656,
+          "actual_cy": 238,
+          "predicted_cx": 658,
+          "predicted_cy": 240,
+          "confidence": 0.359
+        }
+      ]
+    },
+    {
+      "frame": 729,
+      "time_sec": 24.3,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 16,
+          "actual_cx": 572,
+          "actual_cy": 344,
+          "predicted_cx": 574,
+          "predicted_cy": 338,
+          "confidence": 0.677
+        },
+        {
+          "track_id": 18,
+          "actual_cx": 651,
+          "actual_cy": 245,
+          "predicted_cx": 654,
+          "predicted_cy": 240,
+          "confidence": 0.361
+        }
+      ]
+    },
+    {
+      "frame": 732,
+      "time_sec": 24.4,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 16,
+          "actual_cx": 570,
+          "actual_cy": 350,
+          "predicted_cx": 571,
+          "predicted_cy": 348,
+          "confidence": 0.621
+        }
+      ]
+    },
+    {
+      "frame": 735,
+      "time_sec": 24.5,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 16,
+          "actual_cx": 569,
+          "actual_cy": 352,
+          "predicted_cx": 569,
+          "predicted_cy": 356,
+          "confidence": 0.732
+        },
+        {
+          "track_id": 18,
+          "actual_cx": 650,
+          "actual_cy": 250,
+          "predicted_cx": 646,
+          "predicted_cy": 253,
+          "confidence": 0.603
+        }
+      ]
+    },
+    {
+      "frame": 738,
+      "time_sec": 24.6,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 16,
+          "actual_cx": 563,
+          "actual_cy": 366,
+          "predicted_cx": 568,
+          "predicted_cy": 360,
+          "confidence": 0.18
+        },
+        {
+          "track_id": 19,
+          "actual_cx": 644,
+          "actual_cy": 256,
+          "predicted_cx": 646,
+          "predicted_cy": 256,
+          "confidence": 0.17
+        }
+      ]
+    },
+    {
+      "frame": 741,
+      "time_sec": 24.7,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 18,
+          "actual_cx": 644,
+          "actual_cy": 258,
+          "predicted_cx": 643,
+          "predicted_cy": 259,
+          "confidence": 0.144
+        }
+      ]
+    },
+    {
+      "frame": 744,
+      "time_sec": 24.8,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 18,
+          "actual_cx": 644,
+          "actual_cy": 260,
+          "predicted_cx": 641,
+          "predicted_cy": 262,
+          "confidence": 0.29
+        }
+      ]
+    },
+    {
+      "frame": 753,
+      "time_sec": 25.1,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 18,
+          "actual_cx": 632,
+          "actual_cy": 278,
+          "predicted_cx": 638,
+          "predicted_cy": 272,
+          "confidence": 0.153
+        }
+      ]
+    },
+    {
+      "frame": 771,
+      "time_sec": 25.7,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 18,
+          "actual_cx": 618,
+          "actual_cy": 297,
+          "predicted_cx": 615,
+          "predicted_cy": 298,
+          "confidence": 0.129
+        }
+      ]
+    },
+    {
+      "frame": 783,
+      "time_sec": 26.1,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 20,
+          "actual_cx": 628,
+          "actual_cy": 230,
+          "predicted_cx": 628,
+          "predicted_cy": 229,
+          "confidence": 0.342
+        }
+      ]
+    },
+    {
+      "frame": 798,
+      "time_sec": 26.6,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 18,
+          "actual_cx": 588,
+          "actual_cy": 340,
+          "predicted_cx": 594,
+          "predicted_cy": 319,
+          "confidence": 0.314
+        }
+      ]
+    },
+    {
+      "frame": 801,
+      "time_sec": 26.7,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 18,
+          "actual_cx": 588,
+          "actual_cy": 340,
+          "predicted_cx": 584,
+          "predicted_cy": 345,
+          "confidence": 0.242
+        }
+      ]
+    },
+    {
+      "frame": 807,
+      "time_sec": 26.9,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 21,
+          "actual_cx": 601,
+          "actual_cy": 255,
+          "predicted_cx": 604,
+          "predicted_cy": 256,
+          "confidence": 0.221
+        }
+      ]
+    },
+    {
+      "frame": 810,
+      "time_sec": 27.0,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 21,
+          "actual_cx": 598,
+          "actual_cy": 258,
+          "predicted_cx": 599,
+          "predicted_cy": 258,
+          "confidence": 0.276
+        }
+      ]
+    },
+    {
+      "frame": 816,
+      "time_sec": 27.2,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 21,
+          "actual_cx": 592,
+          "actual_cy": 269,
+          "predicted_cx": 591,
+          "predicted_cy": 279,
+          "confidence": 0.104
+        }
+      ]
+    },
+    {
+      "frame": 834,
+      "time_sec": 27.8,
+      "alert_level": "orange",
+      "tracks": [
+        {
+          "track_id": 21,
+          "actual_cx": 578,
+          "actual_cy": 298,
+          "predicted_cx": 578,
+          "predicted_cy": 301,
+          "confidence": 0.35
+        }
+      ]
+    },
+    {
+      "frame": 837,
+      "time_sec": 27.9,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 21,
+          "actual_cx": 577,
+          "actual_cy": 303,
+          "predicted_cx": 576,
+          "predicted_cy": 304,
+          "confidence": 0.408
+        }
+      ]
+    },
+    {
+      "frame": 843,
+      "time_sec": 28.1,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 21,
+          "actual_cx": 576,
+          "actual_cy": 306,
+          "predicted_cx": 573,
+          "predicted_cy": 312,
+          "confidence": 0.116
+        }
+      ]
+    },
+    {
+      "frame": 849,
+      "time_sec": 28.3,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 21,
+          "actual_cx": 574,
+          "actual_cy": 316,
+          "predicted_cx": 575,
+          "predicted_cy": 310,
+          "confidence": 0.63
+        }
+      ]
+    },
+    {
+      "frame": 852,
+      "time_sec": 28.4,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 21,
+          "actual_cx": 572,
+          "actual_cy": 323,
+          "predicted_cx": 574,
+          "predicted_cy": 318,
+          "confidence": 0.277
+        }
+      ]
+    },
+    {
+      "frame": 855,
+      "time_sec": 28.5,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 21,
+          "actual_cx": 570,
+          "actual_cy": 323,
+          "predicted_cx": 572,
+          "predicted_cy": 325,
+          "confidence": 0.435
+        }
+      ]
+    },
+    {
+      "frame": 858,
+      "time_sec": 28.6,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 21,
+          "actual_cx": 569,
+          "actual_cy": 328,
+          "predicted_cx": 570,
+          "predicted_cy": 327,
+          "confidence": 0.485
+        }
+      ]
+    },
+    {
+      "frame": 861,
+      "time_sec": 28.7,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 21,
+          "actual_cx": 568,
+          "actual_cy": 333,
+          "predicted_cx": 568,
+          "predicted_cy": 332,
+          "confidence": 0.553
+        }
+      ]
+    },
+    {
+      "frame": 864,
+      "time_sec": 28.8,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 21,
+          "actual_cx": 568,
+          "actual_cy": 338,
+          "predicted_cx": 568,
+          "predicted_cy": 336,
+          "confidence": 0.399
+        }
+      ]
+    },
+    {
+      "frame": 867,
+      "time_sec": 28.9,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 21,
+          "actual_cx": 569,
+          "actual_cy": 344,
+          "predicted_cx": 567,
+          "predicted_cy": 342,
+          "confidence": 0.648
+        }
+      ]
+    },
+    {
+      "frame": 870,
+      "time_sec": 29.0,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 21,
+          "actual_cx": 566,
+          "actual_cy": 348,
+          "predicted_cx": 568,
+          "predicted_cy": 348,
+          "confidence": 0.739
+        }
+      ]
+    },
+    {
+      "frame": 873,
+      "time_sec": 29.1,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 21,
+          "actual_cx": 566,
+          "actual_cy": 350,
+          "predicted_cx": 566,
+          "predicted_cy": 353,
+          "confidence": 0.707
+        }
+      ]
+    },
+    {
+      "frame": 876,
+      "time_sec": 29.2,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 21,
+          "actual_cx": 566,
+          "actual_cy": 356,
+          "predicted_cx": 566,
+          "predicted_cy": 356,
+          "confidence": 0.682
+        }
+      ]
+    },
+    {
+      "frame": 879,
+      "time_sec": 29.3,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 21,
+          "actual_cx": 565,
+          "actual_cy": 361,
+          "predicted_cx": 566,
+          "predicted_cy": 361,
+          "confidence": 0.57
+        }
+      ]
+    },
+    {
+      "frame": 882,
+      "time_sec": 29.4,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 21,
+          "actual_cx": 562,
+          "actual_cy": 369,
+          "predicted_cx": 565,
+          "predicted_cy": 366,
+          "confidence": 0.463
+        },
+        {
+          "track_id": 22,
+          "actual_cx": 600,
+          "actual_cy": 282,
+          "predicted_cx": 614,
+          "predicted_cy": 282,
+          "confidence": 0.129
+        }
+      ]
+    },
+    {
+      "frame": 885,
+      "time_sec": 29.5,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 21,
+          "actual_cx": 562,
+          "actual_cy": 371,
+          "predicted_cx": 562,
+          "predicted_cy": 374,
+          "confidence": 0.193
+        }
+      ]
+    },
+    {
+      "frame": 888,
+      "time_sec": 29.6,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 21,
+          "actual_cx": 560,
+          "actual_cy": 380,
+          "predicted_cx": 561,
+          "predicted_cy": 378,
+          "confidence": 0.201
+        },
+        {
+          "track_id": 22,
+          "actual_cx": 591,
+          "actual_cy": 296,
+          "predicted_cx": 587,
+          "predicted_cy": 305,
+          "confidence": 0.127
+        }
+      ]
+    },
+    {
+      "frame": 915,
+      "time_sec": 30.5,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 23,
+          "actual_cx": 579,
+          "actual_cy": 329,
+          "predicted_cx": 580,
+          "predicted_cy": 327,
+          "confidence": 0.122
+        }
+      ]
+    },
+    {
+      "frame": 942,
+      "time_sec": 31.4,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 24,
+          "actual_cx": 560,
+          "actual_cy": 376,
+          "predicted_cx": 566,
+          "predicted_cy": 368,
+          "confidence": 0.15
+        }
+      ]
+    },
+    {
+      "frame": 957,
+      "time_sec": 31.9,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 25,
+          "actual_cx": 540,
+          "actual_cy": 406,
+          "predicted_cx": 546,
+          "predicted_cy": 397,
+          "confidence": 0.394
+        }
+      ]
+    },
+    {
+      "frame": 960,
+      "time_sec": 32.0,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 25,
+          "actual_cx": 538,
+          "actual_cy": 412,
+          "predicted_cx": 537,
+          "predicted_cy": 415,
+          "confidence": 0.392
+        }
+      ]
+    },
+    {
+      "frame": 969,
+      "time_sec": 32.3,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 25,
+          "actual_cx": 523,
+          "actual_cy": 430,
+          "predicted_cx": 523,
+          "predicted_cy": 446,
+          "confidence": 0.526
+        }
+      ]
+    },
+    {
+      "frame": 975,
+      "time_sec": 32.5,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 25,
+          "actual_cx": 518,
+          "actual_cy": 440,
+          "predicted_cx": 518,
+          "predicted_cy": 441,
+          "confidence": 0.456
+        }
+      ]
+    },
+    {
+      "frame": 1035,
+      "time_sec": 34.5,
+      "alert_level": "green",
+      "tracks": [
+        {
+          "track_id": 26,
+          "actual_cx": 642,
+          "actual_cy": 258,
+          "predicted_cx": 644,
+          "predicted_cy": 258,
+          "confidence": 0.113
+        }
+      ]
+    },
+    {
+      "frame": 1074,
+      "time_sec": 35.8,
+      "alert_level": "green",
+      "tracks": [
+        {
+          "track_id": 27,
+          "actual_cx": 556,
+          "actual_cy": 292,
+          "predicted_cx": 558,
+          "predicted_cy": 290,
+          "confidence": 0.224
+        }
+      ]
+    },
+    {
+      "frame": 1077,
+      "time_sec": 35.9,
+      "alert_level": "green",
+      "tracks": [
+        {
+          "track_id": 27,
+          "actual_cx": 554,
+          "actual_cy": 301,
+          "predicted_cx": 555,
+          "predicted_cy": 295,
+          "confidence": 0.113
+        }
+      ]
+    },
+    {
+      "frame": 1080,
+      "time_sec": 36.0,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 27,
+          "actual_cx": 553,
+          "actual_cy": 304,
+          "predicted_cx": 552,
+          "predicted_cy": 315,
+          "confidence": 0.116
+        }
+      ]
+    },
+    {
+      "frame": 1092,
+      "time_sec": 36.4,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 27,
+          "actual_cx": 538,
+          "actual_cy": 316,
+          "predicted_cx": 544,
+          "predicted_cy": 334,
+          "confidence": 0.262
+        }
+      ]
+    },
+    {
+      "frame": 1095,
+      "time_sec": 36.5,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 27,
+          "actual_cx": 534,
+          "actual_cy": 320,
+          "predicted_cx": 533,
+          "predicted_cy": 317,
+          "confidence": 0.331
+        }
+      ]
+    },
+    {
+      "frame": 1098,
+      "time_sec": 36.6,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 27,
+          "actual_cx": 532,
+          "actual_cy": 327,
+          "predicted_cx": 528,
+          "predicted_cy": 320,
+          "confidence": 0.332
+        }
+      ]
+    },
+    {
+      "frame": 1101,
+      "time_sec": 36.7,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 27,
+          "actual_cx": 529,
+          "actual_cy": 332,
+          "predicted_cx": 526,
+          "predicted_cy": 329,
+          "confidence": 0.323
+        }
+      ]
+    },
+    {
+      "frame": 1104,
+      "time_sec": 36.8,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 27,
+          "actual_cx": 527,
+          "actual_cy": 333,
+          "predicted_cx": 524,
+          "predicted_cy": 336,
+          "confidence": 0.336
+        }
+      ]
+    },
+    {
+      "frame": 1107,
+      "time_sec": 36.9,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 27,
+          "actual_cx": 524,
+          "actual_cy": 336,
+          "predicted_cx": 523,
+          "predicted_cy": 339,
+          "confidence": 0.159
+        }
+      ]
+    },
+    {
+      "frame": 1110,
+      "time_sec": 37.0,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 27,
+          "actual_cx": 520,
+          "actual_cy": 340,
+          "predicted_cx": 521,
+          "predicted_cy": 340,
+          "confidence": 0.171
+        }
+      ]
+    },
+    {
+      "frame": 1113,
+      "time_sec": 37.1,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 27,
+          "actual_cx": 518,
+          "actual_cy": 343,
+          "predicted_cx": 518,
+          "predicted_cy": 344,
+          "confidence": 0.123
+        }
+      ]
+    },
+    {
+      "frame": 1116,
+      "time_sec": 37.2,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 27,
+          "actual_cx": 513,
+          "actual_cy": 346,
+          "predicted_cx": 516,
+          "predicted_cy": 346,
+          "confidence": 0.263
+        }
+      ]
+    },
+    {
+      "frame": 1119,
+      "time_sec": 37.3,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 27,
+          "actual_cx": 511,
+          "actual_cy": 351,
+          "predicted_cx": 511,
+          "predicted_cy": 350,
+          "confidence": 0.236
+        }
+      ]
+    },
+    {
+      "frame": 1122,
+      "time_sec": 37.4,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 27,
+          "actual_cx": 508,
+          "actual_cy": 354,
+          "predicted_cx": 508,
+          "predicted_cy": 354,
+          "confidence": 0.28
+        }
+      ]
+    },
+    {
+      "frame": 1125,
+      "time_sec": 37.5,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 27,
+          "actual_cx": 507,
+          "actual_cy": 356,
+          "predicted_cx": 505,
+          "predicted_cy": 357,
+          "confidence": 0.243
+        }
+      ]
+    },
+    {
+      "frame": 1128,
+      "time_sec": 37.6,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 27,
+          "actual_cx": 502,
+          "actual_cy": 362,
+          "predicted_cx": 503,
+          "predicted_cy": 359,
+          "confidence": 0.305
+        }
+      ]
+    },
+    {
+      "frame": 1131,
+      "time_sec": 37.7,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 27,
+          "actual_cx": 499,
+          "actual_cy": 364,
+          "predicted_cx": 500,
+          "predicted_cy": 365,
+          "confidence": 0.212
+        }
+      ]
+    },
+    {
+      "frame": 1137,
+      "time_sec": 37.9,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 27,
+          "actual_cx": 492,
+          "actual_cy": 374,
+          "predicted_cx": 493,
+          "predicted_cy": 371,
+          "confidence": 0.127
+        }
+      ]
+    },
+    {
+      "frame": 1140,
+      "time_sec": 38.0,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 27,
+          "actual_cx": 489,
+          "actual_cy": 376,
+          "predicted_cx": 488,
+          "predicted_cy": 377,
+          "confidence": 0.136
+        }
+      ]
+    },
+    {
+      "frame": 1143,
+      "time_sec": 38.1,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 27,
+          "actual_cx": 488,
+          "actual_cy": 374,
+          "predicted_cx": 485,
+          "predicted_cy": 380,
+          "confidence": 0.121
+        }
+      ]
+    },
+    {
+      "frame": 1146,
+      "time_sec": 38.2,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 27,
+          "actual_cx": 487,
+          "actual_cy": 376,
+          "predicted_cx": 484,
+          "predicted_cy": 379,
+          "confidence": 0.166
+        }
+      ]
+    },
+    {
+      "frame": 1149,
+      "time_sec": 38.3,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 27,
+          "actual_cx": 480,
+          "actual_cy": 383,
+          "predicted_cx": 484,
+          "predicted_cy": 378,
+          "confidence": 0.126
+        }
+      ]
+    },
+    {
+      "frame": 1152,
+      "time_sec": 38.4,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 27,
+          "actual_cx": 479,
+          "actual_cy": 384,
+          "predicted_cx": 479,
+          "predicted_cy": 383,
+          "confidence": 0.115
+        }
+      ]
+    },
+    {
+      "frame": 1155,
+      "time_sec": 38.5,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 27,
+          "actual_cx": 476,
+          "actual_cy": 385,
+          "predicted_cx": 476,
+          "predicted_cy": 386,
+          "confidence": 0.177
+        }
+      ]
+    },
+    {
+      "frame": 1218,
+      "time_sec": 40.6,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 31,
+          "actual_cx": 739,
+          "actual_cy": 266,
+          "predicted_cx": 741,
+          "predicted_cy": 282,
+          "confidence": 0.122
+        }
+      ]
+    },
+    {
+      "frame": 1221,
+      "time_sec": 40.7,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 31,
+          "actual_cx": 740,
+          "actual_cy": 251,
+          "predicted_cx": 740,
+          "predicted_cy": 236,
+          "confidence": 0.376
+        }
+      ]
+    },
+    {
+      "frame": 1227,
+      "time_sec": 40.9,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 31,
+          "actual_cx": 742,
+          "actual_cy": 240,
+          "predicted_cx": 746,
+          "predicted_cy": 243,
+          "confidence": 0.132
+        },
+        {
+          "track_id": 32,
+          "actual_cx": 741,
+          "actual_cy": 262,
+          "predicted_cx": 742,
+          "predicted_cy": 269,
+          "confidence": 0.216
+        }
+      ]
+    },
+    {
+      "frame": 1266,
+      "time_sec": 42.2,
+      "alert_level": "green",
+      "tracks": [
+        {
+          "track_id": 33,
+          "actual_cx": 808,
+          "actual_cy": 424,
+          "predicted_cx": 809,
+          "predicted_cy": 439,
+          "confidence": 0.176
+        }
+      ]
+    },
+    {
+      "frame": 1269,
+      "time_sec": 42.3,
+      "alert_level": "green",
+      "tracks": [
+        {
+          "track_id": 33,
+          "actual_cx": 809,
+          "actual_cy": 395,
+          "predicted_cx": 808,
+          "predicted_cy": 416,
+          "confidence": 0.463
+        }
+      ]
+    },
+    {
+      "frame": 1272,
+      "time_sec": 42.4,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 33,
+          "actual_cx": 810,
+          "actual_cy": 372,
+          "predicted_cx": 810,
+          "predicted_cy": 357,
+          "confidence": 0.459
+        }
+      ]
+    },
+    {
+      "frame": 1275,
+      "time_sec": 42.5,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 33,
+          "actual_cx": 810,
+          "actual_cy": 360,
+          "predicted_cx": 812,
+          "predicted_cy": 338,
+          "confidence": 0.322
+        }
+      ]
+    },
+    {
+      "frame": 1278,
+      "time_sec": 42.6,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 33,
+          "actual_cx": 810,
+          "actual_cy": 348,
+          "predicted_cx": 810,
+          "predicted_cy": 340,
+          "confidence": 0.132
+        }
+      ]
+    },
+    {
+      "frame": 1296,
+      "time_sec": 43.2,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 34,
+          "actual_cx": 632,
+          "actual_cy": 214,
+          "predicted_cx": 634,
+          "predicted_cy": 214,
+          "confidence": 0.277
+        }
+      ]
+    },
+    {
+      "frame": 1299,
+      "time_sec": 43.3,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 34,
+          "actual_cx": 632,
+          "actual_cy": 224,
+          "predicted_cx": 631,
+          "predicted_cy": 218,
+          "confidence": 0.122
+        }
+      ]
+    },
+    {
+      "frame": 1302,
+      "time_sec": 43.4,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 34,
+          "actual_cx": 628,
+          "actual_cy": 228,
+          "predicted_cx": 631,
+          "predicted_cy": 238,
+          "confidence": 0.442
+        },
+        {
+          "track_id": 35,
+          "actual_cx": 806,
+          "actual_cy": 270,
+          "predicted_cx": 806,
+          "predicted_cy": 276,
+          "confidence": 0.616
+        }
+      ]
+    },
+    {
+      "frame": 1305,
+      "time_sec": 43.5,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 34,
+          "actual_cx": 624,
+          "actual_cy": 234,
+          "predicted_cx": 626,
+          "predicted_cy": 236,
+          "confidence": 0.325
+        },
+        {
+          "track_id": 35,
+          "actual_cx": 803,
+          "actual_cy": 260,
+          "predicted_cx": 806,
+          "predicted_cy": 268,
+          "confidence": 0.444
+        }
+      ]
+    },
+    {
+      "frame": 1308,
+      "time_sec": 43.6,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 35,
+          "actual_cx": 804,
+          "actual_cy": 256,
+          "predicted_cx": 800,
+          "predicted_cy": 249,
+          "confidence": 0.621
+        }
+      ]
+    },
+    {
+      "frame": 1311,
+      "time_sec": 43.7,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 34,
+          "actual_cx": 619,
+          "actual_cy": 238,
+          "predicted_cx": 619,
+          "predicted_cy": 242,
+          "confidence": 0.386
+        },
+        {
+          "track_id": 35,
+          "actual_cx": 803,
+          "actual_cy": 250,
+          "predicted_cx": 804,
+          "predicted_cy": 248,
+          "confidence": 0.565
+        },
+        {
+          "track_id": 36,
+          "actual_cx": 738,
+          "actual_cy": 298,
+          "predicted_cx": 736,
+          "predicted_cy": 306,
+          "confidence": 0.304
+        }
+      ]
+    },
+    {
+      "frame": 1314,
+      "time_sec": 43.8,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 34,
+          "actual_cx": 616,
+          "actual_cy": 242,
+          "predicted_cx": 615,
+          "predicted_cy": 240,
+          "confidence": 0.156
+        },
+        {
+          "track_id": 36,
+          "actual_cx": 742,
+          "actual_cy": 294,
+          "predicted_cx": 739,
+          "predicted_cy": 294,
+          "confidence": 0.103
+        }
+      ]
+    },
+    {
+      "frame": 1317,
+      "time_sec": 43.9,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 34,
           "actual_cx": 612,
-          "actual_cy": 310,
-          "predicted_cx": 621,
-          "predicted_cy": 314,
-          "confidence": 0.214
+          "actual_cy": 242,
+          "predicted_cx": 611,
+          "predicted_cy": 243,
+          "confidence": 0.174
+        },
+        {
+          "track_id": 35,
+          "actual_cx": 800,
+          "actual_cy": 238,
+          "predicted_cx": 803,
+          "predicted_cy": 237,
+          "confidence": 0.676
+        },
+        {
+          "track_id": 36,
+          "actual_cx": 745,
+          "actual_cy": 288,
+          "predicted_cx": 746,
+          "predicted_cy": 291,
+          "confidence": 0.1
+        }
+      ]
+    },
+    {
+      "frame": 1320,
+      "time_sec": 44.0,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 34,
+          "actual_cx": 608,
+          "actual_cy": 248,
+          "predicted_cx": 607,
+          "predicted_cy": 242,
+          "confidence": 0.145
+        },
+        {
+          "track_id": 35,
+          "actual_cx": 800,
+          "actual_cy": 235,
+          "predicted_cx": 800,
+          "predicted_cy": 232,
+          "confidence": 0.667
+        }
+      ]
+    },
+    {
+      "frame": 1326,
+      "time_sec": 44.2,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 35,
+          "actual_cx": 800,
+          "actual_cy": 229,
+          "predicted_cx": 798,
+          "predicted_cy": 226,
+          "confidence": 0.572
+        }
+      ]
+    },
+    {
+      "frame": 1329,
+      "time_sec": 44.3,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 35,
+          "actual_cx": 799,
+          "actual_cy": 226,
+          "predicted_cx": 799,
+          "predicted_cy": 226,
+          "confidence": 0.442
+        }
+      ]
+    },
+    {
+      "frame": 1332,
+      "time_sec": 44.4,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 35,
+          "actual_cx": 798,
+          "actual_cy": 218,
+          "predicted_cx": 799,
+          "predicted_cy": 224,
+          "confidence": 0.27
+        }
+      ]
+    },
+    {
+      "frame": 1335,
+      "time_sec": 44.5,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 35,
+          "actual_cx": 798,
+          "actual_cy": 216,
+          "predicted_cx": 798,
+          "predicted_cy": 218,
+          "confidence": 0.511
+        },
+        {
+          "track_id": 37,
+          "actual_cx": 753,
+          "actual_cy": 253,
+          "predicted_cx": 749,
+          "predicted_cy": 265,
+          "confidence": 0.289
+        }
+      ]
+    },
+    {
+      "frame": 1338,
+      "time_sec": 44.6,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 35,
+          "actual_cx": 796,
+          "actual_cy": 214,
+          "predicted_cx": 798,
+          "predicted_cy": 213,
+          "confidence": 0.307
+        }
+      ]
+    },
+    {
+      "frame": 1341,
+      "time_sec": 44.7,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 35,
+          "actual_cx": 795,
+          "actual_cy": 212,
+          "predicted_cx": 796,
+          "predicted_cy": 211,
+          "confidence": 0.363
+        },
+        {
+          "track_id": 37,
+          "actual_cx": 753,
+          "actual_cy": 242,
+          "predicted_cx": 760,
+          "predicted_cy": 244,
+          "confidence": 0.103
+        }
+      ]
+    },
+    {
+      "frame": 1344,
+      "time_sec": 44.8,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 35,
+          "actual_cx": 795,
+          "actual_cy": 212,
+          "predicted_cx": 794,
+          "predicted_cy": 209,
+          "confidence": 0.414
+        },
+        {
+          "track_id": 37,
+          "actual_cx": 755,
+          "actual_cy": 238,
+          "predicted_cx": 752,
+          "predicted_cy": 234,
+          "confidence": 0.393
+        }
+      ]
+    },
+    {
+      "frame": 1356,
+      "time_sec": 45.2,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 39,
+          "actual_cx": 571,
+          "actual_cy": 294,
+          "predicted_cx": 574,
+          "predicted_cy": 293,
+          "confidence": 0.376
+        }
+      ]
+    },
+    {
+      "frame": 1365,
+      "time_sec": 45.5,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 39,
+          "actual_cx": 562,
+          "actual_cy": 299,
+          "predicted_cx": 562,
+          "predicted_cy": 310,
+          "confidence": 0.279
+        }
+      ]
+    },
+    {
+      "frame": 1377,
+      "time_sec": 45.9,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 41,
+          "actual_cx": 791,
+          "actual_cy": 247,
+          "predicted_cx": 789,
+          "predicted_cy": 251,
+          "confidence": 0.555
+        }
+      ]
+    },
+    {
+      "frame": 1380,
+      "time_sec": 46.0,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 41,
+          "actual_cx": 792,
+          "actual_cy": 247,
+          "predicted_cx": 792,
+          "predicted_cy": 236,
+          "confidence": 0.545
+        }
+      ]
+    },
+    {
+      "frame": 1413,
+      "time_sec": 47.1,
+      "alert_level": "green",
+      "tracks": [
+        {
+          "track_id": 42,
+          "actual_cx": 715,
+          "actual_cy": 346,
+          "predicted_cx": 712,
+          "predicted_cy": 352,
+          "confidence": 0.247
+        }
+      ]
+    },
+    {
+      "frame": 1446,
+      "time_sec": 48.2,
+      "alert_level": "green",
+      "tracks": [
+        {
+          "track_id": 43,
+          "actual_cx": 826,
+          "actual_cy": 482,
+          "predicted_cx": 826,
+          "predicted_cy": 494,
+          "confidence": 0.266
+        }
+      ]
+    },
+    {
+      "frame": 1449,
+      "time_sec": 48.3,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 43,
+          "actual_cx": 826,
+          "actual_cy": 461,
+          "predicted_cx": 824,
+          "predicted_cy": 457,
+          "confidence": 0.17
+        }
+      ]
+    },
+    {
+      "frame": 1452,
+      "time_sec": 48.4,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 43,
+          "actual_cx": 826,
+          "actual_cy": 449,
+          "predicted_cx": 826,
+          "predicted_cy": 433,
+          "confidence": 0.141
+        }
+      ]
+    },
+    {
+      "frame": 1455,
+      "time_sec": 48.5,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 43,
+          "actual_cx": 826,
+          "actual_cy": 432,
+          "predicted_cx": 826,
+          "predicted_cy": 429,
+          "confidence": 0.127
+        }
+      ]
+    },
+    {
+      "frame": 1458,
+      "time_sec": 48.6,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 43,
+          "actual_cx": 826,
+          "actual_cy": 414,
+          "predicted_cx": 826,
+          "predicted_cy": 414,
+          "confidence": 0.266
+        }
+      ]
+    },
+    {
+      "frame": 1461,
+      "time_sec": 48.7,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 43,
+          "actual_cx": 824,
+          "actual_cy": 402,
+          "predicted_cx": 826,
+          "predicted_cy": 397,
+          "confidence": 0.352
+        }
+      ]
+    },
+    {
+      "frame": 1464,
+      "time_sec": 48.8,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 43,
+          "actual_cx": 824,
+          "actual_cy": 390,
+          "predicted_cx": 825,
+          "predicted_cy": 386,
+          "confidence": 0.383
+        }
+      ]
+    },
+    {
+      "frame": 1467,
+      "time_sec": 48.9,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 43,
+          "actual_cx": 824,
+          "actual_cy": 378,
+          "predicted_cx": 824,
+          "predicted_cy": 376,
+          "confidence": 0.187
+        }
+      ]
+    },
+    {
+      "frame": 1470,
+      "time_sec": 49.0,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 43,
+          "actual_cx": 823,
+          "actual_cy": 366,
+          "predicted_cx": 823,
+          "predicted_cy": 367,
+          "confidence": 0.197
+        }
+      ]
+    },
+    {
+      "frame": 1473,
+      "time_sec": 49.1,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 43,
+          "actual_cx": 824,
+          "actual_cy": 360,
+          "predicted_cx": 823,
+          "predicted_cy": 356,
+          "confidence": 0.403
+        }
+      ]
+    },
+    {
+      "frame": 1476,
+      "time_sec": 49.2,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 43,
+          "actual_cx": 824,
+          "actual_cy": 350,
+          "predicted_cx": 823,
+          "predicted_cy": 350,
+          "confidence": 0.421
+        }
+      ]
+    },
+    {
+      "frame": 1479,
+      "time_sec": 49.3,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 43,
+          "actual_cx": 822,
+          "actual_cy": 339,
+          "predicted_cx": 823,
+          "predicted_cy": 343,
+          "confidence": 0.15
+        }
+      ]
+    },
+    {
+      "frame": 1482,
+      "time_sec": 49.4,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 43,
+          "actual_cx": 822,
+          "actual_cy": 328,
+          "predicted_cx": 822,
+          "predicted_cy": 334,
+          "confidence": 0.174
+        }
+      ]
+    },
+    {
+      "frame": 1485,
+      "time_sec": 49.5,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 43,
+          "actual_cx": 822,
+          "actual_cy": 318,
+          "predicted_cx": 822,
+          "predicted_cy": 324,
+          "confidence": 0.11
+        }
+      ]
+    },
+    {
+      "frame": 1488,
+      "time_sec": 49.6,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 43,
+          "actual_cx": 822,
+          "actual_cy": 312,
+          "predicted_cx": 822,
+          "predicted_cy": 313,
+          "confidence": 0.11
+        }
+      ]
+    },
+    {
+      "frame": 1491,
+      "time_sec": 49.7,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 43,
+          "actual_cx": 820,
+          "actual_cy": 305,
+          "predicted_cx": 821,
+          "predicted_cy": 305,
+          "confidence": 0.125
+        }
+      ]
+    },
+    {
+      "frame": 1551,
+      "time_sec": 51.7,
+      "alert_level": "green",
+      "tracks": [
+        {
+          "track_id": 44,
+          "actual_cx": 798,
+          "actual_cy": 316,
+          "predicted_cx": 798,
+          "predicted_cy": 322,
+          "confidence": 0.542
+        },
+        {
+          "track_id": 45,
+          "actual_cx": 728,
+          "actual_cy": 284,
+          "predicted_cx": 727,
+          "predicted_cy": 286,
+          "confidence": 0.278
+        }
+      ]
+    },
+    {
+      "frame": 1554,
+      "time_sec": 51.8,
+      "alert_level": "green",
+      "tracks": [
+        {
+          "track_id": 44,
+          "actual_cx": 798,
+          "actual_cy": 312,
+          "predicted_cx": 798,
+          "predicted_cy": 315,
+          "confidence": 0.702
+        }
+      ]
+    },
+    {
+      "frame": 1557,
+      "time_sec": 51.9,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 44,
+          "actual_cx": 796,
+          "actual_cy": 300,
+          "predicted_cx": 798,
+          "predicted_cy": 307,
+          "confidence": 0.192
+        }
+      ]
+    },
+    {
+      "frame": 1560,
+      "time_sec": 52.0,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 46,
+          "actual_cx": 518,
+          "actual_cy": 427,
+          "predicted_cx": 522,
+          "predicted_cy": 430,
+          "confidence": 0.155
+        },
+        {
+          "track_id": 47,
+          "actual_cx": 544,
+          "actual_cy": 422,
+          "predicted_cx": 551,
+          "predicted_cy": 420,
+          "confidence": 0.366
+        }
+      ]
+    },
+    {
+      "frame": 1563,
+      "time_sec": 52.1,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 46,
+          "actual_cx": 516,
+          "actual_cy": 434,
+          "predicted_cx": 516,
+          "predicted_cy": 430,
+          "confidence": 0.228
+        },
+        {
+          "track_id": 47,
+          "actual_cx": 528,
+          "actual_cy": 429,
+          "predicted_cx": 538,
+          "predicted_cy": 428,
+          "confidence": 0.113
+        }
+      ]
+    },
+    {
+      "frame": 1641,
+      "time_sec": 54.7,
+      "alert_level": "green",
+      "tracks": [
+        {
+          "track_id": 51,
+          "actual_cx": 578,
+          "actual_cy": 378,
+          "predicted_cx": 582,
+          "predicted_cy": 380,
+          "confidence": 0.213
+        }
+      ]
+    },
+    {
+      "frame": 1650,
+      "time_sec": 55.0,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 51,
+          "actual_cx": 557,
+          "actual_cy": 403,
+          "predicted_cx": 566,
+          "predicted_cy": 393,
+          "confidence": 0.537
+        }
+      ]
+    },
+    {
+      "frame": 1653,
+      "time_sec": 55.1,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 51,
+          "actual_cx": 556,
+          "actual_cy": 406,
+          "predicted_cx": 546,
+          "predicted_cy": 417,
+          "confidence": 0.501
+        }
+      ]
+    },
+    {
+      "frame": 1656,
+      "time_sec": 55.2,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 51,
+          "actual_cx": 552,
+          "actual_cy": 408,
+          "predicted_cx": 548,
+          "predicted_cy": 417,
+          "confidence": 0.213
+        }
+      ]
+    },
+    {
+      "frame": 1659,
+      "time_sec": 55.3,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 51,
+          "actual_cx": 543,
+          "actual_cy": 412,
+          "predicted_cx": 548,
+          "predicted_cy": 413,
+          "confidence": 0.609
+        }
+      ]
+    },
+    {
+      "frame": 1662,
+      "time_sec": 55.4,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 51,
+          "actual_cx": 539,
+          "actual_cy": 423,
+          "predicted_cx": 538,
+          "predicted_cy": 414,
+          "confidence": 0.525
+        }
+      ]
+    },
+    {
+      "frame": 1665,
+      "time_sec": 55.5,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 51,
+          "actual_cx": 530,
+          "actual_cy": 429,
+          "predicted_cx": 533,
+          "predicted_cy": 426,
+          "confidence": 0.691
+        }
+      ]
+    },
+    {
+      "frame": 1668,
+      "time_sec": 55.6,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 51,
+          "actual_cx": 520,
+          "actual_cy": 440,
+          "predicted_cx": 525,
+          "predicted_cy": 434,
+          "confidence": 0.578
+        }
+      ]
+    },
+    {
+      "frame": 1671,
+      "time_sec": 55.7,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 51,
+          "actual_cx": 514,
+          "actual_cy": 450,
+          "predicted_cx": 514,
+          "predicted_cy": 446,
+          "confidence": 0.366
+        }
+      ]
+    },
+    {
+      "frame": 1674,
+      "time_sec": 55.8,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 51,
+          "actual_cx": 506,
+          "actual_cy": 458,
+          "predicted_cx": 506,
+          "predicted_cy": 457,
+          "confidence": 0.303
+        }
+      ]
+    },
+    {
+      "frame": 1677,
+      "time_sec": 55.9,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 51,
+          "actual_cx": 500,
+          "actual_cy": 462,
+          "predicted_cx": 498,
+          "predicted_cy": 468,
+          "confidence": 0.122
+        }
+      ]
+    },
+    {
+      "frame": 1737,
+      "time_sec": 57.9,
+      "alert_level": "green",
+      "tracks": [
+        {
+          "track_id": 52,
+          "actual_cx": 570,
+          "actual_cy": 374,
+          "predicted_cx": 577,
+          "predicted_cy": 360,
+          "confidence": 0.137
+        }
+      ]
+    },
+    {
+      "frame": 1773,
+      "time_sec": 59.1,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 55,
+          "actual_cx": 706,
+          "actual_cy": 436,
+          "predicted_cx": 700,
+          "predicted_cy": 452,
+          "confidence": 0.692
+        }
+      ]
+    },
+    {
+      "frame": 1776,
+      "time_sec": 59.2,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 55,
+          "actual_cx": 712,
+          "actual_cy": 420,
+          "predicted_cx": 711,
+          "predicted_cy": 428,
+          "confidence": 0.801
+        }
+      ]
+    },
+    {
+      "frame": 1779,
+      "time_sec": 59.3,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 53,
+          "actual_cx": 527,
+          "actual_cy": 427,
+          "predicted_cx": 554,
+          "predicted_cy": 436,
+          "confidence": 0.32
+        },
+        {
+          "track_id": 55,
+          "actual_cx": 714,
+          "actual_cy": 408,
+          "predicted_cx": 718,
+          "predicted_cy": 397,
+          "confidence": 0.798
+        }
+      ]
+    },
+    {
+      "frame": 1782,
+      "time_sec": 59.4,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 55,
+          "actual_cx": 715,
+          "actual_cy": 388,
+          "predicted_cx": 719,
+          "predicted_cy": 392,
+          "confidence": 0.653
+        }
+      ]
+    },
+    {
+      "frame": 1785,
+      "time_sec": 59.5,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 55,
+          "actual_cx": 720,
+          "actual_cy": 370,
+          "predicted_cx": 716,
+          "predicted_cy": 368,
+          "confidence": 0.659
+        }
+      ]
+    },
+    {
+      "frame": 1788,
+      "time_sec": 59.6,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 55,
+          "actual_cx": 724,
+          "actual_cy": 352,
+          "predicted_cx": 721,
+          "predicted_cy": 348,
+          "confidence": 0.526
+        }
+      ]
+    },
+    {
+      "frame": 1791,
+      "time_sec": 59.7,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 55,
+          "actual_cx": 728,
+          "actual_cy": 341,
+          "predicted_cx": 726,
+          "predicted_cy": 330,
+          "confidence": 0.55
+        }
+      ]
+    },
+    {
+      "frame": 1797,
+      "time_sec": 59.9,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 55,
+          "actual_cx": 730,
+          "actual_cy": 322,
+          "predicted_cx": 734,
+          "predicted_cy": 313,
+          "confidence": 0.709
+        }
+      ]
+    },
+    {
+      "frame": 1800,
+      "time_sec": 60.0,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 55,
+          "actual_cx": 732,
+          "actual_cy": 312,
+          "predicted_cx": 734,
+          "predicted_cy": 309,
+          "confidence": 0.373
+        }
+      ]
+    },
+    {
+      "frame": 1803,
+      "time_sec": 60.1,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 55,
+          "actual_cx": 734,
+          "actual_cy": 304,
+          "predicted_cx": 734,
+          "predicted_cy": 303,
+          "confidence": 0.809
+        }
+      ]
+    },
+    {
+      "frame": 1806,
+      "time_sec": 60.2,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 55,
+          "actual_cx": 734,
+          "actual_cy": 298,
+          "predicted_cx": 735,
+          "predicted_cy": 297,
+          "confidence": 0.765
+        }
+      ]
+    },
+    {
+      "frame": 1812,
+      "time_sec": 60.4,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 55,
+          "actual_cx": 738,
+          "actual_cy": 278,
+          "predicted_cx": 736,
+          "predicted_cy": 286,
+          "confidence": 0.589
+        }
+      ]
+    },
+    {
+      "frame": 1815,
+      "time_sec": 60.5,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 55,
+          "actual_cx": 740,
+          "actual_cy": 274,
+          "predicted_cx": 738,
+          "predicted_cy": 277,
+          "confidence": 0.496
+        }
+      ]
+    },
+    {
+      "frame": 1818,
+      "time_sec": 60.6,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 55,
+          "actual_cx": 741,
+          "actual_cy": 268,
+          "predicted_cx": 740,
+          "predicted_cy": 270,
+          "confidence": 0.686
+        }
+      ]
+    },
+    {
+      "frame": 1821,
+      "time_sec": 60.7,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 55,
+          "actual_cx": 743,
+          "actual_cy": 264,
+          "predicted_cx": 741,
+          "predicted_cy": 265,
+          "confidence": 0.761
+        }
+      ]
+    },
+    {
+      "frame": 1824,
+      "time_sec": 60.8,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 55,
+          "actual_cx": 744,
+          "actual_cy": 258,
+          "predicted_cx": 744,
+          "predicted_cy": 261,
+          "confidence": 0.604
+        }
+      ]
+    },
+    {
+      "frame": 1827,
+      "time_sec": 60.9,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 55,
+          "actual_cx": 746,
+          "actual_cy": 252,
+          "predicted_cx": 745,
+          "predicted_cy": 256,
+          "confidence": 0.639
+        }
+      ]
+    },
+    {
+      "frame": 1830,
+      "time_sec": 61.0,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 55,
+          "actual_cx": 746,
+          "actual_cy": 248,
+          "predicted_cx": 747,
+          "predicted_cy": 249,
+          "confidence": 0.683
+        }
+      ]
+    },
+    {
+      "frame": 1833,
+      "time_sec": 61.1,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 55,
+          "actual_cx": 748,
+          "actual_cy": 244,
+          "predicted_cx": 748,
+          "predicted_cy": 244,
+          "confidence": 0.633
+        }
+      ]
+    },
+    {
+      "frame": 1839,
+      "time_sec": 61.3,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 56,
+          "actual_cx": 748,
+          "actual_cy": 235,
+          "predicted_cx": 748,
+          "predicted_cy": 242,
+          "confidence": 0.685
+        }
+      ]
+    },
+    {
+      "frame": 1842,
+      "time_sec": 61.4,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 56,
+          "actual_cx": 748,
+          "actual_cy": 233,
+          "predicted_cx": 747,
+          "predicted_cy": 233,
+          "confidence": 0.565
+        }
+      ]
+    },
+    {
+      "frame": 1845,
+      "time_sec": 61.5,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 56,
+          "actual_cx": 749,
+          "actual_cy": 230,
+          "predicted_cx": 748,
+          "predicted_cy": 231,
+          "confidence": 0.47
+        }
+      ]
+    },
+    {
+      "frame": 1848,
+      "time_sec": 61.6,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 56,
+          "actual_cx": 750,
+          "actual_cy": 224,
+          "predicted_cx": 751,
+          "predicted_cy": 228,
+          "confidence": 0.183
+        }
+      ]
+    },
+    {
+      "frame": 1851,
+      "time_sec": 61.7,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 56,
+          "actual_cx": 750,
+          "actual_cy": 222,
+          "predicted_cx": 752,
+          "predicted_cy": 219,
+          "confidence": 0.165
+        }
+      ]
+    },
+    {
+      "frame": 1992,
+      "time_sec": 66.4,
+      "alert_level": "green",
+      "tracks": [
+        {
+          "track_id": 59,
+          "actual_cx": 842,
+          "actual_cy": 582,
+          "predicted_cx": 842,
+          "predicted_cy": 591,
+          "confidence": 0.741
+        }
+      ]
+    },
+    {
+      "frame": 1995,
+      "time_sec": 66.5,
+      "alert_level": "green",
+      "tracks": [
+        {
+          "track_id": 59,
+          "actual_cx": 840,
+          "actual_cy": 565,
+          "predicted_cx": 842,
+          "predicted_cy": 578,
+          "confidence": 0.607
+        }
+      ]
+    },
+    {
+      "frame": 1998,
+      "time_sec": 66.6,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 59,
+          "actual_cx": 840,
+          "actual_cy": 550,
+          "predicted_cx": 837,
+          "predicted_cy": 544,
+          "confidence": 0.785
+        }
+      ]
+    },
+    {
+      "frame": 2001,
+      "time_sec": 66.7,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 59,
+          "actual_cx": 838,
+          "actual_cy": 534,
+          "predicted_cx": 838,
+          "predicted_cy": 529,
+          "confidence": 0.832
+        }
+      ]
+    },
+    {
+      "frame": 2004,
+      "time_sec": 66.8,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 59,
+          "actual_cx": 838,
+          "actual_cy": 530,
+          "predicted_cx": 836,
+          "predicted_cy": 513,
+          "confidence": 0.83
+        }
+      ]
+    },
+    {
+      "frame": 2007,
+      "time_sec": 66.9,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 59,
+          "actual_cx": 835,
+          "actual_cy": 522,
+          "predicted_cx": 836,
+          "predicted_cy": 517,
+          "confidence": 0.744
+        }
+      ]
+    },
+    {
+      "frame": 2010,
+      "time_sec": 67.0,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 59,
+          "actual_cx": 834,
+          "actual_cy": 509,
+          "predicted_cx": 834,
+          "predicted_cy": 516,
+          "confidence": 0.837
+        }
+      ]
+    },
+    {
+      "frame": 2019,
+      "time_sec": 67.3,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 59,
+          "actual_cx": 832,
+          "actual_cy": 484,
+          "predicted_cx": 828,
+          "predicted_cy": 495,
+          "confidence": 0.811
+        }
+      ]
+    },
+    {
+      "frame": 2022,
+      "time_sec": 67.4,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 59,
+          "actual_cx": 830,
+          "actual_cy": 474,
+          "predicted_cx": 830,
+          "predicted_cy": 479,
+          "confidence": 0.821
+        }
+      ]
+    },
+    {
+      "frame": 2028,
+      "time_sec": 67.6,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 59,
+          "actual_cx": 829,
+          "actual_cy": 460,
+          "predicted_cx": 828,
+          "predicted_cy": 463,
+          "confidence": 0.748
+        }
+      ]
+    },
+    {
+      "frame": 2034,
+      "time_sec": 67.8,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 59,
+          "actual_cx": 827,
+          "actual_cy": 448,
+          "predicted_cx": 828,
+          "predicted_cy": 448,
+          "confidence": 0.836
+        }
+      ]
+    },
+    {
+      "frame": 2037,
+      "time_sec": 67.9,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 59,
+          "actual_cx": 826,
+          "actual_cy": 439,
+          "predicted_cx": 826,
+          "predicted_cy": 442,
+          "confidence": 0.744
+        }
+      ]
+    },
+    {
+      "frame": 2040,
+      "time_sec": 68.0,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 59,
+          "actual_cx": 824,
+          "actual_cy": 433,
+          "predicted_cx": 825,
+          "predicted_cy": 434,
+          "confidence": 0.76
+        }
+      ]
+    },
+    {
+      "frame": 2052,
+      "time_sec": 68.4,
+      "alert_level": "red",
+      "tracks": [
+        {
+          "track_id": 59,
+          "actual_cx": 823,
+          "actual_cy": 412,
+          "predicted_cx": 821,
+          "predicted_cy": 410,
+          "confidence": 0.79
+        }
+      ]
+    },
+    {
+      "frame": 2718,
+      "time_sec": 90.6,
+      "alert_level": "green",
+      "tracks": [
+        {
+          "track_id": 62,
+          "actual_cx": 758,
+          "actual_cy": 432,
+          "predicted_cx": 734,
+          "predicted_cy": 430,
+          "confidence": 0.151
         }
       ]
     }
   ],
   "alert_levels": {
-    "red": 19,
-    "orange": 40,
-    "yellow": 56,
-    "blue": 0,
-    "green": 385
+    "green": 524,
+    "yellow": 36,
+    "orange": 49,
+    "red": 444
   },
-  "total_alert_frames": 115
+  "total_alert_frames": 529
 }

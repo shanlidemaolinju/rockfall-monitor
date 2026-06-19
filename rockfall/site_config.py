@@ -635,6 +635,8 @@ PRESET_SITES: list[MonitoringSite] = [
         alert_blue_high=0.20,
         alert_yellow_high=0.40,
         alert_orange_high=0.70,
+        # 专属 ROI: 覆盖中央+右侧坡面 (此视频滑坡范围广，默认ROI右侧边界768太窄)
+        roi_polygon=[[128, 21], [128, 648], [1152, 648], [1152, 21]],
     ),
 ]
 

@@ -716,7 +716,7 @@ class RockDetector:
             if tfd_contours:
                 tfd_iou = float(RuntimeConfig.get("TFD_IOU_THRESHOLD", TFD_IOU_THRESHOLD))
                 raw_dets = filter_detections_by_motion(
-                    raw_dets, tfd_iou,
+                    raw_dets, tfd_contours, tfd_iou,
                 )
 
         # MOG2 中心点运动滤波 (Zhang2024) — 不依赖帧连续性, 始终可用

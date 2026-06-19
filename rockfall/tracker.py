@@ -117,8 +117,10 @@ class KalmanBoxTracker:
 
         state = self.kf.predict()
         x, y, s, r = state[:4, 0]
+        s = max(s, 1e-6)
+        r = max(r, 1e-6)
         w = max(np.sqrt(s * r), 1)
-        h = max(np.sqrt(s / max(r, 1e-6)), 1)
+        h = max(np.sqrt(s / r), 1)
         x1 = x - w / 2
         y1 = y - h / 2
         pred = np.array([x1, y1, x1 + w, y1 + h])
