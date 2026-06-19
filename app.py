@@ -3459,18 +3459,18 @@ def page_alert_records():
 
 def page_site_management():
     """点位管理页面: 查看/切换监测点位"""
+    active_site = get_active_site() if get_active_site is not None else None
+    all_sites = list_sites()
+
     st.markdown(f"""
     <div class="brand-header">
         <div>
             <div class="logo">点位管理</div>
-            <div style="font-size:0.8rem;opacity:0.85;">4个预设监测点位 &middot; 广西 + 东盟区域</div>
+            <div style="font-size:0.8rem;opacity:0.85;">{len(all_sites)} 个预设监测点位</div>
         </div>
         <div class="meta"><span>{APP_VERSION}</span></div>
     </div>
     """, unsafe_allow_html=True)
-
-    active_site = get_active_site() if get_active_site is not None else None
-    all_sites = list_sites()
 
     # ── 当前激活点位 ──
     st.subheader("当前点位")

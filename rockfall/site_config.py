@@ -332,13 +332,12 @@ class SiteStore:
     # ---- 种子数据迁移 ----
 
     def seed_from_presets(self, presets: list[MonitoringSite]) -> int:
-        """将预设点位写入 DB（仅当 DB 为空时执行），返回写入条数。"""
-        if self.count() > 0:
-            return 0
+        """将预设点位中缺失的条目写入 DB（upsert 语义），返回新增条数。"""
         count = 0
         for site in presets:
-            if self.insert(site):
-                count += 1
+            if self.get_by_id(site.site_id) is None:
+                if self.insert(site):
+                    count += 1
         return count
 
     # ---- 内部 ----
@@ -661,7 +660,7 @@ _active_site: MonitoringSite | None = None
 def _get_all_sites() -> list[MonitoringSite]:
     """
     获取全部站点。优先级: DB > PRESET_SITES fallback。
-    首次调用时若 DB 为空，自动将 PRESET_SITES 写入 DB。
+    每次调用自动将 PRESET_SITES 中新增的点位同步到 DB。
     """
     try:
         store = get_site_store()
@@ -674,6 +673,13 @@ def _get_all_sites() -> list[MonitoringSite]:
                 log_event("system", level="INFO",
                           msg=f"监测点位种子数据已写入 DB ({count} 条)")
             return list(PRESET_SITES)
+        # 自动同步 PRESET_SITES 中新增的点位到 DB
+        synced = store.seed_from_presets(PRESET_SITES)
+        if synced > 0:
+            from .logger import log_event
+            log_event("system", level="INFO",
+                      msg=f"监测点位: 自动同步 {synced} 个新增预设点位到 DB")
+            sites = store.list_all()  # 重新加载
         # 只返回启用的站点 (DB 来源)
         active = [s for s in sites if s.is_active]
         if not active:
@@ -707,6 +713,10 @@ def list_all_sites_admin() -> list[MonitoringSite]:
         if not sites:
             store.seed_from_presets(PRESET_SITES)
             return list(PRESET_SITES)
+        # 自动同步 PRESET_SITES 中新增的点位到 DB
+        synced = store.seed_from_presets(PRESET_SITES)
+        if synced > 0:
+            sites = store.list_all()
         return sites
     except Exception:
         return list(PRESET_SITES)
