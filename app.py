@@ -3514,6 +3514,95 @@ def page_site_management():
                     except ValueError as e:
                         st.error(str(e))
 
+    # ── 新增点位 ──
+    st.divider()
+    with st.expander("➕ 新增点位", expanded=False):
+        with st.form("add_site_form"):
+            st.caption("填写点位信息以添加新的监测点位")
+            col1, col2 = st.columns(2)
+            with col1:
+                new_site_id = st.text_input(
+                    "点位ID *", key="new_site_id",
+                    placeholder="如: gl_ys_s5",
+                    help="唯一标识符，仅允许字母、数字、下划线和连字符")
+                new_name = st.text_input(
+                    "点位名称 *", key="new_site_name",
+                    placeholder="如: 桂林阳朔高速 5 号边坡")
+                new_location = st.text_input(
+                    "地理位置", key="new_site_location",
+                    placeholder="报警推送中显示的位置名称")
+                new_region = st.text_input(
+                    "所属区域", key="new_site_region",
+                    placeholder="如: 广西·桂林")
+                new_lat = st.number_input(
+                    "纬度", key="new_site_lat",
+                    min_value=0.0, max_value=90.0, step=0.001,
+                    value=22.817, format="%.3f")
+                new_lng = st.number_input(
+                    "经度", key="new_site_lng",
+                    min_value=0.0, max_value=180.0, step=0.001,
+                    value=108.366, format="%.3f")
+            with col2:
+                new_highway = st.text_input(
+                    "所属公路", key="new_site_highway",
+                    placeholder="如: G75 兰海高速")
+                new_stake = st.text_input(
+                    "桩号", key="new_site_stake",
+                    placeholder="如: K1952+300")
+                new_risk = st.selectbox(
+                    "风险等级", key="new_site_risk",
+                    options=["high", "medium", "low"],
+                    format_func=lambda x: {"high": "⚠️ 高风险", "medium": "🔶 中风险", "low": "🟢 低风险"}.get(x, x))
+                new_camera = st.text_input(
+                    "摄像头地址 (RTSP/HTTP)", key="new_site_camera",
+                    placeholder="rtsp://... 或留空")
+                new_is_active = st.selectbox(
+                    "是否启用", key="new_site_active",
+                    options=[True, False],
+                    format_func=lambda x: "✅ 启用" if x else "❌ 停用")
+            new_desc = st.text_area(
+                "点位描述", key="new_site_desc",
+                placeholder="点位描述信息...")
+
+            submitted = st.form_submit_button("💾 保存点位", use_container_width=True)
+            if submitted:
+                if not new_site_id.strip():
+                    st.error("点位ID 不能为空")
+                elif not new_name.strip():
+                    st.error("点位名称不能为空")
+                else:
+                    try:
+                        from rockfall.site_config import (
+                            MonitoringSite, get_site_store, get_site_by_id,
+                        )
+                        # 检查重复
+                        existing = get_site_by_id(new_site_id.strip())
+                        if existing is not None:
+                            st.error(f"点位ID已存在: {new_site_id.strip()}")
+                        else:
+                            site = MonitoringSite(
+                                site_id=new_site_id.strip(),
+                                name=new_name.strip(),
+                                location=(new_location.strip() or new_name.strip()),
+                                region=new_region.strip(),
+                                camera_url=new_camera.strip(),
+                                description=new_desc.strip(),
+                                latitude=float(new_lat),
+                                longitude=float(new_lng),
+                                highway=new_highway.strip(),
+                                stake_mark=new_stake.strip(),
+                                risk_level=new_risk,
+                                is_active=bool(new_is_active),
+                            )
+                            store = get_site_store()
+                            if store.insert(site):
+                                st.success(f"✅ 点位 '{new_name}' 已添加")
+                                st.rerun()
+                            else:
+                                st.error("写入数据库失败")
+                    except Exception as e:
+                        st.error(f"保存失败: {e}")
+
     # ── 点位阈值配置 ──
     st.divider()
     st.subheader("检测灵敏度")
