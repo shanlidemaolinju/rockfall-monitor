@@ -3474,8 +3474,11 @@ def page_site_management():
 
     # ── 当前激活点位 ──
     st.subheader("当前点位")
-    with st.container():
-        _render_site_card(active_site, is_active=True, show_detail=True)
+    if active_site is None:
+        st.warning("⚠️ 未能加载激活点位，请检查系统配置和数据库连接")
+    else:
+        with st.container():
+            _render_site_card(active_site, is_active=True, show_detail=True)
 
     # ── 系统配置验证 ──
     st.divider()
@@ -3494,7 +3497,7 @@ def page_site_management():
 
     cols = st.columns(2)
     for i, site in enumerate(all_sites):
-        is_active = site.site_id == active_site.site_id
+        is_active = (active_site is not None and site.site_id == active_site.site_id)
         with cols[i % 2]:
             _render_site_card(site, is_active=is_active, show_detail=True)
 
@@ -3547,7 +3550,7 @@ def _render_site_threshold_editor(site):
         st.info("请先选择一个点位")
         return
 
-    thresholds = site.get_thresholds()
+    thresholds = _get_site_thresholds(site)
 
     # ── 灵敏度预设 ──
     st.caption("快捷预设")
@@ -3634,14 +3637,48 @@ def _render_site_threshold_editor(site):
                 st.error(f"保存失败: {e}")
 
 
+def _get_site_thresholds(site) -> dict:
+    """获取点位的有效检测阈值（兼容新旧版本 MonitoringSite）。
+
+    优先使用点位级配置 > 0 的值，否则回退到全局默认 (config.py)。
+    完全不依赖 MonitoringSite.get_thresholds 方法，兼容任何版本的 MonitoringSite。
+    """
+    from rockfall.config import (
+        DETECTION_CONFIDENCE as _DEF_CONF,
+        ALERT_BLUE_CONFIDENCE_LOW as _DEF_BLUE_LOW,
+        ALERT_BLUE_CONFIDENCE_HIGH as _DEF_BLUE_HIGH,
+        ALERT_YELLOW_CONFIDENCE_HIGH as _DEF_YELLOW_HIGH,
+        ALERT_ORANGE_CONFIDENCE_HIGH as _DEF_ORANGE_HIGH,
+    )
+
+    def _val(field_name: str, default: float) -> float:
+        v = getattr(site, field_name, 0)
+        if v is None:
+            v = 0
+        return float(v) if float(v) > 0 else default
+
+    return {
+        "detection_confidence": _val("detection_confidence", _DEF_CONF),
+        "alert_blue_low": _val("alert_blue_low", _DEF_BLUE_LOW),
+        "alert_blue_high": _val("alert_blue_high", _DEF_BLUE_HIGH),
+        "alert_yellow_high": _val("alert_yellow_high", _DEF_YELLOW_HIGH),
+        "alert_orange_high": _val("alert_orange_high", _DEF_ORANGE_HIGH),
+    }
+
+
 def _render_site_card(site: MonitoringSite, is_active: bool = False, show_detail: bool = False):
     """渲染单个点位卡片"""
+    if site is None:
+        st.warning("⚠️ 暂无激活的监测点位，请先选择一个点位")
+        return
+
+    thresholds = _get_site_thresholds(site)
+
     border_style = "2px solid #0d6efd" if is_active else "1px solid #dee2e6"
     bg_style = "#f0f7ff" if is_active else "#ffffff"
 
     with st.container():
         # 阈值信息
-        thresholds = site.get_thresholds()
         conf = thresholds["detection_confidence"]
         blue_low = thresholds["alert_blue_low"]
         thresh_str = f"🔍检测:{conf:.2f} 🔵≥{blue_low:.2f} 🟡≥{thresholds['alert_blue_high']:.2f} 🟠≥{thresholds['alert_yellow_high']:.2f} 🔴≥{thresholds['alert_orange_high']:.2f}"
