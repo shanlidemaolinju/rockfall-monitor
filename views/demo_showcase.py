@@ -201,7 +201,7 @@ def page_demo_showcase():
 
         with c_left:
             if frame_path.exists():
-                st.image(str(frame_path), use_container_width=True)
+                st.image(frame_path.read_bytes(), use_container_width=True)
 
             # 缩略图条
             cols = st.columns(min(len(key_frames), 15))
@@ -210,7 +210,7 @@ def page_demo_showcase():
                 with cols[i]:
                     is_current = i == st.session_state.demo_frame_idx
                     if fp_th.exists():
-                        st.image(str(fp_th), use_container_width=True)
+                        st.image(fp_th.read_bytes(), use_container_width=True)
                         if is_current:
                             st.markdown(f"""<div style="height:2px;background:{PRIMARY_BLUE};
                                 border-radius:1px;margin-top:-8px;"></div>""", unsafe_allow_html=True)

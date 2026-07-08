@@ -160,7 +160,7 @@ def page_extreme_scenarios():
                 fp = _ROOT / demo_scene.get("data_dir", "") / kf["thumbnail"]
                 with frame_cols[i % 2]:
                     if fp.exists():
-                        st.image(str(fp), use_container_width=True,
+                        st.image(fp.read_bytes(), use_container_width=True,
                                  caption=f"第{kf['frame_idx']}帧 | {ALERT_LABELS.get(kf['alert_level'], kf['alert_level'])} | {kf['track_count']} 个目标")
         else:
             st.info("示例帧暂不可用。运行 `python scripts/generate_demo.py` 生成演示数据。")
