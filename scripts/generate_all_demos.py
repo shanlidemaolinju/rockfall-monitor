@@ -5,7 +5,7 @@
 
 用法:
   # 为单个场景生成
-  python scripts/generate_all_demos.py /path/to/video.mp4 --scene nanning_naan_s1
+  python scripts/generate_all_demos.py /path/to/video.mp4 --scene qinzhou_demo
 
   # 批量生成 — 从 JSON 配置文件读取视频→场景映射
   python scripts/generate_all_demos.py --config demo_videos.json
@@ -13,13 +13,14 @@
   # 列出所有已注册场景及其数据状态
   python scripts/generate_all_demos.py --list
 
-配置文件格式 (demo_videos.json):
+配置ファイル形式 (demo_videos.json):
   {
-    "nanning_naan_s1": "/data/videos/nanning_s1_day.mp4",
-    "nanning_naan_s2": "/data/videos/nanning_s2_rain.mp4",
-    "qinzhou_s1":      "/data/videos/qinzhou_coast.mp4",
-    "guilin_g65_s1":   "/data/videos/guilin_night.mp4",
-    "baise_s1":        "/data/videos/baise_backlight.mp4"
+    "qinzhou_demo":  "/data/videos/qinzhou_demo.mp4",
+    "qinzhou_cam_2": "/data/videos/2.flv",
+    "qinzhou_cam_3": "/data/videos/3.flv",
+    "qinzhou_test_a": "/data/videos/VID_20230304_114247.mp4",
+    "qinzhou_test_b": "/data/videos/VID_20230304_153140.mp4",
+    "yibin_s1":      "/data/videos/yibin_landslide.mp4"
   }
 
 依赖: 需要 GPU 环境 (或足够 CPU 算力)
@@ -35,37 +36,43 @@ from pathlib import Path
 _THIS_DIR = Path(__file__).resolve().parent
 _ROOT_DIR = _THIS_DIR.parent
 
-# ── 场景注册 (与 app.py 中 DEMO_SCENES 同步) ──
+# ── 场景注册 (与 _shared.py 中 DEMO_SCENES 同步) ──
 DEMO_SCENES = {
-    "nanning_naan_s1": {
-        "title": "南宁那安快速路 1 号边坡",
-        "subtitle": "广西首府核心路段 — 晴天日间落石检测",
+    "qinzhou_demo": {
+        "title": "钦州示范视频",
+        "subtitle": "钦州公路边坡 — 日间晴好天气落石检测",
         "data_dir": "demo_data/nanning_naan_s1",
-        "tags": ["晴天", "日间", "城市快速路"],
+        "tags": ["钦州", "日间", "示范"],
     },
-    "nanning_naan_s2": {
-        "title": "南宁那安快速路 2 号边坡",
-        "subtitle": "雨天湿滑路面 — 可见度降低场景",
+    "qinzhou_cam_2": {
+        "title": "钦州监测视频 2",
+        "subtitle": "钦州公路边坡实时监测 — 2.flv",
         "data_dir": "demo_data/nanning_naan_s2",
-        "tags": ["雨天", "湿滑", "低可见度"],
+        "tags": ["钦州", "监测摄像头", "实时"],
     },
-    "qinzhou_s1": {
-        "title": "钦州滨海公路 1 号边坡",
-        "subtitle": "北部湾沿海路段 — 风化岩体监测",
-        "data_dir": "demo_data/qinzhou_s1",
-        "tags": ["沿海", "风化", "盐雾"],
-    },
-    "guilin_g65_s1": {
-        "title": "桂林 G65 包茂高速 K2485",
-        "subtitle": "喀斯特地貌 — 夜间低光照落石检测",
+    "qinzhou_cam_3": {
+        "title": "钦州监测视频 3",
+        "subtitle": "钦州公路边坡实时监测 — 3.flv",
         "data_dir": "demo_data/guilin_g65_s1",
-        "tags": ["喀斯特", "夜间", "低光照"],
+        "tags": ["钦州", "监测摄像头", "实时"],
     },
-    "baise_s1": {
-        "title": "百色 G80 广昆高速 K780",
-        "subtitle": "桂西山区 — 背光+遮挡复杂场景",
+    "qinzhou_test_a": {
+        "title": "钦州落石试验 A",
+        "subtitle": "钦州现场落石试验 — VID_20230304_114247.mp4",
         "data_dir": "demo_data/baise_s1",
-        "tags": ["山区", "背光", "遮挡"],
+        "tags": ["钦州", "落石试验", "现场"],
+    },
+    "qinzhou_test_b": {
+        "title": "钦州落石试验 B",
+        "subtitle": "钦州现场落石试验 — VID_20230304_153140.mp4",
+        "data_dir": "demo_data/qinzhou_s1",
+        "tags": ["钦州", "落石试验", "现场"],
+    },
+    "yibin_s1": {
+        "title": "宜宾 G85 渝昆高速滑坡",
+        "subtitle": "四川盆地南缘 — 前兆小落石→红色预警→大规模崩塌 (43秒)",
+        "data_dir": "demo_data/yibin_s1",
+        "tags": ["宜宾", "滑坡", "前兆预警", "红色升级"],
     },
 }
 
@@ -192,7 +199,7 @@ def main():
     )
     parser.add_argument("video", nargs="?", help="输入视频路径 (--scene 模式时必填)")
     parser.add_argument("--scene", default=None,
-                        help="单个场景 ID (如 nanning_naan_s1)")
+                        help="单个场景 ID (如 qinzhou_demo)")
     parser.add_argument("--config", default=None,
                         help="JSON 配置文件路径 (批量模式)")
     parser.add_argument("--max-frames", type=int, default=300,

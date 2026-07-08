@@ -138,9 +138,16 @@ def page_extreme_scenarios():
     col_left, col_right = st.columns([3, 2])
 
     with col_left:
-        # 寻找该场景的示例帧
-        demo_scene = DEMO_SCENES.get("nanning_naan_s1", {})
-        summary = load_demo_summary("nanning_naan_s1")
+        # 寻找该场景的示例帧 — 优先用钦州示范视频
+        demo_scene = DEMO_SCENES.get("qinzhou_demo", {})
+        summary = load_demo_summary("qinzhou_demo")
+        if summary is None:
+            # 回退：扫描第一个有数据的场景
+            for sid in DEMO_SCENES:
+                summary = load_demo_summary(sid)
+                if summary:
+                    demo_scene = DEMO_SCENES[sid]
+                    break
 
         # 用 demo data 的关键帧作为展示
         if summary and summary.get("key_frames"):

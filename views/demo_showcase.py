@@ -33,7 +33,7 @@ def page_demo_showcase():
 
     if not available:
         st.warning("未找到演示数据，请用以下命令生成:")
-        st.code("python scripts/generate_all_demos.py /path/to/video.mp4 --scene nanning_naan_s1")
+        st.code("python scripts/generate_all_demos.py /path/to/video.mp4 --scene qinzhou_demo")
         st.markdown("""
         **已注册但未生成的场景** (上传对应视频后运行 `scripts/generate_all_demos.py`):
         """)

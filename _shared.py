@@ -252,55 +252,62 @@ def update_perf_dashboard(placeholders: dict, detail_placeholder, snap) -> None:
 # ══════════════════════════════════════════════════════════════
 
 # 预定义演示场景 (与站点配置对应)
-# 添加新场景: python scripts/generate_all_demos.py --add <site_id> <video_path>
+# 源视频全部来自钦州落石试验现场 + 宜宾滑坡新闻视频
+# 添加新场景: python scripts/generate_all_demos.py <video> --scene <scene_id>
 DEMO_SCENES = {
-    "nanning_naan_s1": {
-        "title": "南宁那安快速路 1 号边坡",
-        "subtitle": "广西首府核心路段 — 晴天日间落石检测",
+    "qinzhou_demo": {
+        "title": "钦州示范视频",
+        "subtitle": "钦州公路边坡 — 日间晴好天气落石检测",
         "icon": "City",
         "data_dir": "demo_data/nanning_naan_s1",
-        "site_id": "nanning_naan_s1",
-        "tags": ["晴天", "日间", "城市快速路"],
+        "site_id": "qinzhou_s0",
+        "source_video": "nanning_demo.mp4",
+        "tags": ["钦州", "日间", "示范"],
     },
-    "nanning_naan_s2": {
-        "title": "南宁那安快速路 2 号边坡",
-        "subtitle": "雨天湿滑路面 — 可见度降低场景",
-        "icon": "Rain",
+    "qinzhou_cam_2": {
+        "title": "钦州监测视频 2",
+        "subtitle": "钦州公路边坡实时监测 — 2.flv",
+        "icon": "Camera",
         "data_dir": "demo_data/nanning_naan_s2",
-        "site_id": "nanning_naan_s2",
-        "tags": ["雨天", "湿滑", "低可见度"],
+        "site_id": "qinzhou_s0",
+        "source_video": "2.flv",
+        "tags": ["钦州", "监测摄像头", "实时"],
     },
-    "qinzhou_s1": {
-        "title": "钦州滨海公路 1 号边坡",
-        "subtitle": "北部湾沿海路段 — 风化岩体监测",
-        "icon": "Coast",
-        "data_dir": "demo_data/qinzhou_s1",
-        "site_id": "qinzhou_s1",
-        "tags": ["沿海", "风化", "盐雾"],
-    },
-    "guilin_g65_s1": {
-        "title": "桂林 G65 包茂高速 K2485",
-        "subtitle": "喀斯特地貌 — 夜间低光照落石检测",
-        "icon": "Night",
+    "qinzhou_cam_3": {
+        "title": "钦州监测视频 3",
+        "subtitle": "钦州公路边坡实时监测 — 3.flv",
+        "icon": "Camera",
         "data_dir": "demo_data/guilin_g65_s1",
-        "site_id": "guilin_g65_s1",
-        "tags": ["喀斯特", "夜间", "低光照"],
+        "site_id": "qinzhou_s0",
+        "source_video": "3.flv",
+        "tags": ["钦州", "监测摄像头", "实时"],
     },
-    "baise_s1": {
-        "title": "百色 G80 广昆高速 K780",
-        "subtitle": "桂西山区 — 背光+遮挡复杂场景",
-        "icon": "Mountain",
+    "qinzhou_test_a": {
+        "title": "钦州落石试验 A",
+        "subtitle": "钦州现场落石试验 — VID_20230304_114247.mp4",
+        "icon": "Experiment",
         "data_dir": "demo_data/baise_s1",
-        "site_id": "baise_s1",
-        "tags": ["山区", "背光", "遮挡"],
+        "site_id": "qinzhou_s0",
+        "source_video": "VID_20230304_114247.mp4",
+        "tags": ["钦州", "落石试验", "现场"],
+    },
+    "qinzhou_test_b": {
+        "title": "钦州落石试验 B",
+        "subtitle": "钦州现场落石试验 — VID_20230304_153140.mp4",
+        "icon": "Experiment",
+        "data_dir": "demo_data/qinzhou_s1",
+        "site_id": "qinzhou_s0",
+        "source_video": "VID_20230304_153140.mp4",
+        "tags": ["钦州", "落石试验", "现场"],
     },
     "yibin_s1": {
         "title": "宜宾 G85 渝昆高速滑坡",
-        "subtitle": "四川盆地南缘 — 前兆落石→红色预警→大规模崩塌",
+        "subtitle": "四川盆地南缘 — 前兆小落石→红色预警→大规模崩塌 (43秒)",
         "icon": "Mountain",
         "data_dir": "demo_data/yibin_s1",
         "site_id": "yibin_s1",
-        "tags": ["滑坡", "前兆预警", "红色升级"],
+        "source_video": "3.7日，四川宜宾一高速路段发生山体滑坡.mp4",
+        "tags": ["宜宾", "滑坡", "前兆预警", "红色升级"],
     },
 }
 
@@ -337,7 +344,7 @@ def load_demo_result(scene_id: str) -> dict | None:
 def find_demo_for_site(active_site) -> dict | None:
     """将 MonitoringSite 映射到 DEMO_SCENES 中的真实 demo 数据。
 
-    优先精确匹配 site_id，失败时按前缀匹配（如 qinzhou_s0 → qinzhou_s1）。
+    优先精确匹配 site_id，失败时按前缀匹配（如 qinzhou_s0 → qinzhou_test_a）。
     返回 (scene_id, summary_dict) 或 None。
     """
     if active_site is None:
