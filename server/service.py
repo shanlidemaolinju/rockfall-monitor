@@ -417,6 +417,8 @@ def _rows_to_alert_dicts(rows: list) -> list[dict]:
             "monitoring_location": r.get("monitoring_location", ""),
             "review_status": r.get("review_status", ""),
             "reviewer_note": r.get("reviewer_note", ""),
+            "confirmed_at": r.get("confirmed_at", ""),
+            "confirmed_by": r.get("confirmed_by", ""),
         })
     return alerts
 
@@ -709,6 +711,10 @@ _HOT_UPDATE_KEYS = {
     "light_change_threshold", "light_change_lr_factor",
     "tfd_iou_threshold", "tfd_threshold",
     "temporal_window", "temporal_iou",
+    # MOG2 自适应松弛
+    "mog2_relax_radius", "mog2_relax_fg_threshold",
+    # 几何过滤
+    "geo_filter_aspect_min", "geo_filter_aspect_max", "geo_filter_area_min",
 }
 
 _HOT_UPDATE_ATTR_MAP = {
@@ -749,6 +755,13 @@ _RC_KEY_MAP = {
     "tfd_threshold": "TFD_THRESHOLD",
     "temporal_window": "TEMPORAL_WINDOW",
     "temporal_iou": "TEMPORAL_IOU",
+    # MOG2 自适应松弛
+    "mog2_relax_radius": "MOG2_RELAX_RADIUS",
+    "mog2_relax_fg_threshold": "MOG2_RELAX_FG_THRESHOLD",
+    # 几何过滤
+    "geo_filter_aspect_min": "GEO_FILTER_ASPECT_MIN",
+    "geo_filter_aspect_max": "GEO_FILTER_ASPECT_MAX",
+    "geo_filter_area_min": "GEO_FILTER_AREA_MIN",
 }
 
 # 需要流重启才能生效的参数 (MOG2/滤波器参数重建)
@@ -760,6 +773,8 @@ _STREAM_RESTART_REQUIRED = {
     "light_change_threshold", "light_change_lr_factor",
     "tfd_iou_threshold", "tfd_threshold",
     "temporal_window", "temporal_iou",
+    "mog2_relax_radius", "mog2_relax_fg_threshold",
+    "geo_filter_aspect_min", "geo_filter_aspect_max", "geo_filter_area_min",
 }
 
 
