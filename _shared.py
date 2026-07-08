@@ -93,7 +93,7 @@ def render_sidebar():
 
         # ── 导航 ──
         page = st.radio(
-            "",
+            "导航",
             ["预设演示", "实时监测", "多路监控", "算法亮点", "极端场景", "预警标准", "预警记录", "隐患点排查", "点位管理", "参数设置", "系统管理"],
             label_visibility="collapsed",
             format_func=lambda x: f"    {x}",
@@ -305,7 +305,7 @@ def load_demo_summary(scene_id: str) -> dict | None:
     scene = DEMO_SCENES.get(scene_id)
     if not scene:
         return None
-    summary_path = _THIS_DIR / scene["data_dir"] / "summary.json"
+    summary_path = THIS_DIR / scene["data_dir"] / "summary.json"
     if not summary_path.exists():
         return None
     try:
@@ -320,7 +320,7 @@ def load_demo_result(scene_id: str) -> dict | None:
     scene = DEMO_SCENES.get(scene_id)
     if not scene:
         return None
-    result_path = _THIS_DIR / scene["data_dir"] / "result.json"
+    result_path = THIS_DIR / scene["data_dir"] / "result.json"
     if not result_path.exists():
         return None
     try:
