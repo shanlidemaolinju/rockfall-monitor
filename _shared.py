@@ -11,6 +11,11 @@ RockGuard — Streamlit 共享基础设施
 """
 
 import streamlit as st
+from pathlib import Path
+
+# ── 模块自身路径 (不依赖 _config 的导出) ──
+_THIS_DIR = Path(__file__).resolve().parent
+THIS_DIR = _THIS_DIR  # 公开别名，供 views/ 页面模块使用
 
 # ── Re-export 所有子模块符号 ──
 from _config import *
@@ -305,7 +310,7 @@ def load_demo_summary(scene_id: str) -> dict | None:
     scene = DEMO_SCENES.get(scene_id)
     if not scene:
         return None
-    summary_path = THIS_DIR / scene["data_dir"] / "summary.json"
+    summary_path = _THIS_DIR / scene["data_dir"] / "summary.json"
     if not summary_path.exists():
         return None
     try:
@@ -320,7 +325,7 @@ def load_demo_result(scene_id: str) -> dict | None:
     scene = DEMO_SCENES.get(scene_id)
     if not scene:
         return None
-    result_path = THIS_DIR / scene["data_dir"] / "result.json"
+    result_path = _THIS_DIR / scene["data_dir"] / "result.json"
     if not result_path.exists():
         return None
     try:
