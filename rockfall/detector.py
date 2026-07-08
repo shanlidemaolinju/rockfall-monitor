@@ -73,11 +73,18 @@ from .config import (
     MOG2_FILTER_ENABLED, MOG2_RELAX_RADIUS, MOG2_RELAX_FG_THRESHOLD,
     GEO_FILTER_ENABLED, GEO_FILTER_ASPECT_MIN, GEO_FILTER_ASPECT_MAX,
     GEO_FILTER_AREA_MIN,
+    SCENE_FILTER_ENABLED,
     SAHI_ENABLED, SAHI_SLICE_SIZE, SAHI_OVERLAP_RATIO, SAHI_MERGE_IOU,
     SAHI_MAX_SLICES,
     FUSION_ENABLED, FUSION_MOTION_WEIGHT,
     TEMPORAL_ENABLED, TEMPORAL_WINDOW, TEMPORAL_IOU,
     TENSORRT_ENABLED, TENSORRT_MODEL_PATH,
+    # FastSAM 边坡置信度调整
+    SLOPE_CONFIDENCE_ENABLED,
+    SLOPE_OVERLAP_HIGH, SLOPE_OVERLAP_MID, SLOPE_OVERLAP_LOW,
+    SLOPE_MULT_DEEP, SLOPE_MULT_MOSTLY, SLOPE_MULT_EDGE,
+    SLOPE_MULT_BOUNCE_GRACE, SLOPE_MULT_OFF,
+    SLOPE_DEBUG_LOG,
     RuntimeConfig,
     get_device,
 )
@@ -85,9 +92,11 @@ from .notifier import send_alert, send_alert_async, dispatch_alert_async
 from .tracker import RockTracker
 from .edge_enhance import EdgeEnhancer
 from .motion_detect import ThreeFrameDiff, filter_detections_by_motion, filter_detections_by_mog2_center, filter_detections_by_geometry as _filter_by_geometry
+from .scene_filter import detect_sky_region
 from .sahi import SAHISlicer, sahi_inference
 from .frame_buffer import FrameRingBuffer
 from .fusion import fuse_confidence, TemporalFilter
+from .slope_confidence import adjust_confidence_by_slope
 from .logger import log_event
 from .privacy import PrivacyFilter
 from .config import PRIVACY_BLUR_ENABLED as _PRIVACY_BLUR_ENABLED
@@ -144,6 +153,7 @@ class RockDetector:
         # 设备检测: CUDA GPU > CPU, 显式传递避免 YOLO 内部 auto 的不确定性
         self._device_str, self._device_name = get_device()
         self._site_id = site_id
+        self._slope_mask: np.ndarray | None = None  # FastSAM 边坡掩码 (外部注入)
 
         # 多模型热切换: 按点位+时段解析模型路径
         # 优先级: 模型注册表 A/B 分流 > 点位专用模型 > 时段模型 > 全局默认模型 > TensorRT
@@ -646,12 +656,25 @@ class RockDetector:
         返回:
             [[x1, y1, x2, y2, conf], ...]  已过滤的检测框列表
         """
+        # 热更新: 阈值自动调参可运行时修改 detection_confidence (v2.4+)
+        self.confidence = float(RuntimeConfig.get("DETECTION_CONFIDENCE", self.confidence))
+
         # 边缘增强 (先增强再模糊非运动区, 否则模糊会削弱边缘)
         det_input = self._edge_enhancer.process(frame)
 
         # ROI 外区域涂黑 — YOLO 不浪费算力在无关区域
         if self._roi_mask is not None:
             det_input = cv2.bitwise_and(det_input, det_input, mask=self._roi_mask)
+
+        # 场景干扰抑制: 天空区域涂黑 — 减少云/鸟/飞机误报
+        # 天空区域不随帧变化 (固定摄像头), 每 300 帧刷新一次适应光照变化
+        if SCENE_FILTER_ENABLED:
+            if not hasattr(self, '_sky_mask') or self._sky_mask is None or \
+               self._inference_count % 300 == 0:
+                self._sky_mask = detect_sky_region(det_input)
+            if self._sky_mask is not None and np.any(self._sky_mask):
+                non_sky = cv2.bitwise_not(self._sky_mask)
+                det_input = cv2.bitwise_and(det_input, det_input, mask=non_sky)
 
         # 非运动区域高斯模糊 — 减少背景干扰
         if box_mask is not None and np.any(box_mask):
@@ -709,6 +732,13 @@ class RockDetector:
                 raw_dets, fg_mask, motion_weight=fusion_weight,
             )
 
+        # 多帧时序确认 — 必须在 MOG2/TFD 之前执行!
+        # 原因: MOG2 滤波会产生检测空窗期, 若 Temporal 在 MOG2 之后,
+        # 空窗导致 Temporal 历史缓冲为空 → 后续帧检测无历史匹配 → 级联误杀。
+        # Temporal 先执行 → 看到连续检测流 → 稳定后再由 MOG2 做运动校验。
+        if TEMPORAL_ENABLED and self._active_skip <= 1:
+            raw_dets = self._temporal_filter.filter(raw_dets)
+
         # 三帧差分运动滤波 (苏国韶2025)
         # 跳帧 >1 时暂停: TFD 需要连续帧, 跳帧导致帧间时间间隔过大, 运动检测失效
         if TFD_ENABLED and self._active_skip <= 1:
@@ -739,10 +769,6 @@ class RockDetector:
                 area_min=GEO_FILTER_AREA_MIN,
             )
 
-        # 多帧时序确认 — 跳帧时暂停, 原因同 TFD
-        if TEMPORAL_ENABLED and self._active_skip <= 1:
-            raw_dets = self._temporal_filter.filter(raw_dets)
-
         # 道路区域最终过滤: 中心点在道路上的检测框丢弃
         if hasattr(self, '_road_mask') and self._road_mask is not None and raw_dets:
             filtered = []
@@ -752,6 +778,36 @@ class RockDetector:
                 if 0 <= cx < self._fw and 0 <= cy < self._fh and self._road_mask[cy, cx] == 0:
                     filtered.append(d)
             raw_dets = filtered
+
+        # ---- FastSAM 边坡置信度调整 ----
+        # 利用 slope_mask 做空间先验: 落石只可能来自边坡区域
+        # 非边坡区域(天空/道路中间/护栏外)的检测置信度被乘法压制
+        # 包含"弹跳 grace 区": 真石头从边坡弹跳落地瞬间不会被误杀
+        if SLOPE_CONFIDENCE_ENABLED and raw_dets and \
+           hasattr(self, '_slope_mask') and self._slope_mask is not None:
+            # 分辨率对齐守卫: 确保 mask 与当前处理帧尺寸一致
+            if self._slope_mask.shape[:2] != (self._fh, self._fw):
+                self._slope_mask = cv2.resize(
+                    self._slope_mask, (self._fw, self._fh),
+                    interpolation=cv2.INTER_NEAREST,
+                )
+            _debug = RuntimeConfig.get("SLOPE_DEBUG_LOG", SLOPE_DEBUG_LOG)
+            # 始终请求 return_suppressed: 生产环境 overhead 可忽略 (最多几十个 dict/帧)
+            # 否则 return_suppressed=False 时返回 list, 下面解包会崩溃
+            raw_dets, suppressed = adjust_confidence_by_slope(
+                raw_dets, self._slope_mask, self._fw, self._fh,
+                overlap_high=float(RuntimeConfig.get("SLOPE_OVERLAP_HIGH", SLOPE_OVERLAP_HIGH)),
+                overlap_mid=float(RuntimeConfig.get("SLOPE_OVERLAP_MID", SLOPE_OVERLAP_MID)),
+                overlap_low=float(RuntimeConfig.get("SLOPE_OVERLAP_LOW", SLOPE_OVERLAP_LOW)),
+                mult_deep_slope=float(RuntimeConfig.get("SLOPE_MULT_DEEP", SLOPE_MULT_DEEP)),
+                mult_mostly_slope=float(RuntimeConfig.get("SLOPE_MULT_MOSTLY", SLOPE_MULT_MOSTLY)),
+                mult_edge=float(RuntimeConfig.get("SLOPE_MULT_EDGE", SLOPE_MULT_EDGE)),
+                mult_bounce_grace=float(RuntimeConfig.get("SLOPE_MULT_BOUNCE_GRACE", SLOPE_MULT_BOUNCE_GRACE)),
+                mult_off_slope=float(RuntimeConfig.get("SLOPE_MULT_OFF", SLOPE_MULT_OFF)),
+                debug_log=_debug,
+                return_suppressed=True,  # 始终返回: 生产环境 overhead 可忽略
+            )
+            self._slope_suppressed = suppressed if _debug else []  # 仅调试模式可视化
 
         return raw_dets
 
@@ -883,6 +939,54 @@ class RockDetector:
             cap.release()
 
     # ================================================================
+    # 内部: FastSAM slope_mask 惰性初始化
+    # ================================================================
+
+    def _ensure_slope_mask(self, cap, fw: int, fh: int):
+        """惰性初始化 _slope_mask: 若未设置则从当前视频流采样 FastSAM。
+
+        桌面端在 video_widget.py 中已设置, 此路径不触发。
+        服务端/脚本调用 detect_video() 时自动走此路径。
+        """
+        if not SLOPE_CONFIDENCE_ENABLED:
+            return
+        if self._slope_mask is not None:
+            return  # 已设置 (桌面端注入 或 已缓存)
+
+        try:
+            from .fastsam_road import auto_segment_from_cap
+            from .config import FASTSAM_NUM_SAMPLES
+            from .logger import log_event as _log
+
+            _log("system", level="INFO",
+                 msg=f"[SlopeConf] 惰性初始化 FastSAM slope_mask (采样{FASTSAM_NUM_SAMPLES}帧)...")
+            _, slope_mask = auto_segment_from_cap(cap, fw, fh)
+            if slope_mask is not None:
+                slope_pct = (slope_mask > 0).sum() / (fw * fh) * 100
+                # C: 质量守卫 — 边坡占比异常时拒绝使用
+                if slope_pct < 5.0:
+                    _log("system", level="WARN",
+                         msg=f"[SlopeConf] 边坡占比过低 ({slope_pct:.1f}%), 跳过置信度调整")
+                    self._slope_mask = None
+                elif slope_pct > 80.0:
+                    _log("system", level="WARN",
+                         msg=f"[SlopeConf] 边坡占比过高 ({slope_pct:.1f}%), 可能分割异常, 跳过")
+                    self._slope_mask = None
+                else:
+                    self._slope_mask = slope_mask
+                    _log("system", level="INFO",
+                         msg=f"[SlopeConf] slope_mask 就绪: 边坡 {slope_pct:.1f}%")
+            else:
+                _log("system", level="WARN",
+                     msg="[SlopeConf] FastSAM 返回空 mask, 边坡置信度调整不可用")
+                self._slope_mask = None
+        except Exception as e:
+            from .logger import log_event as _log2
+            _log2("system", level="WARN",
+                  msg=f"[SlopeConf] FastSAM 惰性初始化失败: {e}")
+            self._slope_mask = None
+
+    # ================================================================
     # 内部: 统一流处理引擎
     # ================================================================
 
@@ -916,6 +1020,8 @@ class RockDetector:
         cv2.fillPoly(roi_mask, [polygon], 255)
 
         self.init_stream_state(fw, fh, roi_mask)
+        # B: 服务端路径 — 若 _slope_mask 未设置, 惰性初始化 FastSAM
+        self._ensure_slope_mask(cap, fw, fh)
         # 设置 camera_id (用于缩略图命名和日志)
         self._camera_id = str(source_name).replace(" ", "_").replace("/", "_") if source_name else "default"
         trk = RockTracker() if track else None
@@ -1043,7 +1149,8 @@ class RockDetector:
             annotated = frame.copy()
             self.draw_tracks(annotated, tracks_info, polygon=polygon,
                              fw=fw, fh=fh, alert_level=frame_alert,
-                             show_panel=True, show_border=True)
+                             show_panel=True, show_border=True,
+                             suppressed=getattr(self, '_slope_suppressed', None))
             cv2.putText(annotated, f"ALERT: {frame_alert.upper()}", (int(fw - 280), 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7,
                         {"red": (0, 0, 255), "orange": (0, 140, 255),
@@ -1332,12 +1439,37 @@ class RockDetector:
     # ================================================================
 
     @staticmethod
+    def _draw_dashed_rect(img, pt1, pt2, color, thickness=1, dash_len=8):
+        """绘制虚线矩形 (用于显示被边坡置信度压制的检测框)"""
+        x1, y1 = pt1
+        x2, y2 = pt2
+        # 上边
+        for x in range(x1, x2, dash_len * 2):
+            xe = min(x + dash_len, x2)
+            cv2.line(img, (x, y1), (xe, y1), color, thickness)
+        # 下边
+        for x in range(x1, x2, dash_len * 2):
+            xe = min(x + dash_len, x2)
+            cv2.line(img, (x, y2), (xe, y2), color, thickness)
+        # 左边
+        for y in range(y1, y2, dash_len * 2):
+            ye = min(y + dash_len, y2)
+            cv2.line(img, (x1, y), (x1, ye), color, thickness)
+        # 右边
+        for y in range(y1, y2, dash_len * 2):
+            ye = min(y + dash_len, y2)
+            cv2.line(img, (x2, y), (x2, ye), color, thickness)
+
+    @staticmethod
     def draw_tracks(frame, tracks, polygon=None, fw=0, fh=0, alert_level="",
-                    show_panel=False, show_border=False):
+                    show_panel=False, show_border=False, suppressed=None):
         """绘制检测框、轨迹、状态信息。
 
         polygon / alert_level / show_panel / show_border 为可选装饰,
         桌面端可仅调用 draw_tracks(frame, tracks) 只画框和标签。
+
+        suppressed: 被边坡置信度压制的检测列表 (供调试可视化)
+            [{'bbox': [x1,y1,x2,y2], 'old_conf': float, 'new_conf': float, 'zone': str}, ...]
         """
         for t in tracks:
             x1, y1, x2, y2 = map(int, t["bbox"])
@@ -1355,6 +1487,19 @@ class RockDetector:
             if len(traj) > 1:
                 pts = np.array(traj, np.int32)
                 cv2.polylines(frame, [pts], False, color, 1)
+
+        # ── 被边坡置信度压制的检测框 (灰色虚线, 调试用) ──
+        if suppressed:
+            for s in suppressed:
+                bx = s['bbox']
+                pt1 = (int(bx[0]), int(bx[1]))
+                pt2 = (int(bx[2]), int(bx[3]))
+                # 灰色虚线框
+                RockDetector._draw_dashed_rect(frame, pt1, pt2, (128, 128, 128), thickness=1, dash_len=6)
+                # 标签: 原置信度→新置信度
+                s_label = f"~{s['old_conf']:.2f}>{s['new_conf']:.2f} {s['zone']}"
+                cv2.putText(frame, s_label, (pt1[0], max(pt1[1] - 6, 12)),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.35, (128, 128, 128), 1)
 
         if polygon is not None:
             cv2.polylines(frame, [polygon.astype(np.int32)], True, (255, 0, 0), 1)

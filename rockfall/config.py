@@ -344,6 +344,9 @@ GEO_FILTER_ASPECT_MIN = float(os.getenv("GEO_FILTER_ASPECT_MIN", "0.3"))   # 宽
 GEO_FILTER_ASPECT_MAX = float(os.getenv("GEO_FILTER_ASPECT_MAX", "3.0"))   # 宽高比上限
 GEO_FILTER_AREA_MIN = int(os.getenv("GEO_FILTER_AREA_MIN", "25"))          # 最小面积 (px²)
 
+# ---- 场景干扰抑制: 天空区域/车辆运动/阴影去除 ----
+SCENE_FILTER_ENABLED = os.getenv("SCENE_FILTER_ENABLED", "false").lower() == "true"
+
 # ---- SAHI 切片辅助推理 ----
 SAHI_ENABLED = os.getenv("SAHI_ENABLED", "false").lower() == "true"
 SAHI_SLICE_SIZE = int(os.getenv("SAHI_SLICE_SIZE", "640"))
@@ -498,6 +501,43 @@ PRECURSOR_ESCALATION_PERSIST_SEC = float(os.getenv("PRECURSOR_ESCALATION_PERSIST
 PRECURSOR_ESCALATION_RED_SEC = float(os.getenv("PRECURSOR_ESCALATION_RED_SEC", "30"))           # 累计风险达此值→直冲红色
 PRECURSOR_ESCALATION_DECAY_RATE = float(os.getenv("PRECURSOR_ESCALATION_DECAY_RATE", "0.3"))    # 间隙期风险消退速率 (0.3=30%速度)
 
+# ---- 预警确认与自动升级 (Alert Escalation) ----
+# 蓝色/黄色/橙色预警发出后, 若超过 ESCALATION_TIMEOUT_MINUTES 分钟无人确认,
+# 自动升级到下一等级并推送给更高级别负责人, 形成"系统发现→推送→追责"双向闭环。
+#   blue   → yellow  (Ⅳ级→Ⅲ级: 从静默记录升级为弹窗提示)
+#   yellow → orange  (Ⅲ级→Ⅱ级: 从弹窗升级为多通道推送)
+#   orange → red     (Ⅱ级→Ⅰ级: 从多通道升级为全通道+声光报警)
+#   red 不升级 (已是最高级)
+ALERT_ESCALATION_ENABLED = os.getenv("ALERT_ESCALATION_ENABLED", "true").lower() == "true"
+ALERT_ESCALATION_CHECK_INTERVAL_SEC = int(os.getenv("ALERT_ESCALATION_CHECK_INTERVAL_SEC", "60"))
+ALERT_ESCALATION_TIMEOUT_MINUTES = int(os.getenv("ALERT_ESCALATION_TIMEOUT_MINUTES", "30"))
+# 最低触发自动升级的预警等级 (低于此等级的预警即使超时也不升级)
+ALERT_ESCALATION_MIN_LEVEL = os.getenv("ALERT_ESCALATION_MIN_LEVEL", "blue")
+
+# ---- 阈值自动调参 — 基于误报率的数据闭环 (v2.4+) ----
+# 周期性读取各点位复核后的误报率, 自动微调 detection_confidence。
+# 调整策略: 带滞回的 PID 式控制, 避免振荡。
+#   - 误报率 > target + hysteresis → 提高阈值 (变严格, 减少误报)
+#   - 误报率 < target - hysteresis → 降低阈值 (变宽松, 减少漏报)
+#   - 在容忍带内 → 不调整
+THRESHOLD_AUTO_TUNE_ENABLED = os.getenv("THRESHOLD_AUTO_TUNE_ENABLED", "false").lower() == "true"
+# 扫描间隔 (小时)
+THRESHOLD_AUTO_TUNE_INTERVAL_HOURS = int(os.getenv("THRESHOLD_AUTO_TUNE_INTERVAL_HOURS", "6"))
+# 回看天数 (优先使用, 样本不足时自动扩展到 30 天)
+THRESHOLD_AUTO_TUNE_LOOKBACK_DAYS = int(os.getenv("THRESHOLD_AUTO_TUNE_LOOKBACK_DAYS", "7"))
+# 目标误报率 (0~1)
+THRESHOLD_AUTO_TUNE_TARGET_FP_RATE = float(os.getenv("THRESHOLD_AUTO_TUNE_TARGET_FP_RATE", "0.15"))
+# 滞回带宽度
+THRESHOLD_AUTO_TUNE_HYSTERESIS = float(os.getenv("THRESHOLD_AUTO_TUNE_HYSTERESIS", "0.05"))
+# 最小复核样本数 (不足时扩展到 30 天, 仍不足则降至实际样本数 ≥10)
+THRESHOLD_AUTO_TUNE_MIN_SAMPLES = int(os.getenv("THRESHOLD_AUTO_TUNE_MIN_SAMPLES", "50"))
+# 调整步长: 上坡 (误报多→收紧, 快) / 下坡 (漏报风险→放松, 慢)
+THRESHOLD_AUTO_TUNE_STEP_UP = float(os.getenv("THRESHOLD_AUTO_TUNE_STEP_UP", "0.02"))
+THRESHOLD_AUTO_TUNE_STEP_DOWN = float(os.getenv("THRESHOLD_AUTO_TUNE_STEP_DOWN", "0.01"))
+# 置信度安全边界
+THRESHOLD_AUTO_TUNE_CONF_MIN = float(os.getenv("THRESHOLD_AUTO_TUNE_CONF_MIN", "0.08"))
+THRESHOLD_AUTO_TUNE_CONF_MAX = float(os.getenv("THRESHOLD_AUTO_TUNE_CONF_MAX", "0.50"))
+
 # ---- 数据库连接池 (MySQL 专用, 高并发稳定) ----
 # pool_size: 常驻连接数, max_overflow: 峰值额外连接数, pre_ping: 每次检出前 ping 检测有效性
 # recycle: 连接最大存活秒数 (超时自动回收, 避免 MySQL wait_timeout 断开)
@@ -541,6 +581,22 @@ FASTSAM_MIN_QUALITY_SCORE = float(os.getenv("FASTSAM_MIN_QUALITY_SCORE", "0.6"))
 FASTSAM_USE_TEXT_PROMPT = os.getenv("FASTSAM_USE_TEXT_PROMPT", "true").lower() == "true"
 # 降级策略: FastSAM 失败时是否回退到传统 CV (road_detector.py)
 FASTSAM_FALLBACK_CV = os.getenv("FASTSAM_FALLBACK_CV", "true").lower() == "true"
+
+# ---- FastSAM 边坡置信度调整 ----
+# 利用 FastSAM 边坡/公路分割结果调整 YOLO 检测置信度。
+# 原理: 落石只可能来自边坡区域, 非边坡区域(天空/道路中间/护栏外)的检测应被压制。
+# 注意: 此功能仅调整置信度, 不改变检测框的存在性。
+# 部署建议: 现场调试时改 .env 重启即可, 无需重新部署代码。
+SLOPE_CONFIDENCE_ENABLED = os.getenv("SLOPE_CONFIDENCE_ENABLED", "true").lower() == "true"
+SLOPE_OVERLAP_HIGH = float(os.getenv("SLOPE_OVERLAP_HIGH", "0.50"))       # 高重叠阈值
+SLOPE_OVERLAP_MID = float(os.getenv("SLOPE_OVERLAP_MID", "0.25"))         # 中重叠阈值
+SLOPE_OVERLAP_LOW = float(os.getenv("SLOPE_OVERLAP_LOW", "0.10"))         # 低重叠阈值 (弹跳 grace 上限)
+SLOPE_MULT_DEEP = float(os.getenv("SLOPE_MULT_DEEP", "1.00"))             # 深在边坡乘数
+SLOPE_MULT_MOSTLY = float(os.getenv("SLOPE_MULT_MOSTLY", "0.90"))         # 多在边坡乘数
+SLOPE_MULT_EDGE = float(os.getenv("SLOPE_MULT_EDGE", "0.65"))             # 边坡边缘乘数
+SLOPE_MULT_BOUNCE_GRACE = float(os.getenv("SLOPE_MULT_BOUNCE_GRACE", "0.55"))  # 弹跳 grace 乘数 (关键!)
+SLOPE_MULT_OFF = float(os.getenv("SLOPE_MULT_OFF", "0.25"))               # 完全不在边坡乘数
+SLOPE_DEBUG_LOG = os.getenv("SLOPE_DEBUG_LOG", "false").lower() == "true"      # 调试日志 (开启后可视化被压制检测框)
 
 # ---- 检测类别 ----
 CLASS_NAMES = {0: "落石", 1: "滑坡"}

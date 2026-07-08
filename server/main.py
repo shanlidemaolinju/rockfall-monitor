@@ -52,6 +52,7 @@ from server.service import (
     mark_alert_review, get_alert_statistics, get_alert_image_info,
     get_geo_alerts,
     get_roi_for_site, save_roi_for_site, get_roi_heatmap,
+    _rows_to_alert_dicts,
 )
 from server.schemas import (
     HealthResponse, DashboardStats, AlertItem,
@@ -756,6 +757,197 @@ def api_alerts_geo(
     ]
     """
     return get_geo_alerts(days=days, alert_level=alert_level)
+
+
+@app.post("/api/alerts/{alert_id}/confirm")
+def api_alert_confirm(
+    request: Request,
+    alert_id: int,
+    confirmed_by: str = Form("", description="确认人标识"),
+):
+    """
+    确认预警 — 记录确认时间和确认人, 停止自动升级计时器。
+
+    确认后自动升级调度器将不再对该预警执行超时升级。
+    这是预警"双向闭环"的关键环节: 系统推送 → 人工确认 → 计时器停止。
+    """
+    from rockfall.alert_store import get_alert_store
+    from rockfall.audit import audit_log
+
+    store = get_alert_store()
+    operator = confirmed_by or _get_operator(request)
+
+    result = store.confirm_alert(alert_id, operator)
+
+    audit_log(
+        "alert_confirm", operator=operator,
+        detail=f"预警 #{alert_id} 已确认 (自动升级计时器已停止)",
+        alert_id=alert_id, ip=_get_client_ip(),
+        result="ok" if result.get("ok") else "error",
+    )
+
+    if result.get("ok"):
+        return result
+    # "不存在或已确认" → 409 Conflict 比 404 更准确
+    raise HTTPException(status_code=409, detail=result.get("msg", "确认失败"))
+
+
+@app.get("/api/alerts/unconfirmed")
+def api_unconfirmed_alerts(
+    timeout_minutes: int = Query(30, ge=1, le=1440, description="超时阈值(分钟)"),
+    min_level: str = Query("blue", description="最低预警等级"),
+):
+    """
+    查询超时未确认的预警列表 (供人工巡检)。
+
+    返回超时未确认预警的数量和详情。
+    """
+    from rockfall.alert_store import get_alert_store
+    store = get_alert_store()
+    alerts = store.get_unconfirmed_alerts(
+        timeout_minutes=timeout_minutes, min_level=min_level,
+    )
+    return {
+        "total": len(alerts),
+        "timeout_minutes": timeout_minutes,
+        "min_level": min_level,
+        "rows": _rows_to_alert_dicts(alerts),
+    }
+
+
+@app.get("/api/escalation/stats")
+def api_escalation_stats():
+    """获取预警自动升级调度器的运行状态和统计信息。"""
+    from rockfall.alert_escalation import get_escalation_scheduler
+    from rockfall.config import (
+        ALERT_ESCALATION_ENABLED,
+        ALERT_ESCALATION_CHECK_INTERVAL_SEC,
+        ALERT_ESCALATION_TIMEOUT_MINUTES,
+        ALERT_ESCALATION_MIN_LEVEL,
+    )
+
+    scheduler = get_escalation_scheduler()
+    return {
+        "enabled": ALERT_ESCALATION_ENABLED,
+        "config": {
+            "check_interval_sec": ALERT_ESCALATION_CHECK_INTERVAL_SEC,
+            "timeout_minutes": ALERT_ESCALATION_TIMEOUT_MINUTES,
+            "min_level": ALERT_ESCALATION_MIN_LEVEL,
+        },
+        "runtime": {
+            "is_running": scheduler.is_running,
+            "last_run_time": scheduler.last_run_time,
+            "last_result": scheduler.last_result,
+            "total_escalations": scheduler.total_escalations,
+        },
+        "rules": {
+            "blue": "yellow",
+            "yellow": "orange",
+            "orange": "red",
+            "red": "(最高级, 不再升级)",
+        },
+    }
+
+
+@app.post("/api/escalation/trigger")
+def api_escalation_trigger(request: Request):
+    """手动触发一次预警自动升级扫描 (同步, 返回结果)。"""
+    from rockfall.alert_escalation import get_escalation_scheduler
+    from rockfall.audit import audit_log
+
+    scheduler = get_escalation_scheduler()
+    result = scheduler.trigger_now()
+
+    operator = _get_operator(request)
+    audit_log(
+        "escalation_trigger", operator=operator,
+        detail=f"手动触发自动升级扫描: escalated={result.get('escalated', 0)}, "
+               f"scanned={result.get('scanned', 0)}",
+        ip=_get_client_ip(),
+        result=result.get("status", "unknown"),
+    )
+
+    return result
+
+
+@app.get("/api/tuner/stats")
+def api_tuner_stats():
+    """获取阈值自动调参器的运行状态和统计信息。"""
+    from rockfall.threshold_tuner import get_tuner
+    from rockfall.config import (
+        THRESHOLD_AUTO_TUNE_ENABLED,
+        THRESHOLD_AUTO_TUNE_INTERVAL_HOURS,
+        THRESHOLD_AUTO_TUNE_TARGET_FP_RATE,
+        THRESHOLD_AUTO_TUNE_CONF_MIN,
+        THRESHOLD_AUTO_TUNE_CONF_MAX,
+    )
+
+    tuner = get_tuner()
+    return {
+        "enabled": THRESHOLD_AUTO_TUNE_ENABLED,
+        "config": {
+            "interval_hours": THRESHOLD_AUTO_TUNE_INTERVAL_HOURS,
+            "target_fp_rate": THRESHOLD_AUTO_TUNE_TARGET_FP_RATE,
+            "conf_min": THRESHOLD_AUTO_TUNE_CONF_MIN,
+            "conf_max": THRESHOLD_AUTO_TUNE_CONF_MAX,
+        },
+        "stats": {
+            "total_adjustments": tuner.total_adjustments,
+            "total_tighten": tuner.total_tighten,
+            "total_relax": tuner.total_relax,
+            "is_running": tuner.is_running,
+            "last_run_time": tuner.last_run_time,
+            "last_result": tuner.last_result,
+        },
+    }
+
+
+@app.post("/api/tuner/trigger")
+def api_tuner_trigger(request: Request):
+    """手动触发一次阈值调参扫描 (同步, 返回结果)。"""
+    from rockfall.threshold_tuner import get_tuner
+    from rockfall.audit import audit_log
+
+    tuner = get_tuner()
+    result = tuner.trigger_now()
+
+    operator = _get_operator(request)
+    audit_log(
+        "tuner_trigger", operator=operator,
+        detail=f"手动触发阈值调参: adjusted={result.get('sites_adjusted', 0)}, "
+               f"scanned={result.get('sites_scanned', 0)}",
+        ip=_get_client_ip(),
+        result=result.get("status", "unknown"),
+    )
+
+    return result
+
+
+@app.get("/api/model/status")
+def api_model_status():
+    """获取当前模型热切换状态。"""
+    from rockfall.config import (
+        MODEL_NIGHT_PATH, MODEL_SLOT_MAP, get_active_model_path,
+        _get_model_for_hour,
+    )
+    from datetime import datetime
+    from pathlib import Path
+
+    current_hour = datetime.now().hour
+    active_path = get_active_model_path()
+    night_model = _get_model_for_hour(current_hour)
+
+    return {
+        "current_hour": current_hour,
+        "active_model": str(active_path) if active_path.exists() else "unknown",
+        "active_model_name": Path(str(active_path)).name if active_path.exists() else "unknown",
+        "night_model_configured": bool(MODEL_NIGHT_PATH),
+        "night_model_path": MODEL_NIGHT_PATH or "",
+        "night_model_exists": Path(MODEL_NIGHT_PATH).exists() if MODEL_NIGHT_PATH else False,
+        "currently_night_mode": night_model is not None,
+        "current_night_model": str(night_model) if night_model else None,
+        "slot_map": MODEL_SLOT_MAP or "",
+    }
 
 
 @app.post("/api/alerts/{alert_id}/review")
@@ -2129,10 +2321,13 @@ def config_current():
         "filters": {
             "tfd": cfg.TFD_ENABLED,
             "mog2_filter": cfg.MOG2_FILTER_ENABLED,
+            "geo_filter": cfg.GEO_FILTER_ENABLED,
+            "scene_filter": cfg.SCENE_FILTER_ENABLED,
             "sahi": cfg.SAHI_ENABLED,
             "fusion": cfg.FUSION_ENABLED,
             "temporal": cfg.TEMPORAL_ENABLED,
             "edge_enhance": cfg.EDGE_ENHANCE_ENABLED,
+            "mog2_shadows": cfg.MOG2_DETECT_SHADOWS,
         },
         "security": {
             "https_enforced": __import__('os').getenv("ENFORCE_HTTPS", "false"),
@@ -2597,3 +2792,38 @@ if _SPA_READY:
     log_event("system", msg=f"React SPA 已挂载: {_SPA_DIR}")
 else:
     log_event("system", msg="React SPA 未构建 — 使用经典 Web 看板 (npm run build 以启用)")
+
+
+# ══════════════════════════════════════════════════════════════
+# 后台调度器自动启动
+# ══════════════════════════════════════════════════════════════
+
+# ── 预警自动升级调度器 ──
+try:
+    from rockfall.alert_escalation import get_escalation_scheduler
+    _escalation_scheduler = get_escalation_scheduler()
+    _escalation_scheduler.start()
+    log_event("system", msg="预警自动升级调度器已启动")
+except Exception as _esc_err:
+    log_event("system", level="WARN",
+              msg=f"预警自动升级调度器启动失败: {_esc_err}")
+
+# ── 归档清理调度器 ──
+try:
+    from rockfall.retention_scheduler import RetentionScheduler
+    _retention_scheduler = RetentionScheduler()
+    _retention_scheduler.start()
+    log_event("system", msg="归档清理调度器已启动")
+except Exception as _ret_err:
+    log_event("system", level="WARN",
+              msg=f"归档清理调度器启动失败: {_ret_err}")
+
+# ── 阈值自动调参 (数据闭环) ──
+try:
+    from rockfall.threshold_tuner import get_tuner
+    _tuner = get_tuner()
+    _tuner.start()
+    log_event("system", msg="阈值自动调参已启动")
+except Exception as _tune_err:
+    log_event("system", level="WARN",
+              msg=f"阈值自动调参启动失败: {_tune_err}")

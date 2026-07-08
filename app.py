@@ -28,6 +28,21 @@ _THIS_DIR = Path(__file__).resolve().parent
 if str(_THIS_DIR) not in sys.path:
     sys.path.insert(0, str(_THIS_DIR))
 
+# ── API 地址收口: 本地开发用 localhost, Streamlit Cloud 用环境变量 ──
+def _api_url(path: str) -> str:
+    """构建 API 完整 URL。
+
+    优先级:
+      1. API_BASE_URL 环境变量 (Streamlit Cloud / 远程部署)
+      2. localhost:API_PORT (本地开发)
+    """
+    import os
+    base = os.getenv("API_BASE_URL", "")
+    if base:
+        return base.rstrip("/") + path
+    port = os.getenv("API_PORT", "8000")
+    return f"http://localhost:{port}{path}"
+
 # ── 依赖可用性探测 (Streamlit Cloud 可能缺失 torch/ultralytics) ──
 _IMPORT_ERRORS: list[str] = []
 _ROCKFALL_AVAILABLE = True
@@ -78,6 +93,25 @@ except ImportError as e:
     get_active_site_name = lambda: "未知"  # type: ignore
     get_active_location = lambda: "未知"  # type: ignore
     PRESET_SITES = {}  # type: ignore
+
+try:
+    from rockfall.hazard_store import (
+        HazardPoint, HazardStore, SlopeStability, HistoricalIncident,
+        get_hazard_store, RISK_LEVELS, HAZARD_STATUSES,
+        calculate_risk_score, determine_risk_level, generate_hazard_report,
+    )
+except ImportError as e:
+    _IMPORT_ERRORS.append(f"rockfall.hazard_store: {e}")
+    HazardPoint = None  # type: ignore
+    HazardStore = None  # type: ignore
+    SlopeStability = None  # type: ignore
+    HistoricalIncident = None  # type: ignore
+    get_hazard_store = None  # type: ignore
+    RISK_LEVELS = {}  # type: ignore
+    HAZARD_STATUSES = {}  # type: ignore
+    calculate_risk_score = None  # type: ignore
+    determine_risk_level = None  # type: ignore
+    generate_hazard_report = None  # type: ignore
     MonitoringSite = None  # type: ignore
 
 try:
@@ -314,7 +348,6 @@ def get_detector(site_id: str = "") -> RockDetector | None:
         st.error(f"检测器初始化失败: {e}")
         return None
 
-
 @st.cache_resource(show_spinner=False)
 def get_store() -> AlertStore | None:
     """获取 AlertStore 单例 (自动探测 MySQL/SQLite 后端)。"""
@@ -322,7 +355,6 @@ def get_store() -> AlertStore | None:
         st.error("AlertStore 未能导入 — 请检查依赖安装")
         return None
     return get_alert_store()
-
 
 def _get_active_site_id() -> str:
     """安全地获取当前活跃点位 ID，失败时返回空字符串（使用全局默认）。"""
@@ -332,7 +364,6 @@ def _get_active_site_id() -> str:
     except Exception:
         return ""
 
-
 def get_detector_or_stop() -> RockDetector:
     """获取检测器, 若不可用则 st.stop()。自动加载当前点位阈值。"""
     d = get_detector(site_id=_get_active_site_id())
@@ -341,7 +372,6 @@ def get_detector_or_stop() -> RockDetector:
         st.stop()
     return d
 
-
 def _cleanup_stream_frames():
     """清理上一轮检测的标注帧文件, 避免与新结果混淆。"""
     try:
@@ -349,7 +379,6 @@ def _cleanup_stream_frames():
             f.unlink(missing_ok=True)
     except Exception:
         pass
-
 
 # ══════════════════════════════════════════════════════════════
 # 会话状态初始化
@@ -389,7 +418,6 @@ if "last_detection_source" not in st.session_state:
 if "session_id" not in st.session_state:
     from rockfall.trace import set_session_id, get_session_id
     st.session_state.session_id = set_session_id()
-
 
 # ══════════════════════════════════════════════════════════════
 # 侧边栏 — 系统信息
@@ -468,7 +496,7 @@ def render_sidebar():
         # ── 导航 ──
         page = st.radio(
             "",
-            ["预设演示", "实时监测", "多路监控", "算法亮点", "极端场景", "预警标准", "预警记录", "点位管理", "参数设置", "系统管理"],
+            ["预设演示", "实时监测", "多路监控", "算法亮点", "极端场景", "预警标准", "预警记录", "隐患点排查", "点位管理", "参数设置", "系统管理"],
             label_visibility="collapsed",
             format_func=lambda x: f"    {x}",
         )
@@ -515,7 +543,6 @@ def render_sidebar():
         """, unsafe_allow_html=True)
 
     return page
-
 
 # ══════════════════════════════════════════════════════════════
 # 性能仪表盘渲染
@@ -617,7 +644,6 @@ def _update_perf_dashboard(placeholders: dict, detail_placeholder, snap) -> None
     </div>
     """, unsafe_allow_html=True)
 
-
 # ══════════════════════════════════════════════════════════════
 # 模块 0: 预设演示 (零等待)
 # ══════════════════════════════════════════════════════════════
@@ -675,7 +701,6 @@ DEMO_SCENES = {
     },
 }
 
-
 def _load_demo_summary(scene_id: str) -> dict | None:
     """加载预生成的演示摘要数据"""
     import json as _json
@@ -691,7 +716,6 @@ def _load_demo_summary(scene_id: str) -> dict | None:
     except Exception:
         return None
 
-
 def _load_demo_result(scene_id: str) -> dict | None:
     """加载预生成的演示检测结果 (含轨迹数据)"""
     import json as _json
@@ -706,7 +730,6 @@ def _load_demo_result(scene_id: str) -> dict | None:
             return _json.load(f)
     except Exception:
         return None
-
 
 def _find_demo_for_site(active_site) -> dict | None:
     """将 MonitoringSite 映射到 DEMO_SCENES 中的真实 demo 数据。
@@ -730,7 +753,6 @@ def _find_demo_for_site(active_site) -> dict | None:
             if summary:
                 return (scene_id, summary)
     return None
-
 
 def page_demo_showcase():
     """预设演示页面: 预计算结果零等待加载"""
@@ -968,7 +990,6 @@ def page_demo_showcase():
         st.slider("", 0, len(key_frames) - 1, st.session_state.demo_frame_idx,
                   key="demo_slider", label_visibility="collapsed",
                   on_change=lambda: st.session_state.update(demo_frame_idx=st.session_state.demo_slider))
-
 
 # ══════════════════════════════════════════════════════════════
 # 模块 1: 实时监测
@@ -1445,7 +1466,6 @@ def page_realtime_monitor():
         except Exception:
             pass
 
-
 # ══════════════════════════════════════════════════════════════
 # 模块 2: 算法亮点展示
 # ══════════════════════════════════════════════════════════════
@@ -1884,7 +1904,6 @@ def page_algorithm_showcase():
         </div>
         """, unsafe_allow_html=True)
 
-
 # ══════════════════════════════════════════════════════════════
 # 模块 3: 极端场景验证
 # ══════════════════════════════════════════════════════════════
@@ -1945,7 +1964,6 @@ EXTREME_SCENARIOS = {
         "tech": "光照检测 + 自适应学习率 + 背景重置",
     },
 }
-
 
 def page_extreme_scenarios():
     """极端场景验证页面: 多场景检测效果展示 + 小目标验证"""
@@ -2291,7 +2309,6 @@ def page_extreme_scenarios():
                 st.image(str(img_candidate), use_container_width=True)
                 break
 
-
 # ══════════════════════════════════════════════════════════════
 # 模块 4: 预警标准文档化 + 决策树
 # ══════════════════════════════════════════════════════════════
@@ -2299,7 +2316,6 @@ def page_extreme_scenarios():
 def _esc(text: str) -> str:
     """转义 HTML 特殊字符，防止渲染为代码。"""
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
 
 def _get_alert_standards():
     """从 alert_classifier 获取四级预警标准 (单例缓存, 降级时用内置默认值)。
@@ -2342,7 +2358,6 @@ def _get_alert_standards():
         for k, v in _BUILTIN_ALERT_STANDARDS.items()
     }
 
-
 def _get_push_content_template(level: str) -> str:
     """推送内容模板"""
     templates = {
@@ -2353,7 +2368,6 @@ def _get_push_content_template(level: str) -> str:
     }
     return templates.get(level, "")
 
-
 def _safe_html_dedent(text: str) -> str:
     """去除公共缩进后，确保每行无 ≥4 空格前缀，避免触发 Markdown 代码块渲染。"""
     dedented = textwrap.dedent(text)
@@ -2361,7 +2375,6 @@ def _safe_html_dedent(text: str) -> str:
     # 去除每行首部空白——HTML 不需要缩进
     stripped = [line.lstrip() for line in lines]
     return "\n".join(stripped)
-
 
 # 推送渠道内部标识符 → 用户显示名称映射
 _PUSH_CHANNEL_DISPLAY = {
@@ -2374,7 +2387,6 @@ _PUSH_CHANNEL_DISPLAY = {
     "sms": "短信",
     "phone": "电话",
 }
-
 
 _BUILTIN_ALERT_STANDARDS = {
     "red": {
@@ -2443,7 +2455,6 @@ _BUILTIN_ALERT_STANDARDS = {
         "cooldown": "—",
     },
 }
-
 
 def page_alert_standards():
     """预警标准文档化页面: 四级预警触发条件 + 决策树 + 响应流程"""
@@ -2799,14 +2810,12 @@ def page_alert_standards():
         </div>
         """, unsafe_allow_html=True)
 
-
 # ══════════════════════════════════════════════════════════════
 # 模块 5: 多路监控
 # ══════════════════════════════════════════════════════════════
 
 MAX_CAMERAS = 4
 CAMERA_COLORS = ["#1565C0", "#E65100", "#2E7D32", "#6A1B9A"]  # 蓝/橙/绿/紫
-
 
 def page_multi_camera():
     """多路监控页面: 同时展示多路视频的检测结果"""
@@ -3213,7 +3222,6 @@ def page_multi_camera():
             )
             st.caption("横轴: 时间(秒) | 纵轴: 检出目标数 | 每路摄像头独立显示")
 
-
 # ══════════════════════════════════════════════════════════════
 # 模块 3: 预警记录
 # ══════════════════════════════════════════════════════════════
@@ -3371,10 +3379,10 @@ def page_alert_records():
                 st.write("")
                 if st.button("执行流转", key="wf_execute", use_container_width=True):
                     try:
-                        import requests, os
-                        port = os.getenv("API_PORT", "8000")
+                        import requests
+                        
                         r = requests.post(
-                            f"http://localhost:{port}/api/alerts/{wf_alert_id}/workflow",
+                            _api_url(f"/api/alerts/{wf_alert_id}/workflow"),
                             data={"state": wf_state, "operator": wf_operator, "note": wf_note},
                             timeout=5)
                         result = r.json()
@@ -3388,9 +3396,9 @@ def page_alert_records():
             # 显示当前状态
             if wf_alert_id:
                 try:
-                    import requests, os
-                    port = os.getenv("API_PORT", "8000")
-                    r = requests.get(f"http://localhost:{port}/api/alerts/{wf_alert_id}/workflow", timeout=5)
+                    import requests
+                    
+                    r = requests.get(_api_url(f"/api/alerts/{wf_alert_id}/workflow"), timeout=5)
                     wf_data = r.json()
                     st.markdown(f"**当前状态**: {wf_data.get('current_label', wf_data.get('current_state', 'N/A'))}")
                     history = wf_data.get("history", [])
@@ -3452,6 +3460,575 @@ def page_alert_records():
     else:
         st.info("📭 当前筛选条件下无预警记录。")
 
+# ══════════════════════════════════════════════════════════════
+# 模块 3.5: 隐患点排查与风险评估
+# ══════════════════════════════════════════════════════════════
+
+def page_hazard_investigation():
+    """隐患点排查与风险评估页面 — 对应\"第1步：隐患点排查与风险评估\"工作流程"""
+    import io as _io
+
+    _RISK_LABELS = {
+        "high": "🔴 高风险", "medium": "🟡 中风险", "low": "🟢 一般风险"
+    }
+    _RISK_COLORS = {
+        "high": "#DC3545", "medium": "#FFC107", "low": "#28A745"
+    }
+    _STATUS_LABELS = {
+        "identified": "🔍 已识别", "assessed": "📋 已评估",
+        "monitored": "📡 监测中", "remediated": "🛠️ 已治理", "cleared": "✅ 已消除"
+    }
+
+    # ── 初始化种子数据 ──
+    try:
+        store = get_hazard_store()
+        seeded = store.seed_demo_data()
+        if seeded > 0:
+            from rockfall.logger import log_event
+            log_event("system", level="INFO",
+                      msg=f"隐患点种子数据已写入 DB ({seeded} 条)")
+    except Exception:
+        store = None
+
+    hazards = store.list_all() if store else []
+    level_counts = store.count_by_level() if store else {"high": 0, "medium": 0, "low": 0}
+
+    # ── 页面头部 ──
+    st.markdown(f"""
+    <div class="brand-header">
+        <div>
+            <div class="logo">隐患点排查与风险评估</div>
+            <div style="font-size:0.8rem;opacity:0.85;">
+                {len(hazards)} 个隐患点 &nbsp;|&nbsp;
+                🔴 {level_counts.get('high',0)} 高风险 &nbsp;
+                🟡 {level_counts.get('medium',0)} 中风险 &nbsp;
+                🟢 {level_counts.get('low',0)} 一般风险
+            </div>
+        </div>
+        <div class="meta"><span>{APP_VERSION}</span></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Tab 分页 ──
+    tab_overview, tab_list, tab_add, tab_report = st.tabs([
+        "📊 总览面板", "📋 隐患点清单", "➕ 新增排查", "📄 评估报告"
+    ])
+
+    # ═══════════════════ Tab 1: 总览面板 ═══════════════════
+    with tab_overview:
+        # ── 统计卡片 ──
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("隐患点总数", len(hazards))
+        with col2:
+            monitored = sum(1 for h in hazards if h.linked_site_id)
+            unmonitored = len(hazards) - monitored
+            st.metric("已部署监测", f"{monitored}/{len(hazards)}",
+                      delta=f"{unmonitored} 待部署" if unmonitored > 0 else "全覆盖")
+        with col3:
+            avg_score = round(sum(h.risk_score for h in hazards) / len(hazards), 1) if hazards else 0
+            st.metric("平均风险评分", f"{avg_score}/100")
+        with col4:
+            has_incidents = sum(1 for h in hazards if h.historical_incidents)
+            st.metric("有历史灾害", f"{has_incidents} 处")
+
+        # ── 风险分布柱状图 ──
+        st.divider()
+        st.subheader("风险等级分布")
+        import plotly.express as px
+        df_level = pd.DataFrame([
+            {"等级": "高风险", "数量": level_counts.get("high", 0), "颜色": "#DC3545"},
+            {"等级": "中风险", "数量": level_counts.get("medium", 0), "颜色": "#FFC107"},
+            {"等级": "一般风险", "数量": level_counts.get("low", 0), "颜色": "#28A745"},
+        ])
+        fig = px.bar(df_level, x="等级", y="数量", color="等级",
+                     color_discrete_map={"高风险": "#DC3545", "中风险": "#FFC107", "一般风险": "#28A745"},
+                     text="数量", title="隐患点风险等级分布")
+        fig.update_traces(textposition="outside")
+        fig.update_layout(showlegend=False, height=350)
+        st.plotly_chart(fig, use_container_width=True)
+
+        # ── 工作流程说明 ──
+        st.divider()
+        st.subheader("排查工作流程")
+        st.markdown("""
+        | 步骤 | 工作内容 | 参与方 | 输出 |
+        |------|---------|--------|------|
+        | ① 现场踏勘 | 对目标路段进行全面踏勘，识别落石风险点 | 公路养护 + 地质部门 | 隐患点初步清单 |
+        | ② 历史数据梳理 | 标记发生过落石、塌方事件的路段 | 交通局/公路局 | 历史灾害台账 |
+        | ③ 边坡稳定性评估 | 地质条件分析、节理裂隙调查、稳定性计算 | 地质勘察单位 | 边坡评估报告 |
+        | ④ 风险等级分级 | 按高风险/中风险/一般风险对隐患点分级 | 联合专家组 | 隐患点清单及风险评估报告 |
+        """)
+
+    # ═══════════════════ Tab 2: 隐患点清单 ═══════════════════
+    with tab_list:
+        # ── 筛选栏 ──
+        col_f1, col_f2, col_f3 = st.columns(3)
+        with col_f1:
+            filter_level = st.selectbox(
+                "风险等级筛选", ["全部", "高风险", "中风险", "一般风险"],
+                key="hz_filter_level")
+        with col_f2:
+            filter_status = st.selectbox(
+                "状态筛选", ["全部"] + list(_STATUS_LABELS.values()),
+                key="hz_filter_status")
+        with col_f3:
+            search_term = st.text_input("🔍 搜索", placeholder="公路/地点/编号...",
+                                        key="hz_search")
+
+        # 应用筛选
+        filtered = list(hazards)
+        level_map_rev = {"高风险": "high", "中风险": "medium", "一般风险": "low"}
+        if filter_level != "全部":
+            filtered = [h for h in filtered if h.risk_level == level_map_rev.get(filter_level, "")]
+        if filter_status != "全部":
+            status_map_rev = {v: k for k, v in _STATUS_LABELS.items()}
+            filtered = [h for h in filtered if _STATUS_LABELS.get(h.status, "") == filter_status]
+        if search_term:
+            q = search_term.lower()
+            filtered = [h for h in filtered if
+                        q in h.name.lower() or q in h.highway.lower()
+                        or q in h.hazard_id.lower() or q in h.region.lower()]
+
+        st.caption(f"共 {len(filtered)} 个隐患点")
+
+        if not filtered:
+            st.info("暂无符合条件的隐患点")
+        else:
+            for i, h in enumerate(filtered):
+                _render_hazard_card(h, i)
+
+    # ═══════════════════ Tab 3: 新增排查 ═══════════════════
+    with tab_add:
+        st.subheader("录入新隐患点排查数据")
+        st.caption("包含基础信息、边坡稳定性评估、历史灾害记录。联合地质部门评估后填写。")
+
+        with st.form("add_hazard_form"):
+            # ── 基础信息 ──
+            st.markdown("#### 📍 基础信息")
+            col_a1, col_a2 = st.columns(2)
+            with col_a1:
+                new_hz_id = st.text_input("隐患点编号 *", key="hz_id",
+                                          placeholder="如: HZ-G75-003",
+                                          help="唯一标识符，建议格式: HZ-公路编号-序号")
+                new_hz_name = st.text_input("隐患点名称 *", key="hz_name",
+                                            placeholder="如: 桂林阳朔高速某边坡隐患点")
+                new_hz_region = st.text_input("所属区域", key="hz_region",
+                                              placeholder="如: 广西·桂林")
+                new_hz_lat = st.number_input("纬度", key="hz_lat",
+                                             min_value=0.0, max_value=90.0,
+                                             step=0.001, value=22.817, format="%.3f")
+                new_hz_lng = st.number_input("经度", key="hz_lng",
+                                             min_value=0.0, max_value=180.0,
+                                             step=0.001, value=108.366, format="%.3f")
+            with col_a2:
+                new_hz_highway = st.text_input("所属公路", key="hz_highway",
+                                               placeholder="如: G65 包茂高速")
+                new_hz_stake = st.text_input("桩号", key="hz_stake",
+                                             placeholder="如: K2480+500")
+                new_hz_location = st.text_input("具体位置描述", key="hz_location",
+                                                placeholder="报警推送中显示的位置")
+                new_hz_responsible = st.text_input("责任单位", key="hz_responsible",
+                                                   placeholder="如: XX公路管理局")
+                new_hz_contact = st.text_input("联系人/电话", key="hz_contact",
+                                               placeholder="如: 张工 / 138-XXXX-XXXX")
+                new_hz_surveyed = st.date_input("排查日期", key="hz_surveyed")
+
+            new_hz_desc = st.text_area("隐患点综合描述", key="hz_desc",
+                                       placeholder="地形地貌、地质特征、周边环境等综合描述...")
+
+            # ── 已有防护措施 ──
+            col_p1, col_p2 = st.columns(2)
+            with col_p1:
+                new_hz_protection = st.text_input("已有防护措施", key="hz_protection",
+                                                  placeholder="如: SNS主动防护网(局部), 挡石墙")
+            with col_p2:
+                new_hz_recommended = st.text_input("建议防治措施", key="hz_recommended",
+                                                   placeholder="如: 增设被动防护网+监测摄像头")
+
+            # ── 边坡稳定性评估 ──
+            st.markdown("#### 🔬 边坡稳定性评估")
+            st.caption("建议联合地质部门填写以下评估参数")
+
+            col_b1, col_b2, col_b3 = st.columns(3)
+            with col_b1:
+                new_slope_angle = st.number_input("坡度 (°)", key="hz_sa",
+                                                  min_value=0.0, max_value=90.0,
+                                                  step=1.0, value=45.0)
+                new_slope_height = st.number_input("坡高 (m)", key="hz_sh",
+                                                   min_value=0.0, max_value=500.0,
+                                                   step=1.0, value=30.0)
+                new_slope_type = st.selectbox("坡型", key="hz_st",
+                                              options=["直线坡", "凸坡", "凹坡", "复合坡"])
+                new_rock_type = st.selectbox("岩性", key="hz_rt",
+                                             options=["石灰岩", "花岗岩", "砂岩", "页岩",
+                                                      "砂岩夹页岩", "砂岩泥岩互层", "其他"])
+            with col_b2:
+                new_weathering = st.selectbox("风化程度", key="hz_wd",
+                                              options=["强", "中", "弱", "未风化"])
+                new_joint = st.selectbox("节理发育程度", key="hz_jd",
+                                         options=["发育", "较发育", "不发育"])
+                new_vegetation = st.selectbox("植被覆盖", key="hz_vc",
+                                              options=["好", "中", "差", "裸露"])
+                new_drainage = st.selectbox("排水条件", key="hz_dc",
+                                            options=["好", "中", "差"])
+            with col_b3:
+                new_geo_score = st.slider("地质稳定性评分 (0-100)", key="hz_gs",
+                                          min_value=0.0, max_value=100.0, value=50.0, step=1.0,
+                                          help="越低表示越不稳定")
+                new_survey_team = st.text_input("勘察单位/人员", key="hz_survey_team",
+                                                placeholder="如: XX地质工程勘察院")
+                new_survey_remarks = st.text_area("勘察备注", key="hz_survey_remarks",
+                                                  placeholder="坡顶裂缝、孤石分布、渗水情况等...",
+                                                  height=68)
+
+            # ── 历史灾害记录 ──
+            st.markdown("#### 📜 历史灾害记录")
+            st.caption("如有多条记录，请逐条添加。至少填写日期和类型。")
+
+            col_c1, col_c2, col_c3, col_c4 = st.columns(4)
+            with col_c1:
+                new_inc_date = st.date_input("发生日期", key="hz_inc_date")
+            with col_c2:
+                new_inc_type = st.selectbox("灾害类型", key="hz_inc_type",
+                                            options=["落石 (rockfall)", "滑坡 (landslide)", "崩塌 (collapse)"])
+            with col_c3:
+                new_inc_severity = st.selectbox("严重程度", key="hz_inc_severity",
+                                                options=["轻微 (minor)", "中等 (moderate)", "严重 (major)"])
+            with col_c4:
+                new_inc_casualties = st.text_input("伤亡情况", key="hz_inc_casualties",
+                                                   placeholder="如: 无")
+            col_d1, col_d2 = st.columns(2)
+            with col_d1:
+                new_inc_closure = st.text_input("道路中断情况", key="hz_inc_closure",
+                                                placeholder="如: 半幅通行2小时")
+            with col_d2:
+                new_inc_source = st.text_input("数据来源", key="hz_inc_source",
+                                               placeholder="如: XX市交通局养护记录")
+            new_inc_desc = st.text_area("事件描述", key="hz_inc_desc",
+                                        placeholder="简要描述事件经过...")
+
+            # ── 提交 ──
+            submitted = st.form_submit_button("💾 保存隐患点排查记录", use_container_width=True, type="primary")
+
+            if submitted:
+                if not new_hz_id.strip() or not new_hz_name.strip():
+                    st.error("隐患点编号和名称不能为空")
+                else:
+                    try:
+                        # 检查重复
+                        existing = store.get_by_id(new_hz_id.strip()) if store else None
+                        if existing is not None:
+                            st.error(f"隐患点编号已存在: {new_hz_id.strip()}")
+                        else:
+                            # 构建边坡评估记录
+                            slope_assessment = SlopeStability(
+                                slope_angle=float(new_slope_angle),
+                                slope_height=float(new_slope_height),
+                                slope_type=new_slope_type,
+                                rock_type=new_rock_type,
+                                weathering_degree=new_weathering,
+                                joint_development=new_joint,
+                                vegetation_coverage=new_vegetation,
+                                drainage_condition=new_drainage,
+                                geological_score=float(new_geo_score),
+                                survey_date=str(new_hz_surveyed),
+                                survey_team=new_survey_team,
+                                remarks=new_survey_remarks,
+                            )
+
+                            # 构建历史灾害记录
+                            incidents = []
+                            inc_type_map = {"落石 (rockfall)": "rockfall",
+                                           "滑坡 (landslide)": "landslide",
+                                           "崩塌 (collapse)": "collapse"}
+                            inc_sev_map = {"轻微 (minor)": "minor",
+                                          "中等 (moderate)": "moderate",
+                                          "严重 (major)": "major"}
+                            # 如果填写了灾害日期才添加
+                            inc_date_str = str(new_inc_date) if new_inc_date else ""
+                            if inc_date_str:
+                                incident = HistoricalIncident(
+                                    incident_date=inc_date_str,
+                                    incident_type=inc_type_map.get(new_inc_type, "rockfall"),
+                                    severity=inc_sev_map.get(new_inc_severity, "minor"),
+                                    description=new_inc_desc,
+                                    casualties=new_inc_casualties,
+                                    road_closure=new_inc_closure,
+                                    source=new_inc_source,
+                                )
+                                incidents.append(incident)
+
+                            # 计算风险评分
+                            score = calculate_risk_score(
+                                slope_assessment,
+                                [HistoricalIncident.from_dict(i.to_dict()) for i in incidents]
+                            )
+                            risk_lvl = determine_risk_level(score)
+
+                            # 解析联系人
+                            contact_parts = new_hz_contact.split("/") if new_hz_contact else ["", ""]
+                            contact_person = contact_parts[0].strip() if len(contact_parts) > 0 else ""
+                            contact_phone = contact_parts[1].strip() if len(contact_parts) > 1 else new_hz_contact.strip()
+
+                            hazard = HazardPoint(
+                                hazard_id=new_hz_id.strip(),
+                                name=new_hz_name.strip(),
+                                location=(new_hz_location.strip() or new_hz_name.strip()),
+                                region=new_hz_region.strip(),
+                                highway=new_hz_highway.strip(),
+                                stake_mark=new_hz_stake.strip(),
+                                latitude=float(new_hz_lat),
+                                longitude=float(new_hz_lng),
+                                risk_level=risk_lvl,
+                                risk_score=score,
+                                slope_assessments=[slope_assessment.to_dict()],
+                                historical_incidents=[i.to_dict() for i in incidents],
+                                status="assessed",
+                                description=new_hz_desc.strip(),
+                                responsible_unit=new_hz_responsible.strip(),
+                                contact_person=contact_person,
+                                contact_phone=contact_phone,
+                                protection_measures=new_hz_protection.strip(),
+                                recommended_measures=new_hz_recommended.strip(),
+                                surveyed_at=str(new_hz_surveyed),
+                            )
+
+                            if store and store.insert(hazard):
+                                st.success(
+                                    f"✅ 隐患点 '{new_hz_name}' 已录入！\n\n"
+                                    f"自动评估风险等级: {_RISK_LABELS.get(risk_lvl, risk_lvl)} "
+                                    f"(综合评分: {score})"
+                                )
+                                st.rerun()
+                            else:
+                                st.error("写入数据库失败")
+                    except Exception as e:
+                        st.error(f"保存失败: {e}")
+
+    # ═══════════════════ Tab 4: 评估报告 ═══════════════════
+    with tab_report:
+        st.subheader("隐患点清单及风险等级评估报告")
+        st.caption("基于排查数据自动生成，可直接导出或打印。")
+
+        if not hazards:
+            st.info("暂无隐患点数据，请先录入排查信息。")
+        else:
+            report_md = generate_hazard_report(hazards)
+
+            # 导出按钮
+            col_r1, col_r2, col_r3 = st.columns([1, 1, 4])
+            with col_r1:
+                st.download_button(
+                    label="📥 导出 Markdown",
+                    data=report_md,
+                    file_name=f"隐患点清单及风险评估报告_{datetime.now().strftime('%Y%m%d')}.md",
+                    mime="text/markdown",
+                    use_container_width=True,
+                )
+            with col_r2:
+                # 导出 CSV 概要
+                csv_rows = []
+                for h in hazards:
+                    csv_rows.append({
+                        "隐患点编号": h.hazard_id,
+                        "名称": h.name,
+                        "区域": h.region,
+                        "公路": h.highway,
+                        "桩号": h.stake_mark,
+                        "风险等级": _RISK_LABELS.get(h.risk_level, h.risk_level),
+                        "风险评分": h.risk_score,
+                        "历史灾害次数": len(h.historical_incidents),
+                        "监测状态": "已部署" if h.linked_site_id else "待部署",
+                        "排查日期": h.surveyed_at,
+                    })
+                csv_df = pd.DataFrame(csv_rows)
+                csv_buffer = _io.BytesIO()
+                csv_buffer.write(b'\xef\xbb\xbf')  # UTF-8 BOM for Excel compatibility
+                csv_content = csv_df.to_csv(index=False)
+                csv_buffer.write(csv_content.encode('utf-8'))
+                st.download_button(
+                    label="📊 导出 CSV",
+                    data=csv_buffer.getvalue(),
+                    file_name=f"隐患点清单_{datetime.now().strftime('%Y%m%d')}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
+
+            # ── 渲染报告 ──
+            st.divider()
+            with st.container(height=600):
+                st.markdown(report_md)
+
+def _render_hazard_card(h: "HazardPoint", idx: int):
+    """渲染单个隐患点卡片"""
+    _RISK_LABELS = {
+        "high": "🔴 高风险", "medium": "🟡 中风险", "low": "🟢 一般风险"
+    }
+    _RISK_COLORS = {
+        "high": "#DC3545", "medium": "#FFC107", "low": "#28A745"
+    }
+    _STATUS_LABELS = {
+        "identified": "🔍 已识别", "assessed": "📋 已评估",
+        "monitored": "📡 监测中", "remediated": "🛠️ 已治理", "cleared": "✅ 已消除"
+    }
+    color = _RISK_COLORS.get(h.risk_level, "#999")
+    level_label = _RISK_LABELS.get(h.risk_level, h.risk_level)
+    status_label = _STATUS_LABELS.get(h.status, h.status)
+
+    # 最新评估信息
+    latest_sa = h.slope_assessments[-1] if h.slope_assessments else {}
+    slope_info = ""
+    if latest_sa:
+        slope_info = (f"坡度 {latest_sa.get('slope_angle','?')}° / "
+                      f"坡高 {latest_sa.get('slope_height','?')}m / "
+                      f"{latest_sa.get('rock_type','?')} / "
+                      f"地质评分 {latest_sa.get('geological_score','?')}")
+
+    incident_count = len(h.historical_incidents)
+    monitor_badge = "✅ 已部署" if h.linked_site_id else "⚠️ 待部署"
+
+    with st.expander(
+        f"{level_label} | {h.hazard_id} | {h.name} | {status_label} | 灾害{incident_count}次",
+        expanded=(idx == 0 and h.risk_level == "high")
+    ):
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.markdown(f"""
+            **隐患点**: {h.name}
+            **位置**: {h.region} / {h.location}
+            **公路桩号**: {h.highway} {h.stake_mark}
+            **坐标**: ({h.latitude:.4f}, {h.longitude:.4f})
+            **边坡概况**: {slope_info}
+            **综合描述**: {h.description or '待补充'}
+            """)
+
+            # 历史灾害
+            if h.historical_incidents:
+                st.markdown("**历史灾害记录**:")
+                for inc in h.historical_incidents:
+                    type_label = {"rockfall": "落石", "landslide": "滑坡", "collapse": "崩塌"}.get(
+                        inc.get("incident_type", ""), inc.get("incident_type", ""))
+                    sev_label = {"major": "严重", "moderate": "中等", "minor": "轻微"}.get(
+                        inc.get("severity", ""), inc.get("severity", ""))
+                    st.caption(
+                        f"📅 {inc.get('incident_date','?')} | "
+                        f"{type_label} | {sev_label} | "
+                        f"{inc.get('description','')[:50]}..."
+                    )
+            else:
+                st.caption("📜 无历史灾害记录")
+
+            # 防治措施
+            if h.protection_measures:
+                st.caption(f"🛡️ 已有防护: {h.protection_measures}")
+            if h.recommended_measures:
+                st.caption(f"💡 建议措施: {h.recommended_measures}")
+
+        with col2:
+            st.markdown(f"""
+            <div style="text-align:center;padding:0.5rem;border-radius:8px;
+                        background:{color}15;border:2px solid {color};">
+                <div style="font-size:0.7rem;color:#666;">风险评分</div>
+                <div style="font-size:1.8rem;font-weight:700;color:{color};">{h.risk_score:.0f}</div>
+                <div style="font-size:0.7rem;color:#666;">/100</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            st.caption(f"**状态**: {status_label}")
+            st.caption(f"**监测**: {monitor_badge}")
+            if h.linked_site_id:
+                st.caption(f"站点: `{h.linked_site_id}`")
+            if h.responsible_unit:
+                st.caption(f"**责任单位**: {h.responsible_unit}")
+            if h.surveyed_at:
+                st.caption(f"**排查日期**: {h.surveyed_at}")
+
+        # ── 操作按钮行 ──
+        col_act1, col_act2, col_act3 = st.columns(3)
+        with col_act1:
+            # 关联监测点位
+            if not h.linked_site_id:
+                from rockfall.site_config import list_sites
+                available_sites = list_sites()
+                site_options = {s.site_id: f"{s.name} ({s.site_id})" for s in available_sites}
+
+                link_site = st.selectbox(
+                    "关联监测点位",
+                    options=[""] + list(site_options.keys()),
+                    format_func=lambda x: "选择点位..." if not x else site_options.get(x, x),
+                    key=f"link_site_{h.hazard_id}_{idx}"
+                )
+                if link_site and st.button("🔗 关联", key=f"btn_link_{h.hazard_id}"):
+                    h.linked_site_id = link_site
+                    h.status = "monitored"
+                    try:
+                        _store = get_hazard_store()
+                        if _store:
+                            _store.update(h)
+                    except Exception:
+                        pass
+                    st.success(f"已关联监测点位: {link_site}")
+                    st.rerun()
+            else:
+                if st.button("🔓 解除关联", key=f"btn_unlink_{h.hazard_id}"):
+                    h.linked_site_id = ""
+                    h.status = "assessed"
+                    try:
+                        _store = get_hazard_store()
+                        if _store:
+                            _store.update(h)
+                    except Exception:
+                        pass
+                    st.success("已解除关联")
+                    st.rerun()
+
+        with col_act2:
+            # 快速更新状态
+            new_status = st.selectbox(
+                "更新状态",
+                options=list(_STATUS_LABELS.keys()),
+                format_func=lambda x: _STATUS_LABELS.get(x, x),
+                index=list(_STATUS_LABELS.keys()).index(h.status) if h.status in _STATUS_LABELS else 0,
+                key=f"status_{h.hazard_id}_{idx}"
+            )
+            if new_status != h.status:
+                if st.button("✏️ 更新", key=f"btn_status_{h.hazard_id}"):
+                    h.status = new_status
+                    try:
+                        _store = get_hazard_store()
+                        if _store:
+                            _store.update(h)
+                    except Exception:
+                        pass
+                    st.success(f"状态已更新: {_STATUS_LABELS.get(new_status, new_status)}")
+                    st.rerun()
+
+        with col_act3:
+            # 删除
+            if st.button("🗑️ 删除", key=f"btn_del_{h.hazard_id}",
+                        type="secondary"):
+                # 二次确认
+                st.session_state[f"confirm_del_{h.hazard_id}"] = True
+
+            if st.session_state.get(f"confirm_del_{h.hazard_id}"):
+                st.error(f"⚠️ 确认删除隐患点 {h.hazard_id}？此操作不可撤销。")
+                cf1, cf2 = st.columns(2)
+                with cf1:
+                    if st.button("✅ 确认删除", key=f"cfm_del_{h.hazard_id}"):
+                        try:
+                            _store = get_hazard_store()
+                            if _store:
+                                _store.delete(h.hazard_id)
+                        except Exception:
+                            pass
+                        st.session_state.pop(f"confirm_del_{h.hazard_id}", None)
+                        st.success("已删除")
+                        st.rerun()
+                with cf2:
+                    if st.button("❌ 取消", key=f"cancel_del_{h.hazard_id}"):
+                        st.session_state.pop(f"confirm_del_{h.hazard_id}", None)
+                        st.rerun()
 
 # ══════════════════════════════════════════════════════════════
 # 模块 4: 点位管理
@@ -3644,7 +4221,6 @@ def page_site_management():
     else:
         st.info("该点位尚未进行 ROI 标定, 将使用默认 ROI 区域。")
 
-
 def _render_site_threshold_editor(site):
     """点位灵敏度配置——快捷预设 + 精细调节"""
     if site is None:
@@ -3737,7 +4313,6 @@ def _render_site_threshold_editor(site):
             except Exception as e:
                 st.error(f"保存失败: {e}")
 
-
 def _get_site_thresholds(site) -> dict:
     """获取点位的有效检测阈值（兼容新旧版本 MonitoringSite）。
 
@@ -3766,7 +4341,6 @@ def _get_site_thresholds(site) -> dict:
         "alert_orange_high": _val("alert_orange_high", _DEF_ORANGE_HIGH),
     }
 
-
 def _render_site_card(site: MonitoringSite, is_active: bool = False, show_detail: bool = False):
     """渲染单个点位卡片"""
     if site is None:
@@ -3794,7 +4368,6 @@ def _render_site_card(site: MonitoringSite, is_active: bool = False, show_detail
             <br><small style="font-family:monospace;color:#1565C0;">{thresh_str}</small>
         </div>
         """, unsafe_allow_html=True)
-
 
 # ══════════════════════════════════════════════════════════════
 # 模块 5: 参数设置
@@ -3999,7 +4572,6 @@ def page_settings():
             else:
                 st.info("无覆盖 (全部使用默认值)")
 
-
 # ══════════════════════════════════════════════════════════════
 # 模块 6: 系统管理 (健康检查 + 审计日志 + 存储管理 + 工单统计)
 # ══════════════════════════════════════════════════════════════
@@ -4016,16 +4588,16 @@ def page_system():
     </div>
     """, unsafe_allow_html=True)
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["健康检查", "审计日志", "存储管理", "工单统计", "数据完整性"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["健康检查", "审计日志", "存储管理", "工单统计", "数据完整性", "智能调度"])
 
     # ── Tab 1: 系统健康检查 ──
     with tab1:
         st.markdown("### 系统健康检查")
         if st.button("运行健康检查", key="sys_health_check", use_container_width=True):
             try:
-                import requests, os
-                port = os.getenv("API_PORT", "8000")
-                r = requests.get(f"http://localhost:{port}/api/health/full", timeout=5)
+                import requests
+                
+                r = requests.get(_api_url("/api/health/full"), timeout=5)
                 health = r.json()
             except Exception:
                 health = {"healthy": False, "warnings": ["API 服务不可达，请确认 FastAPI 已启动"]}
@@ -4059,9 +4631,9 @@ def page_system():
     with tab2:
         st.markdown("### 审计日志")
         try:
-            import requests, os
-            port = os.getenv("API_PORT", "8000")
-            r = requests.get(f"http://localhost:{port}/api/audit?limit=50", timeout=5)
+            import requests
+            
+            r = requests.get(_api_url("/api/audit?limit=50"), timeout=5)
             data = r.json()
             rows = data.get("rows", [])
             total = data.get("total", 0)
@@ -4084,9 +4656,9 @@ def page_system():
     with tab3:
         st.markdown("### 存储管理")
         try:
-            import requests, os
-            port = os.getenv("API_PORT", "8000")
-            r = requests.get(f"http://localhost:{port}/api/health/storage", timeout=5)
+            import requests
+            
+            r = requests.get(_api_url("/api/health/storage"), timeout=5)
             stats = r.json()
 
             c1, c2 = st.columns(2)
@@ -4109,7 +4681,7 @@ def page_system():
             with c2:
                 st.write("")
                 if st.button("运行清理 (试运行)", key="sys_cleanup_dry", use_container_width=True):
-                    r = requests.post(f"http://localhost:{port}/api/health/cleanup",
+                    r = requests.post(_api_url("/api/health/cleanup"),
                                      data={"retention_days": retention, "dry_run": True})
                     result = r.json()
                     st.info(f"将删除 {result['deleted_count']} 个文件, 释放 {result['freed_mb']} MB")
@@ -4120,9 +4692,9 @@ def page_system():
     with tab4:
         st.markdown("### 工单统计")
         try:
-            import requests, os
-            port = os.getenv("API_PORT", "8000")
-            r = requests.get(f"http://localhost:{port}/api/workflow/stats", timeout=5)
+            import requests
+            
+            r = requests.get(_api_url("/api/workflow/stats"), timeout=5)
             wf_stats = r.json()
 
             cols = st.columns(4)
@@ -4209,6 +4781,126 @@ def page_system():
         except Exception as e:
             st.warning(f"哈希链验证暂不可用: {e}")
 
+    # ── Tab 6: 智能调度 (阈值调参 + 预警升级 + 模型热切换) ──
+    with tab6:
+        st.markdown("### 智能调度 — 自动运维面板")
+        st.caption("阈值自动调参、预警自动升级、夜间模型热切换。Streamlit 直连，无需外部 API。")
+
+        # ── 子面板 A: 阈值自动调参 ──
+        st.markdown("#### 阈值自动调参")
+        if _ROCKFALL_AVAILABLE:
+            try:
+                from rockfall.threshold_tuner import get_tuner
+                from rockfall.config import (
+                    THRESHOLD_AUTO_TUNE_ENABLED,
+                    THRESHOLD_AUTO_TUNE_INTERVAL_HOURS,
+                    THRESHOLD_AUTO_TUNE_TARGET_FP_RATE,
+                    THRESHOLD_AUTO_TUNE_CONF_MIN,
+                    THRESHOLD_AUTO_TUNE_CONF_MAX,
+                )
+                tuner = get_tuner()
+
+                col_a1, col_a2, col_a3, col_a4 = st.columns(4)
+                col_a1.metric("状态", "已启用" if THRESHOLD_AUTO_TUNE_ENABLED else "已禁用")
+                col_a2.metric("累计调整", tuner.total_adjustments)
+                col_a3.metric("收紧", tuner.total_tighten)
+                col_a4.metric("放松", tuner.total_relax)
+
+                with st.expander("配置详情", expanded=False):
+                    st.json({
+                        "扫描间隔(小时)": THRESHOLD_AUTO_TUNE_INTERVAL_HOURS,
+                        "目标误报率": f"{THRESHOLD_AUTO_TUNE_TARGET_FP_RATE:.0%}",
+                        "置信度范围": f"[{THRESHOLD_AUTO_TUNE_CONF_MIN}, {THRESHOLD_AUTO_TUNE_CONF_MAX}]",
+                        "上次运行": tuner.last_run_time or "N/A",
+                        "上次结果": tuner.last_result,
+                    })
+
+                if st.button("手动触发调参", key="tuner_trigger", use_container_width=True):
+                    result = tuner.trigger_now()
+                    st.json(result)
+            except Exception as e:
+                st.warning(f"调参模块不可用: {e}")
+        else:
+            st.info("rockfall 核心库未安装。")
+
+        st.divider()
+
+        # ── 子面板 B: 预警自动升级 ──
+        st.markdown("#### 预警自动升级")
+        if _ROCKFALL_AVAILABLE:
+            try:
+                from rockfall.alert_escalation import get_escalation_scheduler
+                from rockfall.config import (
+                    ALERT_ESCALATION_ENABLED,
+                    ALERT_ESCALATION_TIMEOUT_MINUTES,
+                    ALERT_ESCALATION_MIN_LEVEL,
+                )
+                scheduler = get_escalation_scheduler()
+
+                col_b1, col_b2, col_b3 = st.columns(3)
+                col_b1.metric("状态", "已启用" if ALERT_ESCALATION_ENABLED else "已禁用")
+                col_b2.metric("累计升级", scheduler.total_escalations)
+                col_b3.metric("超时阈值", f"{ALERT_ESCALATION_TIMEOUT_MINUTES} 分钟")
+
+                with st.expander("升级规则", expanded=False):
+                    st.json({
+                        "超时分钟": ALERT_ESCALATION_TIMEOUT_MINUTES,
+                        "最低触发等级": ALERT_ESCALATION_MIN_LEVEL,
+                        "升级链": "blue → yellow → orange → red",
+                        "上次运行": scheduler.last_run_time or "N/A",
+                    })
+
+                if st.button("手动触发升级", key="esc_trigger", use_container_width=True):
+                    result = scheduler.trigger_now()
+                    st.json(result)
+            except Exception as e:
+                st.warning(f"升级模块不可用: {e}")
+        else:
+            st.info("rockfall 核心库未安装。")
+
+        st.divider()
+
+        # ── 子面板 C: 模型热切换 ──
+        st.markdown("#### 模型热切换状态")
+        if _ROCKFALL_AVAILABLE:
+            try:
+                from rockfall.config import (
+                    MODEL_NIGHT_PATH, MODEL_SLOT_MAP,
+                    get_active_model_path, _get_model_for_hour,
+                )
+                from datetime import datetime
+                from pathlib import Path
+
+                current_hour = datetime.now().hour
+                active_path = get_active_model_path()
+                night_model = _get_model_for_hour(current_hour)
+                is_night = night_model is not None
+                night_exists = Path(MODEL_NIGHT_PATH).exists() if MODEL_NIGHT_PATH else False
+
+                col_c1, col_c2, col_c3 = st.columns(3)
+                col_c1.metric("当前时段", f"{current_hour}:00",
+                             delta="夜间模式" if is_night else "白天模式",
+                             delta_color="off" if is_night else "normal")
+                col_c2.metric("激活模型",
+                             active_path.name if active_path.exists() else "unknown")
+                col_c3.metric("夜间模型",
+                             "就绪" if night_exists else "未部署",
+                             delta=MODEL_NIGHT_PATH[:25] if MODEL_NIGHT_PATH else None)
+
+                with st.expander("时段路由详情", expanded=False):
+                    st.json({
+                        "当前小时": current_hour,
+                        "夜间模式启用": bool(MODEL_NIGHT_PATH),
+                        "夜间模型路径": MODEL_NIGHT_PATH or "",
+                        "夜间模型存在": night_exists,
+                        "当前是否夜间": is_night,
+                        "当前应使用模型": str(night_model) if night_model else "默认(rock_best.pt)",
+                        "时段映射(SLOT_MAP)": MODEL_SLOT_MAP or "未配置",
+                    })
+            except Exception as e:
+                st.warning(f"模型状态不可用: {e}")
+        else:
+            st.info("rockfall 核心库未安装。")
 
 # ══════════════════════════════════════════════════════════════
 # 主入口
@@ -4264,13 +4956,14 @@ def main():
         page_alert_standards()
     elif "预警记录" in page:
         page_alert_records()
+    elif "隐患点排查" in page:
+        page_hazard_investigation()
     elif "点位管理" in page:
         page_site_management()
     elif "参数设置" in page:
         page_settings()
     elif "系统管理" in page:
         page_system()
-
 
 if __name__ == "__main__":
     main()
