@@ -56,12 +56,15 @@ CREATE TABLE IF NOT EXISTS alerts (
     session_id VARCHAR(32) DEFAULT '',
     data_hash VARCHAR(64) DEFAULT '',
     prev_hash VARCHAR(64) DEFAULT '',
+    confirmed_at VARCHAR(19) DEFAULT '',
+    confirmed_by VARCHAR(50) DEFAULT '',
     created_at VARCHAR(19) NOT NULL,
     INDEX idx_workflow_state (workflow_state),
     INDEX idx_push_status (push_status),
     INDEX idx_time (time),
     INDEX idx_alert_level (alert_level),
-    INDEX idx_request_id (request_id)
+    INDEX idx_request_id (request_id),
+    INDEX idx_confirmed_at (confirmed_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"""
 
 _SQLITE_SCHEMA = """\
@@ -88,6 +91,8 @@ CREATE TABLE IF NOT EXISTS alerts (
     session_id TEXT DEFAULT '',
     data_hash TEXT DEFAULT '',
     prev_hash TEXT DEFAULT '',
+    confirmed_at TEXT DEFAULT '',
+    confirmed_by TEXT DEFAULT '',
     created_at TEXT NOT NULL
 )"""
 
@@ -107,6 +112,9 @@ _MIGRATIONS = {
         # 哈希链防篡改 (v2.6+)
         "ALTER TABLE alerts ADD COLUMN data_hash TEXT DEFAULT ''",
         "ALTER TABLE alerts ADD COLUMN prev_hash TEXT DEFAULT ''",
+        # 预警确认与自动升级 (v2.7+)
+        "ALTER TABLE alerts ADD COLUMN confirmed_at TEXT DEFAULT ''",
+        "ALTER TABLE alerts ADD COLUMN confirmed_by TEXT DEFAULT ''",
     ],
     "mysql": [
         "ALTER TABLE alerts ADD COLUMN rock_diameter_cm DOUBLE DEFAULT 0",
@@ -122,6 +130,9 @@ _MIGRATIONS = {
         # 哈希链防篡改 (v2.6+)
         "ALTER TABLE alerts ADD COLUMN data_hash VARCHAR(64) DEFAULT ''",
         "ALTER TABLE alerts ADD COLUMN prev_hash VARCHAR(64) DEFAULT ''",
+        # 预警确认与自动升级 (v2.7+)
+        "ALTER TABLE alerts ADD COLUMN confirmed_at VARCHAR(19) DEFAULT ''",
+        "ALTER TABLE alerts ADD COLUMN confirmed_by VARCHAR(50) DEFAULT ''",
     ],
 }
 
@@ -1182,6 +1193,196 @@ class AlertStore:
         except Exception:
             pass
 
+    # ---- 预警确认与自动升级 (v2.7+) ----
+
+    # 升级规则: 当前等级 → 升级后等级
+    ESCALATION_RULES = {
+        "blue":   "yellow",
+        "yellow": "orange",
+        "orange": "red",
+        # red 已是最高级, 不再升级
+    }
+
+    def confirm_alert(self, alert_id: int, confirmed_by: str = "") -> dict:
+        """
+        确认预警 — 记录确认时间和确认人，停止自动升级计时器。
+
+        返回: {"ok": True/False, "msg": "..."}
+        """
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if self._backend == "mysql":
+            conn = None
+            try:
+                conn = self._mysql_conn()
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "UPDATE alerts SET confirmed_at=%s, confirmed_by=%s "
+                        "WHERE id=%s AND (confirmed_at = '' OR confirmed_at IS NULL)",
+                        (now, confirmed_by, alert_id),
+                    )
+                    affected = cur.rowcount
+                conn.commit()
+                if affected == 0:
+                    return {"ok": False, "msg": f"预警 #{alert_id} 不存在或已确认"}
+                return {"ok": True, "msg": f"预警 #{alert_id} 已确认"}
+            except Exception as e:
+                return {"ok": False, "msg": str(e)}
+            finally:
+                if conn is not None:
+                    conn.close()
+        else:
+            with self._lock:
+                with self._get_sqlite_conn() as conn:
+                    cur = conn.execute(
+                        "UPDATE alerts SET confirmed_at=?, confirmed_by=? "
+                        "WHERE id=? AND (confirmed_at = '' OR confirmed_at IS NULL)",
+                        (now, confirmed_by, alert_id),
+                    )
+                    affected = cur.rowcount
+                    conn.commit()
+            if affected == 0:
+                return {"ok": False, "msg": f"预警 #{alert_id} 不存在或已确认"}
+            return {"ok": True, "msg": f"预警 #{alert_id} 已确认"}
+
+    def get_unconfirmed_alerts(
+        self, timeout_minutes: int = 30, min_level: str = "blue",
+        limit: int = 500,
+    ) -> list[dict]:
+        """
+        扫描"发出超过 timeout_minutes 分钟且未被确认"的预警。
+
+        参数:
+            timeout_minutes: 超时分钟数 (默认 30)
+            min_level:       最低预警等级 (含), 低于此等级的预警不扫描
+            limit:           最大返回条数 (默认 500, 防止全表扫描)
+
+        返回: 未确认预警记录列表 (按时间升序)
+        """
+        from .alert_classifier import LEVEL_ORDER
+
+        cutoff = (datetime.now() - timedelta(minutes=timeout_minutes)).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+
+        # 确定需要扫描的等级范围
+        try:
+            min_idx = LEVEL_ORDER.index(min_level)
+        except ValueError:
+            min_idx = 1  # 默认从 blue 开始
+        scan_levels = LEVEL_ORDER[min_idx:]  # e.g. ["blue", "yellow", "orange", "red"]
+
+        if self._backend == "mysql":
+            placeholders = ",".join(["%s"] * len(scan_levels))
+            return self._mysql_query(
+                f"SELECT * FROM alerts "
+                f"WHERE alert_level IN ({placeholders}) "
+                f"AND (confirmed_at = '' OR confirmed_at IS NULL) "
+                f"AND time <= %s "
+                f"ORDER BY time ASC LIMIT %s",
+                tuple(scan_levels) + (cutoff, limit),
+            )
+        else:
+            placeholders = ",".join(["?"] * len(scan_levels))
+            return self._sqlite_query(
+                f"SELECT * FROM alerts "
+                f"WHERE alert_level IN ({placeholders}) "
+                f"AND (confirmed_at = '' OR confirmed_at IS NULL) "
+                f"AND time <= ? "
+                f"ORDER BY time ASC LIMIT ?",
+                tuple(scan_levels) + (cutoff, limit),
+            )
+
+    def escalate_alert(
+        self, alert_id: int, new_level: str, reason: str = "",
+        operator: str = "system",
+    ) -> dict:
+        """
+        升级预警等级并触发重新推送。
+
+        流程:
+          1. 更新 alert_level → new_level
+          2. 重置 push_status → 'pending' (触发重新推送)
+          3. 记录升级事件到 workflow_history
+
+        返回: {"ok": True/False, "msg": "...", "old_level": "...", "new_level": "..."}
+        """
+        # 读取当前状态
+        record = self._get_record_by_id(alert_id)
+        if record is None:
+            return {"ok": False, "msg": f"预警 #{alert_id} 不存在"}
+
+        old_level = record.get("alert_level", "")
+        if old_level == new_level:
+            return {"ok": False, "msg": f"预警 #{alert_id} 等级未变 ({old_level})"}
+
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # 构造升级历史条目
+        escalation_entry = {
+            "action": "auto_escalation",
+            "from_level": old_level,
+            "to_level": new_level,
+            "time": now,
+            "operator": operator,
+            "reason": reason or f"超时未确认, 自动从 {old_level} 升级至 {new_level}",
+        }
+
+        if self._backend == "mysql":
+            conn = None
+            cur = None
+            try:
+                conn = self._mysql_conn()
+                cur = conn.cursor()
+                # 读取现有 history
+                cur.execute(
+                    "SELECT workflow_history FROM alerts WHERE id=%s", (alert_id,))
+                row = cur.fetchone()
+                history = json.loads(row[0]) if row and row[0] else []
+                history.append(escalation_entry)
+                # 更新等级 + 重置推送状态 + 追加历史
+                cur.execute(
+                    "UPDATE alerts SET alert_level=%s, push_status='pending', "
+                    "workflow_history=%s, operator=%s WHERE id=%s",
+                    (new_level, json.dumps(history, ensure_ascii=False),
+                     operator, alert_id),
+                )
+                conn.commit()
+                return {
+                    "ok": True,
+                    "msg": f"预警 #{alert_id}: {old_level} → {new_level} (自动升级)",
+                    "old_level": old_level,
+                    "new_level": new_level,
+                }
+            except Exception as e:
+                return {"ok": False, "msg": str(e)}
+            finally:
+                if cur is not None:
+                    cur.close()
+                if conn is not None:
+                    conn.close()
+        else:
+            with self._lock:
+                with self._get_sqlite_conn() as conn:
+                    cur = conn.execute(
+                        "SELECT workflow_history FROM alerts WHERE id=?",
+                        (alert_id,))
+                    row = cur.fetchone()
+                    history = json.loads(row[0]) if row and row[0] else []
+                    history.append(escalation_entry)
+                    conn.execute(
+                        "UPDATE alerts SET alert_level=?, push_status='pending', "
+                        "workflow_history=?, operator=? WHERE id=?",
+                        (new_level, json.dumps(history, ensure_ascii=False),
+                         operator, alert_id),
+                    )
+                    conn.commit()
+            return {
+                "ok": True,
+                "msg": f"预警 #{alert_id}: {old_level} → {new_level} (自动升级)",
+                "old_level": old_level,
+                "new_level": new_level,
+            }
+
     # ---- 辅助 ----
 
     # 列顺序必须与 CREATE TABLE + 迁移后的物理列序一致 (SELECT * 返回此顺序)
@@ -1192,6 +1393,7 @@ class AlertStore:
              "review_status", "reviewer_note",
              "workflow_state", "workflow_history", "operator",
              "request_id", "session_id", "data_hash", "prev_hash",
+             "confirmed_at", "confirmed_by",
              "created_at"]
 
     @staticmethod
