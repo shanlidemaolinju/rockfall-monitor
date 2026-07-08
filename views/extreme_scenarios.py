@@ -1,6 +1,10 @@
 """RockGuard Streamlit — 页面模块"""
 import streamlit as st
+from pathlib import Path
 from _shared import *
+
+# 直接计算项目根路径，不依赖 _shared 的 _ROOT 导出
+_ROOT = Path(__file__).resolve().parent.parent
 
 EXTREME_SCENARIOS = {
     "night": {
@@ -153,7 +157,7 @@ def page_extreme_scenarios():
 
             frame_cols = st.columns(2)
             for i, kf in enumerate(show_frames[:4]):
-                fp = THIS_DIR / demo_scene.get("data_dir", "") / kf["thumbnail"]
+                fp = _ROOT / demo_scene.get("data_dir", "") / kf["thumbnail"]
                 with frame_cols[i % 2]:
                     if fp.exists():
                         st.image(str(fp), use_container_width=True,
@@ -391,8 +395,8 @@ def page_extreme_scenarios():
 
         # 现场图：按站点查找（文件名 = {site_id}_site.png），回退到旧文件名
         for img_candidate in [
-            THIS_DIR / f"{active_site.site_id}_site.png",
-            THIS_DIR / f"{active_site.site_id}_site.jpg",
+            _ROOT / f"{active_site.site_id}_site.png",
+            _ROOT / f"{active_site.site_id}_site.jpg",
         ]:
             if img_candidate.exists():
                 st.markdown(f"""

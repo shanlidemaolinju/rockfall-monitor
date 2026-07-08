@@ -1,6 +1,10 @@
 """RockGuard Streamlit — 页面模块"""
 import streamlit as st
+from pathlib import Path
 from _shared import *
+
+# 直接计算项目根路径，不依赖 _shared 的 _ROOT 导出
+_ROOT = Path(__file__).resolve().parent.parent
 
 def page_demo_showcase():
     """预设演示页面: 预计算结果零等待加载"""
@@ -190,7 +194,7 @@ def page_demo_showcase():
 
         # 主图 + 控制
         kf = key_frames[st.session_state.demo_frame_idx]
-        frame_path = THIS_DIR / active_scene["data_dir"] / kf["thumbnail"]
+        frame_path = _ROOT / active_scene["data_dir"] / kf["thumbnail"]
         lvl = kf["alert_level"]
 
         c_left, c_right = st.columns([4, 1])
@@ -202,7 +206,7 @@ def page_demo_showcase():
             # 缩略图条
             cols = st.columns(min(len(key_frames), 15))
             for i, kf_th in enumerate(key_frames[:15]):
-                fp_th = THIS_DIR / active_scene["data_dir"] / kf_th["thumbnail"]
+                fp_th = _ROOT / active_scene["data_dir"] / kf_th["thumbnail"]
                 with cols[i]:
                     is_current = i == st.session_state.demo_frame_idx
                     if fp_th.exists():
