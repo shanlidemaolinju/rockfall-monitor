@@ -84,6 +84,7 @@ class _DetectionWorker(QObject):
         self.frame_h: int = 0
         self._downscale: float = 1.0
         self._road_mask: np.ndarray | None = None
+        self._slope_mask: np.ndarray | None = None
         self.roi_mask: np.ndarray | None = None
         self.polygons: list = []
         self._frame_n: int = 0
@@ -126,6 +127,7 @@ class _DetectionWorker(QObject):
         if self.detector is not None:
             self.detector.init_stream_state(self.frame_w, self.frame_h, self.roi_mask)
             self.detector._road_mask = self._road_mask
+            self.detector._slope_mask = self._slope_mask
         if self.tracker is not None:
             self.tracker.reset()
             self.tracker.set_video_context(fps, self.frame_h)
@@ -183,6 +185,7 @@ class _DetectionWorker(QObject):
                     if self.detector is not None:
                         self.detector.init_stream_state(self.frame_w, self.frame_h, self.roi_mask)
                         self.detector._road_mask = self._road_mask
+                        self.detector._slope_mask = self._slope_mask
                     if self.tracker is not None:
                         self.tracker.reset()
                     pending_dets.clear()
@@ -251,7 +254,8 @@ class _DetectionWorker(QObject):
                 fps_n = 0
 
             # ── 绘制标注 ──
-            RockDetector.draw_tracks(frame, tracks)
+            suppressed = getattr(self.detector, '_slope_suppressed', None) if self.detector else None
+            RockDetector.draw_tracks(frame, tracks, suppressed=suppressed)
             if self.polygons:
                 for poly in self.polygons:
                     cv2.polylines(frame, [poly], True, (0, 255, 0), 2)
@@ -382,6 +386,7 @@ class VideoCaptureWidget(QtWidgets.QWidget):
         self.frame_h = 0
         self._downscale = 1.0
         self._road_mask = None
+        self._slope_mask = None
         self.polygon = None
         self.roi_mask = None
         self._road_pct = 0
@@ -559,6 +564,12 @@ class VideoCaptureWidget(QtWidgets.QWidget):
                         self._road_mask = cv2.imread(mask_file, cv2.IMREAD_GRAYSCALE)
                         if self._road_mask is not None:
                             self.roi_mask = 255 - self._road_mask
+                            # 优先加载专用 slope 文件, 回退到 255-road
+                            slope_file = loaded.get("slope_file")
+                            if slope_file and Path(slope_file).exists():
+                                self._slope_mask = cv2.imread(slope_file, cv2.IMREAD_GRAYSCALE)
+                            else:
+                                self._slope_mask = self.roi_mask.copy()
                             road_pct = (self._road_mask > 0).sum() / (self.frame_w * self.frame_h) * 100
                             if road_pct < 90:
                                 roi_valid = True
@@ -594,6 +605,7 @@ class VideoCaptureWidget(QtWidgets.QWidget):
         self._worker.frame_h = self.frame_h
         self._worker._downscale = self._downscale
         self._worker._road_mask = self._road_mask
+        self._worker._slope_mask = self._slope_mask
         self._worker.roi_mask = self.roi_mask
         self._worker.polygons = self.polygons
         self._worker._frame_n = 0
@@ -624,6 +636,7 @@ class VideoCaptureWidget(QtWidgets.QWidget):
         self.polygon = None
         self.roi_mask = None
         self._road_mask = None
+        self._slope_mask = None
         # 释放 FastSAM 显存 (CPU 模式, 但防御性保留)
         try:
             release_fastsam_model()
@@ -718,6 +731,11 @@ class VideoCaptureWidget(QtWidgets.QWidget):
             mask_path = ROI_CONFIG_PATH.parent / f"mask_{sk}.png"
             cv2.imwrite(str(mask_path), self._road_mask)
             entry["mask_file"] = str(mask_path)
+            # 同时保存 slope_mask (FastSAM 原始输出, 比 255-road 更精准)
+            if self._slope_mask is not None:
+                slope_path = ROI_CONFIG_PATH.parent / f"slope_{sk}.png"
+                cv2.imwrite(str(slope_path), self._slope_mask)
+                entry["slope_file"] = str(slope_path)
         roi_data[key] = entry
         try:
             ROI_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -761,6 +779,7 @@ class VideoCaptureWidget(QtWidgets.QWidget):
                 self._road_mask, self.roi_mask = auto_segment_from_cap(
                     tmp_cap, fw, fh, sample_num=FASTSAM_NUM_SAMPLES,
                 )
+                self._slope_mask = self.roi_mask.copy()  # FastSAM slope mask for confidence adjustment
                 road_pct = (self._road_mask > 0).sum() / (fw * fh) * 100
                 self.log_message.emit(f"[FastSAM] 道路{road_pct:.0f}% (mask)")
                 road_mask = self._road_mask
@@ -792,6 +811,7 @@ class VideoCaptureWidget(QtWidgets.QWidget):
                         )
                         self.roi_mask = fused
                         self._road_mask = 255 - fused
+                        self._slope_mask = fused.copy()  # CV-generated slope mask
                         road_mask = self._road_mask
                 except Exception as e:
                     self.log_message.emit(f"[ROI] 传统CV异常: {e}")
@@ -801,6 +821,7 @@ class VideoCaptureWidget(QtWidgets.QWidget):
                 self.log_message.emit("[ROI] 使用默认ROI (手动框选可覆盖)")
                 self.polygon = RockDetector._default_polygon(fw, fh)
                 self._build_roi_mask()
+                self._slope_mask = None  # 无 FastSAM mask, 边坡置信度调整将跳过
                 return
 
             # 质量守卫 + 轮廓提取
@@ -885,12 +906,14 @@ class VideoCaptureWidget(QtWidgets.QWidget):
         self._remove_roi()
         self.polygon = None
         self._road_mask = None
+        self._slope_mask = None
         self.roi_mask = None
         self._auto_detect_road(tmp_cap, self.source_type)
         _safe_release(tmp_cap)
         if self.roi_mask is not None and self._worker is not None:
             self._worker.roi_mask = self.roi_mask
             self._worker._road_mask = self._road_mask
+            self._worker._slope_mask = self._slope_mask
             self.log_message.emit("边坡自动检测完成, ROI已更新")
 
     def reset_and_redetect(self):
@@ -917,6 +940,7 @@ class VideoCaptureWidget(QtWidgets.QWidget):
                 pass
         self.polygon = None
         self._road_mask = None
+        self._slope_mask = None
         self.roi_mask = None
         self.load_source(self.source_path, self.source_type)
 
