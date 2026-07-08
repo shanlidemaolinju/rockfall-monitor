@@ -11,6 +11,17 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Streamlit Cloud secrets → os.environ 桥接
+# secrets.toml 中的值通过 st.secrets 暴露, 不会自动变成环境变量。
+# 此处将它们注入 os.environ, 使现有 os.getenv() 调用在 Streamlit Cloud 上也能读到配置。
+try:
+    import streamlit as st
+    for _key, _value in st.secrets.items():
+        if _key not in os.environ and isinstance(_value, str):
+            os.environ[_key] = _value
+except Exception:
+    pass  # 非 Streamlit 环境 (桌面端/命令行) 静默跳过
+
 # ============================================================
 # 项目路径
 # ============================================================
