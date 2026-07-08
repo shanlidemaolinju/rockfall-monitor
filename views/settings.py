@@ -105,6 +105,46 @@ def page_settings():
         help="(低阈值, 高阈值): 低=静止→弱运动分界, 高=弱运动→强运动分界",
     )
 
+    # ── 早期预警：检测密度爆发 ──
+    st.divider()
+    st.subheader("🔬 早期预警 — 检测密度爆发")
+    st.caption("远景小落石置信度低 (0.10-0.30), 但短时间内检出数量骤增即是前兆信号。"
+               "开启后系统自动统计滚动窗口内的检测密度, 异常飙升时触发预警升级。")
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        density_enabled = st.checkbox(
+            "启用密度爆发监测",
+            value=DENSITY_ALERT_ENABLED,
+            help="开启后检测密度异常飙升时自动升级预警等级 (宜宾滑坡验证有效)",
+        )
+    with c2:
+        density_window = st.slider(
+            "滚动窗口 (秒)",
+            min_value=5, max_value=60, value=DENSITY_WINDOW_SEC, step=5,
+            help="统计过去N秒内的检测框数量作为基线",
+        )
+    with c3:
+        density_zscore = st.slider(
+            "爆发 z-score 阈值",
+            min_value=1.5, max_value=5.0, value=float(DENSITY_BURST_ZSCORE), step=0.5,
+            help="当前帧检测数超过基线均值N倍标准差时触发爆发告警",
+        )
+
+    c1, c2 = st.columns(2)
+    with c1:
+        density_conf_floor = st.slider(
+            "密度统计置信度下限",
+            min_value=0.05, max_value=0.30, value=float(DENSITY_CONF_FLOOR), step=0.05,
+            help="置信度≥此值的检测框才纳入密度统计, 过滤纯噪声",
+        )
+    with c2:
+        density_min_samples = st.slider(
+            "最少样本数 (帧)",
+            min_value=60, max_value=600, value=DENSITY_MIN_SAMPLES, step=30,
+            help="收集足够样本后才开始判定, 给MOG2预热时间",
+        )
+
     # ── 应用按钮 ──
     st.divider()
     c1, c2, c3 = st.columns([1, 1, 2])
@@ -118,6 +158,13 @@ def page_settings():
             detector.alert_blue_conf_high = blue_high
             detector.alert_yellow_conf_high = yellow_high
             detector.alert_orange_conf_high = orange_high
+
+            # 密度监测参数 (热更新 DensityMonitor)
+            if detector._density_monitor is not None and density_enabled:
+                detector._density_monitor.window_sec = density_window
+                detector._density_monitor.burst_zscore = density_zscore
+                detector._density_monitor.conf_floor = density_conf_floor
+                detector._density_monitor.min_samples = density_min_samples
 
             # 更新 RuntimeConfig 单例 (跨会话持久化, 新检测器启动时自动读取)
             from rockfall.config import RuntimeConfig as _RC
@@ -134,6 +181,11 @@ def page_settings():
                 "MOTION_SCORE_LOW": new_motion_low[0],
                 "MOTION_SCORE_HIGH": new_motion_low[1],
                 "MOG2_LEARNING_RATE": new_mog2_lr,
+                "DENSITY_ALERT_ENABLED": "true" if density_enabled else "false",
+                "DENSITY_WINDOW_SEC": str(density_window),
+                "DENSITY_BURST_ZSCORE": str(density_zscore),
+                "DENSITY_CONF_FLOOR": str(density_conf_floor),
+                "DENSITY_MIN_SAMPLES": str(density_min_samples),
             })
 
             # 更新会话状态
@@ -150,8 +202,12 @@ def page_settings():
             st.session_state.motion_score_low = new_motion_low[0]
             st.session_state.motion_score_high = new_motion_low[1]
             st.session_state.mog2_learning_rate = new_mog2_lr
+            st.session_state.density_alert_enabled = density_enabled
+            st.session_state.density_window_sec = density_window
+            st.session_state.density_burst_zscore = density_zscore
+            st.session_state.density_conf_floor = density_conf_floor
 
-            st.success("参数已应用 (RuntimeConfig 跨会话持久化)")
+            st.success("参数已应用 (含密度爆发监测)")
 
     with c2:
         if st.button("恢复默认", use_container_width=True):

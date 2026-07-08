@@ -512,6 +512,19 @@ PRECURSOR_ESCALATION_PERSIST_SEC = float(os.getenv("PRECURSOR_ESCALATION_PERSIST
 PRECURSOR_ESCALATION_RED_SEC = float(os.getenv("PRECURSOR_ESCALATION_RED_SEC", "30"))           # 累计风险达此值→直冲红色
 PRECURSOR_ESCALATION_DECAY_RATE = float(os.getenv("PRECURSOR_ESCALATION_DECAY_RATE", "0.3"))    # 间隙期风险消退速率 (0.3=30%速度)
 
+# ---- 早期预警: 检测密度爆发 (Density Burst Detection) ----
+# 核心思想 (宜宾滑坡验证): 远景小落石 YOLO 置信度低 (0.10-0.30),
+# 但短时间内 ROI 内检测框密度急剧上升, 以此为前兆信号。
+# 统计滚动窗口内 YOLO 检测框数量, 当当前帧检测数超过滚动均值的
+# DENSITY_BURST_ZSCORE 倍标准差时触发密度告警。
+#   告警映射: z > BURST_ZSCORE → yellow (≥1个目标) / orange (≥3个目标)
+# 与原有四级决策树独立, 密度告警作为升级信号 (不低于 yellow)。
+DENSITY_ALERT_ENABLED = os.getenv("DENSITY_ALERT_ENABLED", "true").lower() == "true"
+DENSITY_WINDOW_SEC = int(os.getenv("DENSITY_WINDOW_SEC", "15"))                # 滚动窗口 (秒)
+DENSITY_BURST_ZSCORE = float(os.getenv("DENSITY_BURST_ZSCORE", "2.5"))        # 爆发 z-score 阈值
+DENSITY_CONF_FLOOR = float(os.getenv("DENSITY_CONF_FLOOR", "0.10"))           # 纳入密度统计的最低 YOLO 置信度
+DENSITY_MIN_SAMPLES = int(os.getenv("DENSITY_MIN_SAMPLES", "300"))             # 最少样本数 (约10秒@30fps, 给MOG2足够的预热时间)
+
 # ---- 预警确认与自动升级 (Alert Escalation) ----
 # 蓝色/黄色/橙色预警发出后, 若超过 ESCALATION_TIMEOUT_MINUTES 分钟无人确认,
 # 自动升级到下一等级并推送给更高级别负责人, 形成"系统发现→推送→追责"双向闭环。

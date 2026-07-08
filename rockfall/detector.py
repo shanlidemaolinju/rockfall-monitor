@@ -97,9 +97,14 @@ from .sahi import SAHISlicer, sahi_inference
 from .frame_buffer import FrameRingBuffer
 from .fusion import fuse_confidence, TemporalFilter
 from .slope_confidence import adjust_confidence_by_slope
+from .density_alert import DensityMonitor
 from .logger import log_event
 from .privacy import PrivacyFilter
-from .config import PRIVACY_BLUR_ENABLED as _PRIVACY_BLUR_ENABLED
+from .config import (
+    PRIVACY_BLUR_ENABLED as _PRIVACY_BLUR_ENABLED,
+    DENSITY_ALERT_ENABLED, DENSITY_WINDOW_SEC,
+    DENSITY_BURST_ZSCORE, DENSITY_CONF_FLOOR, DENSITY_MIN_SAMPLES,
+)
 
 # ---- 共享帧缓冲 ----
 _frame_lock = threading.Lock()
@@ -358,6 +363,7 @@ class RockDetector:
         self._frame_buffer = FrameRingBuffer(
             maxlen=RING_BUFFER_SIZE, jpeg_quality=RING_BUFFER_JPEG_QUALITY,
         )
+        self._density_monitor: DensityMonitor | None = None  # 延迟初始化 (需 fps)
         self._stream_ready = True
 
         # --- 状态日志：ROI 裁剪 ---
@@ -1028,6 +1034,19 @@ class RockDetector:
         if trk is not None:
             trk.set_video_context(fps, fh)
 
+        # 延迟初始化密度爆发监测器 (需要 fps, 在 init_stream_state 时尚不可用)
+        if DENSITY_ALERT_ENABLED and self._density_monitor is None:
+            self._density_monitor = DensityMonitor(
+                window_sec=DENSITY_WINDOW_SEC,
+                burst_zscore=DENSITY_BURST_ZSCORE,
+                conf_floor=DENSITY_CONF_FLOOR,
+                min_samples=DENSITY_MIN_SAMPLES,
+                fps=fps,
+            )
+            log_event("system", level="INFO",
+                      msg=f"密度爆发监测已启用 (window={DENSITY_WINDOW_SEC}s @ {fps:.0f}fps={self._density_monitor.window_frames}帧, "
+                          f"zscore={DENSITY_BURST_ZSCORE}, conf_floor={DENSITY_CONF_FLOOR})")
+
         all_detections = []
         raw_dets: list = []
         frame_idx = start_frame
@@ -1123,6 +1142,21 @@ class RockDetector:
             frame_time_sec = frame_idx / fps if fps > 0 else 0
             alert_ctx = self.build_alert_context(tracks_info, fw, fh, frame_time=frame_time_sec) if tracks_info else AlertContext(frame_time=frame_time_sec)
             frame_alert = self._grade_alert(alert_ctx)
+
+            # ---- 检测密度爆发 (早期前兆预警) ----
+            # 独立于四级决策树，作为升级信号: 密度异常时不低于 yellow
+            density_level = None
+            if DENSITY_ALERT_ENABLED and self._density_monitor is not None:
+                density_level = self._density_monitor.update_from_detections(
+                    raw_dets, frame_time_sec,
+                )
+                if density_level is not None:
+                    from .alert_classifier import LEVEL_ORDER
+                    current_order = LEVEL_ORDER.index(frame_alert)
+                    density_order = LEVEL_ORDER.index(density_level)
+                    if density_order > current_order:
+                        frame_alert = density_level
+                        alert_ctx.max_conf = max(alert_ctx.max_conf, DENSITY_CONF_FLOOR)
 
             frame_det = {
                 "frame": frame_idx,

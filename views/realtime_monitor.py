@@ -348,6 +348,45 @@ def page_realtime_monitor():
                 st.scatter_chart(tl_df.set_index("时间 (秒)")[["目标数"]], use_container_width=True)
                 st.caption("预警时间线: X轴 = 时间(秒), Y轴 = 检出目标数")
 
+        # ── 密度爆发监测状态 ──
+        if DENSITY_ALERT_ENABLED:
+            st.divider()
+            st.markdown(f"""
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:0.3rem;">
+                <div style="font-size:0.85rem;font-weight:600;color:{TEXT_PRIMARY};">🔬 密度爆发监测</div>
+                <span style="font-size:0.7rem;padding:2px 8px;border-radius:8px;
+                    background-color:#E3F2FD;color:#1565C0;">v3 · 宜宾滑坡验证</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+            dc1, dc2, dc3, dc4 = st.columns(4)
+            detector = get_detector_or_stop()
+            dm = detector._density_monitor if detector is not None else None
+
+            if dm is not None and dm.is_ready:
+                stats = dm.last_stats
+                dc1.metric("窗口大小", f"{dm.window_frames}帧",
+                          delta=f"{dm.window_sec}s")
+                dc2.metric("基线均值", f"{stats.window_mean:.1f}",
+                          help="滚动窗口内平均每帧检测数")
+                dc3.metric("当前 z-score",
+                          f"{stats.zscore:.1f}",
+                          delta="爆发!" if stats.is_burst else "正常",
+                          delta_color="inverse" if not stats.is_burst else "normal")
+                dc4.metric("z-score 阈值", f"{dm.burst_zscore}",
+                          help="超过此值触发密度告警")
+            else:
+                dc1.metric("窗口大小", f"{DENSITY_WINDOW_SEC}s × {results.get('fps', 30):.0f}fps",
+                          help="滚动统计窗口")
+                dc2.metric("置信度下限", f"{DENSITY_CONF_FLOOR:.2f}",
+                          help="纳入密度统计的最低YOLO置信度")
+                dc3.metric("爆发阈值", f"z > {DENSITY_BURST_ZSCORE}",
+                          help="检测数超过基线N倍标准差")
+                dc4.metric("最少样本", f"{DENSITY_MIN_SAMPLES}帧",
+                          help="需收集足够样本后才判定")
+                if dm is not None:
+                    st.caption(f"📊 已收集 {dm.last_stats.window_size}/{dm.window_frames} 帧样本 (就绪后开始判定)")
+
     # 预警帧图库
     if alert_count > 0 and save_frames_flag:
         st.divider()

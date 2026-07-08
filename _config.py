@@ -134,6 +134,8 @@ try:
         MOTION_MIN_AREA, MOTION_SCORE_LOW, MOTION_SCORE_HIGH,
         SKIP_IDLE, SKIP_ACTIVE, SKIP_CRITICAL,
         MOG2_HISTORY, MOG2_VAR_THRESHOLD, MOG2_LEARNING_RATE,
+        DENSITY_ALERT_ENABLED, DENSITY_WINDOW_SEC,
+        DENSITY_BURST_ZSCORE, DENSITY_CONF_FLOOR, DENSITY_MIN_SAMPLES,
         validate_config,
         CLASS_NAMES,
         get_device as config_get_device,
@@ -161,6 +163,11 @@ except ImportError as e:
     MOG2_HISTORY = 500
     MOG2_VAR_THRESHOLD = 16
     MOG2_LEARNING_RATE = 0.01
+    DENSITY_ALERT_ENABLED = True
+    DENSITY_WINDOW_SEC = 15
+    DENSITY_BURST_ZSCORE = 2.5
+    DENSITY_CONF_FLOOR = 0.10
+    DENSITY_MIN_SAMPLES = 300
     validate_config = lambda: []  # type: ignore
     CLASS_NAMES = {0: "rock"}
     config_get_device = lambda: ("cpu", "CPU (后备)")  # type: ignore
