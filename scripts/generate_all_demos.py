@@ -13,13 +13,20 @@
   # 列出所有已注册场景及其数据状态
   python scripts/generate_all_demos.py --list
 
-配置ファイル形式 (demo_videos.json):
+配置文件格式 (demo_videos.json):
   {
     "qinzhou_demo":  "/data/videos/qinzhou_demo.mp4",
+    "qinzhou_cam_1": "/data/videos/1.flv",
     "qinzhou_cam_2": "/data/videos/2.flv",
     "qinzhou_cam_3": "/data/videos/3.flv",
+    "qinzhou_cam_4": "/data/videos/4.flv",
+    "qinzhou_cam_5": "/data/videos/5.flv",
+    "qinzhou_cam_6": "/data/videos/6.flv",
     "qinzhou_test_a": "/data/videos/VID_20230304_114247.mp4",
     "qinzhou_test_b": "/data/videos/VID_20230304_153140.mp4",
+    "qinzhou_test_c": "/data/videos/VID_20230304131810.mp4",
+    "qinzhou_test_d": "/data/videos/VID_20230304132003.mp4",
+    "qinzhou_test_e": "/data/videos/VID_20230304132126.mp4",
     "yibin_s1":      "/data/videos/yibin_landslide.mp4"
   }
 
@@ -67,6 +74,49 @@ DEMO_SCENES = {
         "subtitle": "钦州现场落石试验 — VID_20230304_153140.mp4",
         "data_dir": "demo_data/qinzhou_s1",
         "tags": ["钦州", "落石试验", "现场"],
+    },
+    # ── 以下场景已有视频源，待 GPU 生成 ──
+    "qinzhou_cam_1": {
+        "title": "钦州监测视频 1",
+        "subtitle": "钦州公路边坡实时监测 — 1.flv",
+        "data_dir": "demo_data/qinzhou_cam_1",
+        "tags": ["钦州", "监测摄像头", "待生成"],
+    },
+    "qinzhou_cam_4": {
+        "title": "钦州监测视频 4",
+        "subtitle": "钦州公路边坡实时监测 — 4.flv",
+        "data_dir": "demo_data/qinzhou_cam_4",
+        "tags": ["钦州", "监测摄像头", "待生成"],
+    },
+    "qinzhou_cam_5": {
+        "title": "钦州监测视频 5",
+        "subtitle": "钦州公路边坡实时监测 — 5.flv",
+        "data_dir": "demo_data/qinzhou_cam_5",
+        "tags": ["钦州", "监测摄像头", "待生成"],
+    },
+    "qinzhou_cam_6": {
+        "title": "钦州监测视频 6",
+        "subtitle": "钦州公路边坡实时监测 — 6.flv",
+        "data_dir": "demo_data/qinzhou_cam_6",
+        "tags": ["钦州", "监测摄像头", "待生成"],
+    },
+    "qinzhou_test_c": {
+        "title": "钦州落石试验 C",
+        "subtitle": "钦州现场落石试验 — VID_20230304131810.mp4",
+        "data_dir": "demo_data/qinzhou_test_c",
+        "tags": ["钦州", "落石试验", "待生成"],
+    },
+    "qinzhou_test_d": {
+        "title": "钦州落石试验 D",
+        "subtitle": "钦州现场落石试验 — VID_20230304132003.mp4",
+        "data_dir": "demo_data/qinzhou_test_d",
+        "tags": ["钦州", "落石试验", "待生成"],
+    },
+    "qinzhou_test_e": {
+        "title": "钦州落石试验 E",
+        "subtitle": "钦州现场落石试验 — VID_20230304132126.mp4",
+        "data_dir": "demo_data/qinzhou_test_e",
+        "tags": ["钦州", "落石试验", "待生成"],
     },
     "yibin_s1": {
         "title": "宜宾 G85 渝昆高速滑坡",
