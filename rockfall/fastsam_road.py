@@ -13,14 +13,12 @@ FastSAM 道路/边坡分割模块（替代原SAM独立进程）
   - 加载失败自动降级为传统CV
 """
 
-import time
 import cv2
 import numpy as np
 from ultralytics import FastSAM
 
 from .config import (
-    FASTSAM_MODEL_NAME, FASTSAM_LIVE_SAMPLE_INTERVAL,
-    FASTSAM_MIN_QUALITY_SCORE, FASTSAM_NUM_SAMPLES,
+    FASTSAM_MODEL_NAME, FASTSAM_NUM_SAMPLES,
 )
 from .logger import log_event
 
@@ -28,9 +26,8 @@ from .logger import log_event
 _SAM_MODEL: FastSAM | None = None
 _MODEL_LOADED = False
 _MODEL_LOAD_ERROR: str | None = None
-# FastSAM 强制 CPU: 与 YOLO 共用 CUDA 会导致 STATUS_STACK_BUFFER_OVERRUN
-# FastSAM 只在初始 ROI 检测运行一次(3帧), CPU 耗时~10s 完全可以接受
-_DEVICE = "cpu"
+# FastSAM CUDA 推理 (与 YOLO 分时复用: 调用方在 ROI 检测期间暂停 YOLO worker)
+_DEVICE = "cuda" if cv2.cuda.getCudaEnabledDeviceCount() > 0 else "cpu"
 
 
 def is_model_ready() -> bool:
@@ -61,7 +58,7 @@ def _get_model() -> FastSAM | None:
     # 首次加载 (调用方应在主线程)
     try:
         log_event("system", level="DEBUG",
-                  msg=f"FastSAM 开始加载 {FASTSAM_MODEL_NAME} → {_DEVICE}")
+                  msg=f"FastSAM 开始加载 {FASTSAM_MODEL_NAME} -> {_DEVICE}")
         _SAM_MODEL = FastSAM(FASTSAM_MODEL_NAME)
         _MODEL_LOADED = True
         _MODEL_LOAD_ERROR = None
@@ -256,21 +253,21 @@ def _segment_slope_score(
     sat_score = min(1.0, mean_s_seg / max(mean_s, 1.0))
 
     # ---- 特征5: 位置 ----
-    # 路在底部，坡在中上部 — 但必须验证底部确实"像公路"
-    # 公路特征: 低饱和度(灰色沥青) + 低纹理(平整路面)
-    # 如果该segment饱和度 >= 全帧均值，说明有色(植被/岩石)，不是公路
-    # sat_score 已经计算了 mean_s_seg / mean_s，>1.0 说明比平均更"艳"
+    # 路在底部,坡在中上部 → 双重验证底部确实"是路"
+    # 道路特征: 低饱和度(灰色调) + 低纹理(平滑路面)
+    # 如果segment饱和度 >= 全帧均值,说明有色(植被/岩石),不是公路
+    # sat_score 已经反映了 mean_s_seg / mean_s,>1.0 说明比平均还"有颜色"
     bottom_looks_like_road = (
         y_ratio > 0.55
-        and mean_s_seg < mean_s * 1.1     # 不比平均值更艳 → 灰调
-        and tex_score < 0.55              # 纹理不过高 → 平整
+        and mean_s_seg < mean_s * 1.1     # 不高于平均值 → 灰的
+        and tex_score < 0.55              # 纹理不丰富 → 平滑
     )
     if y_ratio > 0.70 and y_max > h * 0.85:
         pos_score = -1.0 if bottom_looks_like_road else 0.0
     elif y_ratio > 0.55:
-        pos_score = -0.3 if bottom_looks_like_road else 0.2  # 中下部但不像路 → 中性偏坡
+        pos_score = -0.3 if bottom_looks_like_road else 0.2  # 下半部不全是路 → 轻微偏坡
     elif y_ratio < 0.25:
-        pos_score = -0.5   # 顶部 → 天空/远景，排除
+        pos_score = -0.5   # 顶部 → 天空/远景,排除
     else:
         pos_score = 0.5    # 中部 → 边坡
 
@@ -295,7 +292,7 @@ def _segment_slope_score(
         pos_score   * 0.20 +
         shape_score * 0.05
     )
-    return total - 0.35  # 阈值偏移: >0 → slope
+    return total - 0.45  # 阈值偏移: >0 → slope (0.45 偏保守, 减少道路误判)
 
 
 def _pixel_level_cv_fallback(frame: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -348,42 +345,24 @@ def auto_segment_from_cap(
 
     返回:
         road_mask, roi_mask  (uint8 255=有效区域)
-
-    策略:
-        - 文件视频: 跳帧采样 (seek)，取时间上均匀分布的帧
-        - RTSP 直播流: 按时间间隔实时采样 (默认 1 秒间隔)，
-          因为 RTSP 不支持 seek，cap.set(POS_FRAMES) 无效
     """
     if sample_num is None:
         sample_num = FASTSAM_NUM_SAMPLES
 
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     is_live = total_frames <= 0
-    interval = FASTSAM_LIVE_SAMPLE_INTERVAL
-
-    log_event("system", level="DEBUG",
-              msg=f"FastSAM采样策略: {'实时间隔采样' if is_live else '文件跳帧采样'}, "
-                  f"采样数={sample_num}, 间隔={interval}s")
+    step = max(1, total_frames // sample_num) if not is_live else 1
 
     road_accum = np.zeros((fh, fw), dtype=np.float32)
     slope_accum = np.zeros((fh, fw), dtype=np.float32)
     valid = 0
 
     for s in range(sample_num):
-        if is_live:
-            # RTSP 实时采样: 直接顺序读取（不可 seek）
-            ret, frame = _read_frame_with_timeout(cap, timeout=5.0)
-        else:
-            # 文件采样: seek 到均匀间隔的位置
-            step = max(1, total_frames // sample_num)
+        if not is_live:
             cap.set(cv2.CAP_PROP_POS_FRAMES, s * step)
-            ret, frame = cap.read()
-
+        ret, frame = cap.read()
         if not ret:
-            log_event("system", level="WARN",
-                      msg=f"FastSAM 采样帧 {s + 1}/{sample_num} 读取失败")
             continue
-
         if frame.shape[1] != fw or frame.shape[0] != fh:
             frame = cv2.resize(frame, (fw, fh))
 
@@ -391,10 +370,6 @@ def auto_segment_from_cap(
         road_accum += (road > 0).astype(np.float32)
         slope_accum += (slope > 0).astype(np.float32)
         valid += 1
-
-        # 实时流: 在采样间隔之间等待以获取时间多样性
-        if is_live and s < sample_num - 1:
-            time.sleep(interval)
 
     if valid == 0:
         log_event("system", level="WARN", msg="FastSAM 无有效采样帧, 使用默认 mask")
@@ -404,38 +379,12 @@ def auto_segment_from_cap(
     road_mask = (road_accum / valid > 0.5).astype(np.uint8) * 255
     slope_mask = (slope_accum / valid > 0.5).astype(np.uint8) * 255
 
-    # ---- 质量守卫: 检查采样结果可靠性 ----
-    quality_ok = _check_mask_quality(road_mask, slope_mask, fw, fh)
-    if not quality_ok and is_live:
-        log_event("system", level="WARN",
-                  msg="FastSAM 采样质量不足, 尝试延长采样")
-        # 额外采样 N 帧（最多再采样 sample_num 帧）
-        extra_frames = sample_num
-        for s in range(extra_frames):
-            ret, frame = _read_frame_with_timeout(cap, timeout=5.0)
-            if not ret:
-                break
-            if frame.shape[1] != fw or frame.shape[0] != fh:
-                frame = cv2.resize(frame, (fw, fh))
-            road, slope = generate_road_slope_mask(frame)
-            road_accum += (road > 0).astype(np.float32)
-            slope_accum += (slope > 0).astype(np.float32)
-            valid += 1
-            time.sleep(interval)
-
-        road_mask = (road_accum / valid > 0.5).astype(np.uint8) * 255
-        slope_mask = (slope_accum / valid > 0.5).astype(np.uint8) * 255
-
     # 未分类区域过大时（均匀斜坡场景FastSAM覆盖不全），用CV仅补空洞
     classified = ((road_mask > 0) | (slope_mask > 0)).sum()
     unclassified_pct = (1.0 - classified / (fw * fh)) * 100
     if unclassified_pct > 50 and valid > 0:
-        if is_live:
-            ret, ref_frame = cap.read()
-        else:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            ret, ref_frame = cap.read()
-
+        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        ret, ref_frame = cap.read()
         if ret:
             if ref_frame.shape[1] != fw or ref_frame.shape[0] != fh:
                 ref_frame = cv2.resize(ref_frame, (fw, fh))
@@ -459,59 +408,6 @@ def auto_segment_from_cap(
                   f"slope={((slope_mask > 0).sum() / (fw * fh) * 100):.1f}%")
 
     return road_mask, slope_mask
-
-
-def _read_frame_with_timeout(cap: cv2.VideoCapture, timeout: float = 5.0):
-    """带超时保护的帧读取（防止 RTSP 流冻结阻塞主线程）。"""
-    result = {"frame": None}
-
-    def _read():
-        ret, frame = cap.read()
-        if ret:
-            result["frame"] = (ret, frame)
-
-    t = threading.Thread(target=_read, daemon=True)
-    t.start()
-    t.join(timeout)
-
-    if t.is_alive():
-        log_event("system", level="WARN",
-                  msg=f"FastSAM RTSP 读取超时 ({timeout}s), 跳过该帧")
-        return False, None
-
-    if result["frame"] is not None:
-        return result["frame"]
-    return False, None
-
-
-def _check_mask_quality(road_mask: np.ndarray, slope_mask: np.ndarray,
-                        fw: int, fh: int) -> bool:
-    """快速质量检查: 道路覆盖率是否合理 (10%-60%) 且底部连通。"""
-    total_px = fw * fh
-    road_pct = (road_mask > 0).sum() / total_px
-
-    # 道路占比合理性
-    if road_pct < 0.05 or road_pct > 0.70:
-        return False
-
-    # 底部连通性（道路应延伸到底部）
-    bottom_coverage = (road_mask[-5:, :].sum(axis=0) > 0).sum() / fw
-    if bottom_coverage < 0.10:
-        return False
-
-    # 若有 evaluate_roi_quality 可用则使用更精确的评估
-    try:
-        from .roi_confidence import evaluate_roi_quality
-        contours, _ = cv2.findContours(road_mask, cv2.RETR_EXTERNAL,
-                                        cv2.CHAIN_APPROX_SIMPLE)
-        # 需要 BGR 帧但这里只有 mask，使用简化评估
-        quality = evaluate_roi_quality(road_mask, None, None)
-        if not quality.get("is_reliable", True):
-            return False
-    except Exception:
-        pass
-
-    return True
 
 
 def _default_masks(fw: int, fh: int) -> tuple[np.ndarray, np.ndarray]:

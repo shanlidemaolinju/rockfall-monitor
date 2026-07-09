@@ -113,6 +113,14 @@ class _DetectionWorker(QObject):
         """主处理循环 (在 QThread 中执行)。"""
         self._running = True
 
+        # ── CUDA 多线程: worker 线程必须显式绑定设备 ──
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.set_device(0)
+        except Exception:
+            pass
+
         # ── 打开视频源 ──
         self._cap = self._open_source()
         if self._cap is None or not self._cap.isOpened():
@@ -557,8 +565,10 @@ class VideoCaptureWidget(QtWidgets.QWidget):
                 saved_h = loaded.get("frame_h", 0)
                 if saved_w == orig_w and saved_h == orig_h:
                     self.polygon = np.array(loaded["polygon"], np.int32)
+                    self.polygons = [self.polygon]  # 同步 polygons 列表供 worker 绘制
                     if self._downscale != 1.0:
                         self.polygon = (self.polygon * self._downscale).astype(np.int32)
+                        self.polygons = [self.polygon]
                     mask_file = loaded.get("mask_file")
                     if mask_file and Path(mask_file).exists():
                         self._road_mask = cv2.imread(mask_file, cv2.IMREAD_GRAYSCALE)
@@ -688,23 +698,63 @@ class VideoCaptureWidget(QtWidgets.QWidget):
     def _finalize_roi(self):
         self.polygon = np.array(self.roi_points, np.int32)
         self._build_roi_mask()
+        # 关键修复: 手动框选后同步更新 road_mask 和 slope_mask，
+        # 否则 _save_roi 会保存自动检测留下的旧 road_mask，
+        # 导致下次加载时 roi_mask = 255 - old_road_mask 覆盖手动框选的 polygon
+        self._road_mask = 255 - self.roi_mask
+        self._slope_mask = self.roi_mask.copy()
+        self.polygons = [self.polygon]
+        # 关键修复2: 同步到后台 worker 和 detector，
+        # 否则 worker 线程继续使用旧的 roi_mask，手动框选完全不生效
+        self._sync_worker_roi()
         self._save_roi()
 
     def _label_to_video(self, lx, ly):
+        """将 label 上的鼠标坐标精准映射回原始视频帧坐标。
+
+        使用 min(scale_x, scale_y) 等比缩放 + 双向居中偏移，
+        与 QLabel AlignCenter 的显示逻辑完全对齐。
+        修复了旧版只按宽度比例缩放导致的 Y 方向错位问题。
+        """
         if self.frame_w == 0 or self.frame_h == 0 or self.label.width() == 0:
             return (lx, ly)
-        scale = self.label.width() / self.frame_w
-        vh = int(self.frame_h * scale)
-        bh = (self.label.height() - vh) / 2
-        return (
-            max(0, min(int(lx / scale), self.frame_w - 1)),
-            max(0, min(int((ly - bh) / scale), self.frame_h - 1)),
-        )
+        # 分别计算宽高缩放比例
+        scale_x = self.label.width() / self.frame_w
+        scale_y = self.label.height() / self.frame_h
+        # 取较小比例 (与 Qt 等比居中显示逻辑一致)
+        scale = min(scale_x, scale_y)
+        # 计算画面在 label 中的居中偏移 (黑边)
+        offset_x = (self.label.width() - self.frame_w * scale) / 2
+        offset_y = (self.label.height() - self.frame_h * scale) / 2
+        # 转换回原始视频坐标
+        x = int((lx - offset_x) / scale)
+        y = int((ly - offset_y) / scale)
+        # 边界保护
+        x = max(0, min(x, self.frame_w - 1))
+        y = max(0, min(y, self.frame_h - 1))
+        return (x, y)
 
     def _build_roi_mask(self):
         if self.frame_h > 0 and self.frame_w > 0 and self.polygon is not None:
             self.roi_mask = np.zeros((self.frame_h, self.frame_w), dtype=np.uint8)
             cv2.fillPoly(self.roi_mask, [self.polygon], 255)
+
+    def _sync_worker_roi(self):
+        """将当前 roi_mask / road_mask / slope_mask / polygons 同步到后台 worker 和 detector。
+
+        必须在 worker 暂停时调用（ROI 框选模式 或 redo_detection 期间）。
+        否则 worker 线程读取 mask 时可能产生竞态。
+        """
+        if self._worker is None:
+            return
+        self._worker.roi_mask = self.roi_mask
+        self._worker._road_mask = self._road_mask
+        self._worker._slope_mask = self._slope_mask
+        self._worker.polygons = self.polygons
+        if self._worker.detector is not None:
+            self._worker.detector._roi_mask = self.roi_mask
+            self._worker.detector._road_mask = self._road_mask
+            self._worker.detector._slope_mask = self._slope_mask
 
     def _roi_key(self) -> str:
         return f"webcam_{self.source_path}" if self.source_type == "webcam" else str(self.source_path)
@@ -770,21 +820,24 @@ class VideoCaptureWidget(QtWidgets.QWidget):
             return
 
         try:
-            # L1: FastSAM
+            # L1: FastSAM (CUDA) — 与 YOLO 分时复用 GPU
             road_mask = None
-            from rockfall.fastsam_road import is_model_ready
-            from rockfall.config import FASTSAM_NUM_SAMPLES
+            from rockfall.config import FASTSAM_ENABLED, FASTSAM_NUM_SAMPLES
 
-            try:
-                self._road_mask, self.roi_mask = auto_segment_from_cap(
-                    tmp_cap, fw, fh, sample_num=FASTSAM_NUM_SAMPLES,
-                )
-                self._slope_mask = self.roi_mask.copy()  # FastSAM slope mask for confidence adjustment
-                road_pct = (self._road_mask > 0).sum() / (fw * fh) * 100
-                self.log_message.emit(f"[FastSAM] 道路{road_pct:.0f}% (mask)")
-                road_mask = self._road_mask
-            except Exception as e:
-                self.log_message.emit(f"[FastSAM] 异常: {e}")
+            if FASTSAM_ENABLED:
+                try:
+                    from rockfall.fastsam_road import auto_segment_from_cap
+                    self._road_mask, self.roi_mask = auto_segment_from_cap(
+                        tmp_cap, fw, fh, sample_num=FASTSAM_NUM_SAMPLES,
+                    )
+                    self._slope_mask = self.roi_mask.copy()  # FastSAM slope mask for confidence adjustment
+                    road_pct = (self._road_mask > 0).sum() / (fw * fh) * 100
+                    self.log_message.emit(f"[FastSAM] 道路{road_pct:.0f}% (mask)")
+                    road_mask = self._road_mask
+                except Exception as e:
+                    self.log_message.emit(f"[FastSAM] 异常: {e}")
+            else:
+                self.log_message.emit("[ROI] FastSAM 已禁用, 使用传统CV")
 
             # L2: 传统CV
             if road_mask is None:
@@ -812,6 +865,12 @@ class VideoCaptureWidget(QtWidgets.QWidget):
                         self.roi_mask = fused
                         self._road_mask = 255 - fused
                         self._slope_mask = fused.copy()  # CV-generated slope mask
+                        # CV 路径无位置感知 → 硬性排除底部 15% 区域 (道路通常在下部)
+                        # 只在 CV 降级路径生效，FastSAM 有自己的位置打分
+                        bottom_cut = int(fh * 0.82)
+                        self.roi_mask[bottom_cut:, :] = 0
+                        self._road_mask = 255 - self.roi_mask
+                        self._slope_mask = self.roi_mask.copy()
                         road_mask = self._road_mask
                 except Exception as e:
                     self.log_message.emit(f"[ROI] 传统CV异常: {e}")
@@ -820,7 +879,9 @@ class VideoCaptureWidget(QtWidgets.QWidget):
             if road_mask is None:
                 self.log_message.emit("[ROI] 使用默认ROI (手动框选可覆盖)")
                 self.polygon = RockDetector._default_polygon(fw, fh)
+                self.polygons = [self.polygon]
                 self._build_roi_mask()
+                self._road_mask = 255 - self.roi_mask  # 与 roi_mask 保持一致性
                 self._slope_mask = None  # 无 FastSAM mask, 边坡置信度调整将跳过
                 return
 
@@ -832,7 +893,13 @@ class VideoCaptureWidget(QtWidgets.QWidget):
                 self.log_message.emit(
                     f"[ROI] 质量异常(道路{road_pct:.0f}%), 使用默认ROI")
                 self.polygon = RockDetector._default_polygon(fw, fh)
+                self.polygons = [self.polygon]
                 self._build_roi_mask()
+                # 关键修复: 质量守卫回退时同步更新 road_mask 和 slope_mask，
+                # 否则 _road_mask 仍保留自动检测的错误值，
+                # 导致 detect_frame 中的道路中心点过滤和边坡置信度调整使用错误 mask
+                self._road_mask = 255 - self.roi_mask
+                self._slope_mask = None  # 默认多边形无 FastSAM 边坡细节, 跳过置信度调整
                 return
 
             contours, _ = cv2.findContours(
@@ -908,12 +975,22 @@ class VideoCaptureWidget(QtWidgets.QWidget):
         self._road_mask = None
         self._slope_mask = None
         self.roi_mask = None
-        self._auto_detect_road(tmp_cap, self.source_type)
+
+        # 暂停 YOLO 推理, 避免与 FastSAM 抢 CUDA context
+        if self._worker is not None:
+            self._worker.pause()
+
+        try:
+            self._auto_detect_road(tmp_cap, self.source_type)
+        finally:
+            # 关键修复: 先同步 mask 到 worker/detector，再恢复 worker
+            # 否则 worker 恢复后立即使用旧 mask 跑一帧
+            self._sync_worker_roi()
+            if self._worker is not None:
+                self._worker.resume()
+
         _safe_release(tmp_cap)
-        if self.roi_mask is not None and self._worker is not None:
-            self._worker.roi_mask = self.roi_mask
-            self._worker._road_mask = self._road_mask
-            self._worker._slope_mask = self._slope_mask
+        if self.roi_mask is not None:
             self.log_message.emit("边坡自动检测完成, ROI已更新")
 
     def reset_and_redetect(self):

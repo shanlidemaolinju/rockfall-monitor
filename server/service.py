@@ -660,26 +660,28 @@ def get_roi_heatmap(site_id: str | None = None, frame_source: str = "") -> dict:
         width, height = w, h
 
     # ── 尝试 FastSAM 分割 ──
-    try:
-        from rockfall.fastsam_road import auto_segment_from_cap
-        if frame is not None:
-            temp_path = UPLOADS_DIR / "_roi_heatmap_frame.jpg"
-            cv2.imwrite(str(temp_path), frame)
-            cap = cv2.VideoCapture(str(temp_path))
-            if cap.isOpened():
-                road_mask, slope_mask = auto_segment_from_cap(cap, w, h, sample_num=3)
-                cap.release()
-                if road_mask is not None and slope_mask is not None:
-                    overlay = np.zeros((height, width, 4), dtype=np.uint8)
-                    overlay[road_mask > 0, 2] = 255
-                    overlay[road_mask > 0, 3] = 80
-                    overlay[slope_mask > 0, 2] = 255
-                    overlay[slope_mask > 0, 0] = 255
-                    overlay[slope_mask > 0, 3] = 100
-                    _, buf = cv2.imencode('.png', cv2.cvtColor(overlay, cv2.COLOR_RGBA2BGRA))
-                    heatmap_b64 = "data:image/png;base64," + base64.b64encode(buf).decode()
-    except Exception:
-        pass
+    from rockfall.config import FASTSAM_ENABLED
+    if FASTSAM_ENABLED:
+        try:
+            from rockfall.fastsam_road import auto_segment_from_cap
+            if frame is not None:
+                temp_path = UPLOADS_DIR / "_roi_heatmap_frame.jpg"
+                cv2.imwrite(str(temp_path), frame)
+                cap = cv2.VideoCapture(str(temp_path))
+                if cap.isOpened():
+                    road_mask, slope_mask = auto_segment_from_cap(cap, w, h, sample_num=3)
+                    cap.release()
+                    if road_mask is not None and slope_mask is not None:
+                        overlay = np.zeros((height, width, 4), dtype=np.uint8)
+                        overlay[road_mask > 0, 2] = 255
+                        overlay[road_mask > 0, 3] = 80
+                        overlay[slope_mask > 0, 2] = 255
+                        overlay[slope_mask > 0, 0] = 255
+                        overlay[slope_mask > 0, 3] = 100
+                        _, buf = cv2.imencode('.png', cv2.cvtColor(overlay, cv2.COLOR_RGBA2BGRA))
+                        heatmap_b64 = "data:image/png;base64," + base64.b64encode(buf).decode()
+        except Exception:
+            pass
 
     # ── 回退: 简单渐变热力图 ──
     if not heatmap_b64:

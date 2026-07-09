@@ -546,8 +546,8 @@ class RockDetector:
     def _mog2_apply(self, frame: np.ndarray, lr: float) -> np.ndarray:
         """MOG2 前景分割"""
         if self._cuda_preprocess:
-            return self._bg_sub.apply(cv2.cuda.GpuMat(frame), learningRate=lr).download()
-        return self._bg_sub.apply(frame, learningRate=lr)
+            return self._bg_sub.apply(cv2.cuda.GpuMat(frame), fgmask=None, learningRate=lr).download()
+        return self._bg_sub.apply(frame, fgmask=None, learningRate=lr)
 
     def _postprocess_fg(self, fg: np.ndarray, kernel):
         """前景后处理: 阴影去除 + 形态学 + ROI 裁剪。
@@ -958,6 +958,9 @@ class RockDetector:
             return
         if self._slope_mask is not None:
             return  # 已设置 (桌面端注入 或 已缓存)
+        from .config import FASTSAM_ENABLED
+        if not FASTSAM_ENABLED:
+            return  # FastSAM 已禁用, 跳过边坡置信度调整
 
         try:
             from .fastsam_road import auto_segment_from_cap
@@ -1592,10 +1595,14 @@ class RockDetector:
 
     @staticmethod
     def _default_polygon(w: int, h: int) -> np.ndarray:
-        """默认 ROI: 画面上半部分 (排除底部 40% 道路区域)"""
-        top_y = int(h * 0.03)
-        bottom_y = int(h * 0.90)
-        mx = int(w * 0.60)  # 左侧从60%开始, 排除道路
+        """默认 ROI: 画面中间区域 (左右/上下各留 15% 边距)
+
+        注意: 默认 ROI 不能自动避开道路, 只是简单取中间区域。
+        必须通过自动检测 (FastSAM/CV) 或手动框选多边形才能精准避开道路。
+        此方法仅作为所有自动检测都失败时的最终兜底。
+        """
+        mx = int(w * 0.15)
+        my = int(h * 0.15)
         return np.array(
-            [[mx, top_y], [mx, bottom_y], [w - mx, bottom_y], [w - mx, top_y]], np.int32,
+            [[mx, my], [mx, h - my], [w - mx, h - my], [w - mx, my]], np.int32,
         )

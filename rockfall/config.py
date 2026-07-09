@@ -807,7 +807,15 @@ def get_device() -> tuple[str, str]:
     try:
         import torch
         if torch.cuda.is_available():
-            name = torch.cuda.get_device_name(0) or "CUDA GPU"
+            try:
+                name = torch.cuda.get_device_name(0) or "CUDA GPU"
+            except (AssertionError, RuntimeError):
+                # FastSAM CPU 推理后 CUDA 设备枚举可能失效 → 重新初始化
+                try:
+                    torch.cuda.init()
+                    name = torch.cuda.get_device_name(0) or "CUDA GPU"
+                except Exception:
+                    raise
             _device_cache = ("cuda:0", name)
             return _device_cache
     except ImportError:

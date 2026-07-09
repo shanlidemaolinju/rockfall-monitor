@@ -78,20 +78,14 @@ def main():
     print("🔍 开始检测...")
     t0 = time.time()
 
-    # 使用全帧作为 ROI (演示模式 — 最大化检出率)
-    # 生产环境建议使用 FastSAM 自动分割或手动框选精确 ROI
-    cap_test = cv2.VideoCapture(str(video_path))
-    fw = int(cap_test.get(cv2.CAP_PROP_FRAME_WIDTH))
-    fh = int(cap_test.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    cap_test.release()
-    full_frame_poly = np.array([[0, 0], [fw, 0], [fw, fh], [0, fh]], np.int32)
-
+    # 使用 detector 内置默认 ROI 多边形 (居中区域, 左右/上下各留 15% 边距)
+    # polygon=None 时 _process_stream 自动调用 _default_polygon()
     result = detector.detect_video(
         str(video_path),
         save_frames=True,
         push_alerts=False,
         track=True,
-        polygon=full_frame_poly,
+        polygon=None,
         max_frames=args.max_frames,
         stride=args.stride,
     )
@@ -136,19 +130,28 @@ def main():
         print(f"🖼️  导出 {len(key_frames)} 张关键帧...")
 
         # ── 保存标注帧 + 缩略图 ──
+        # 重新打开视频以提取原始帧 (当标注帧不存在时回退)
+        cap_raw = cv2.VideoCapture(str(video_path))
         saved_frames = []
         for i, fr in enumerate(key_frames):
             frame_idx = fr["frame"]
-            # 找原始标注帧
+            # 优先找检测器保存的标注帧
             orig_path = _THIS_DIR / "data" / "results" / f"stream_{frame_idx:06d}.jpg"
             thumb_name = f"{i:03d}_{fr.get('alert_level', 'green')}.jpg"
             thumb_path = frames_dir / thumb_name
 
+            img = None
             if orig_path.exists():
                 img = cv2.imread(str(orig_path))
-                if img is not None:
-                    img = resize_frame(img, max_width=480)
-                    cv2.imwrite(str(thumb_path), img, [cv2.IMWRITE_JPEG_QUALITY, 65])
+            # 回退: 从视频中提取原始帧
+            if img is None:
+                cap_raw.set(cv2.CAP_PROP_POS_FRAMES, frame_idx - 1)
+                ret, raw_frame = cap_raw.read()
+                if ret:
+                    img = raw_frame
+            if img is not None:
+                img = resize_frame(img, max_width=480)
+                cv2.imwrite(str(thumb_path), img, [cv2.IMWRITE_JPEG_QUALITY, 65])
 
             saved_frames.append({
                 "index": i,
@@ -161,6 +164,7 @@ def main():
                 ),
                 "thumbnail": f"frames/{thumb_name}",
             })
+        cap_raw.release()
 
         # ── 生成摘要 ──
         cap = cv2.VideoCapture(str(video_path))

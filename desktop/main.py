@@ -12,7 +12,7 @@ os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "backend:native"
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
 os.environ["CUDA_MODULE_LOADING"] = "LAZY"
 # 彻底禁用OpenCV GPU加速
 os.environ["OPENCV_OPENCL_RUNTIME"] = "disabled"
@@ -31,6 +31,21 @@ from desktop.ui.main_window import MainWindow
 
 
 def main():
+    # ---- CUDA 必须最先初始化 (在任何 desktop/rockfall import 之前) ----
+    # FastSAM 是第一个触碰 CUDA 的模块; 如果 CUDA 未正确初始化,
+    # FastSAM 内部会创建损坏的 CUDA 上下文, 导致后续 STATUS_STACK_BUFFER_OVERRUN
+    # 注意: 切勿禁用 cuDNN — RTX 4060 (Ada Lovelace) 上备选 CUDA 路径
+    # 可能导致栈缓冲区溢出 (0xC0000409)
+    try:
+        import torch
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+        if torch.cuda.is_available():
+            torch.cuda.init()                    # ← 必须在 FastSAM 之前!
+            torch.cuda.empty_cache()
+    except Exception:
+        pass
+
     from rockfall.trace import set_session_id
     from rockfall.config import get_device
 
@@ -39,19 +54,6 @@ def main():
 
     device_str, device_name = get_device()
     print(f"[推理设备] {device_name} ({device_str})")
-
-    # CUDA 稳定配置 (RTX4060 Laptop — 避免 cuDNN/OpenCV 栈溢出)
-    try:
-        import torch
-        torch.backends.cudnn.enabled = False       # 禁用 cuDNN (laptop GPU 栈溢出主因)
-        torch.backends.cudnn.benchmark = False
-        torch.backends.cudnn.deterministic = True
-        torch.cuda.empty_cache()
-        # 限制 PyTorch 显存使用, 避免与 OpenCV/系统争抢
-        if torch.cuda.is_available():
-            torch.cuda.set_per_process_memory_fraction(0.85)
-    except Exception:
-        pass
 
     app = QtWidgets.QApplication(sys.argv)
     app.setStyle("Fusion")

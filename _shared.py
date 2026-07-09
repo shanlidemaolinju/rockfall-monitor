@@ -256,13 +256,13 @@ def update_perf_dashboard(placeholders: dict, detail_placeholder, snap) -> None:
 # 添加新场景: python scripts/generate_all_demos.py <video> --scene <scene_id>
 DEMO_SCENES = {
     "qinzhou_demo": {
-        "title": "钦州示范视频",
-        "subtitle": "钦州公路边坡 — 日间晴好天气落石检测",
+        "title": "钦州落石试验演示",
+        "subtitle": "钦州公路边坡现场落石试验 — 4K 高速摄像机",
         "icon": "City",
         "data_dir": "demo_data/nanning_naan_s1",
         "site_id": "qinzhou_s0",
-        "source_video": "nanning_demo.mp4",
-        "tags": ["钦州", "日间", "示范"],
+        "source_video": "VID_20230304_153140.mp4",
+        "tags": ["钦州", "落石试验", "4K", "示范"],
     },
     "qinzhou_cam_2": {
         "title": "钦州监测视频 2",

@@ -8,9 +8,8 @@
 
 from datetime import datetime
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer, QUrl
 from PyQt6.QtMultimedia import QSoundEffect
-from PyQt6.QtCore import QUrl
 from PyQt6.QtWidgets import (
     QMainWindow, QLabel, QVBoxLayout, QWidget,
     QPushButton, QApplication, QHBoxLayout, QSplitter,
@@ -37,7 +36,7 @@ class MainWindow(QMainWindow):
         self._sound_alarm_active = False
 
         # ---- GPU 监控定时器 (2s 刷新) ----
-        self._gpu_timer = QtCore.QTimer(self)
+        self._gpu_timer = QTimer(self)
         self._gpu_timer.timeout.connect(self._poll_gpu)
         self._gpu_timer.start(2000)
 
@@ -370,7 +369,6 @@ class MainWindow(QMainWindow):
         self._sound_alarm_active = True
 
         # 异步执行蜂鸣序列, 不阻塞 UI
-        from PyQt6.QtCore import QTimer
         self._beep_count = 0
         self._beep_timer = QTimer(self)
         self._beep_timer.timeout.connect(self._do_beep)

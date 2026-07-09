@@ -46,10 +46,10 @@ _ROOT_DIR = _THIS_DIR.parent
 # ── 场景注册 (与 _shared.py 中 DEMO_SCENES 同步) ──
 DEMO_SCENES = {
     "qinzhou_demo": {
-        "title": "钦州示范视频",
-        "subtitle": "钦州公路边坡 — 日间晴好天气落石检测",
+        "title": "钦州落石试验演示",
+        "subtitle": "钦州公路边坡现场落石试验 — 4K 高速摄像机",
         "data_dir": "demo_data/nanning_naan_s1",
-        "tags": ["钦州", "日间", "示范"],
+        "tags": ["钦州", "落石试验", "4K", "示范"],
     },
     "qinzhou_cam_2": {
         "title": "钦州监测视频 2",
