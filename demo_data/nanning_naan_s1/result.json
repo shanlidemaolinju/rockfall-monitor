@@ -2,7 +2,7 @@
   "source": "VID_20230304_153140.mp4",
   "total_frames": 501,
   "fps": 60.02,
-  "elapsed_seconds": 293.4,
+  "elapsed_seconds": 238.8,
   "alert_frames": [
     {
       "frame": 1,
@@ -2066,71 +2066,71 @@
       "frame": 295,
       "time_sec": 4.91,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0479
     },
     {
       "frame": 296,
       "time_sec": 4.93,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0479
     },
     {
       "frame": 297,
       "time_sec": 4.95,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0479
     },
     {
       "frame": 298,
       "time_sec": 4.96,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0479
     },
     {
       "frame": 299,
       "time_sec": 4.98,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0479
     },
     {
       "frame": 300,
       "time_sec": 5.0,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0479
     },
     {
       "frame": 301,
       "time_sec": 5.01,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0479
     },
     {
       "frame": 302,
       "time_sec": 5.03,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0479
     },
     {
       "frame": 303,
       "time_sec": 5.05,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0479
     },
     {
       "frame": 304,
       "time_sec": 5.06,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0479
     },
     {
       "frame": 305,
@@ -2696,71 +2696,71 @@
       "frame": 385,
       "time_sec": 6.41,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0586
     },
     {
       "frame": 386,
       "time_sec": 6.43,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0586
     },
     {
       "frame": 387,
       "time_sec": 6.45,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0586
     },
     {
       "frame": 388,
       "time_sec": 6.46,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0586
     },
     {
       "frame": 389,
       "time_sec": 6.48,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0586
     },
     {
       "frame": 390,
       "time_sec": 6.5,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0586
     },
     {
       "frame": 391,
       "time_sec": 6.51,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0586
     },
     {
       "frame": 392,
       "time_sec": 6.53,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0586
     },
     {
       "frame": 393,
       "time_sec": 6.55,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0586
     },
     {
       "frame": 394,
       "time_sec": 6.56,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0586
     },
     {
       "frame": 395,
@@ -2801,70 +2801,70 @@
       "frame": 400,
       "time_sec": 6.66,
       "alert_level": "yellow",
-      "box_count": 1,
+      "box_count": 2,
       "max_conf": 0.1455
     },
     {
       "frame": 401,
       "time_sec": 6.68,
       "alert_level": "green",
-      "box_count": 1,
+      "box_count": 2,
       "max_conf": 0.1455
     },
     {
       "frame": 402,
       "time_sec": 6.7,
       "alert_level": "green",
-      "box_count": 1,
+      "box_count": 2,
       "max_conf": 0.1455
     },
     {
       "frame": 403,
       "time_sec": 6.71,
       "alert_level": "yellow",
-      "box_count": 1,
+      "box_count": 2,
       "max_conf": 0.1455
     },
     {
       "frame": 404,
       "time_sec": 6.73,
       "alert_level": "yellow",
-      "box_count": 1,
+      "box_count": 2,
       "max_conf": 0.1455
     },
     {
       "frame": 405,
       "time_sec": 6.75,
       "alert_level": "yellow",
-      "box_count": 1,
+      "box_count": 2,
       "max_conf": 0.1455
     },
     {
       "frame": 406,
       "time_sec": 6.76,
       "alert_level": "yellow",
-      "box_count": 1,
+      "box_count": 2,
       "max_conf": 0.1455
     },
     {
       "frame": 407,
       "time_sec": 6.78,
       "alert_level": "yellow",
-      "box_count": 1,
+      "box_count": 2,
       "max_conf": 0.1455
     },
     {
       "frame": 408,
       "time_sec": 6.8,
       "alert_level": "yellow",
-      "box_count": 1,
+      "box_count": 2,
       "max_conf": 0.1455
     },
     {
       "frame": 409,
       "time_sec": 6.81,
       "alert_level": "yellow",
-      "box_count": 1,
+      "box_count": 2,
       "max_conf": 0.1455
     },
     {
@@ -2976,70 +2976,70 @@
       "frame": 425,
       "time_sec": 7.08,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0322
     },
     {
       "frame": 426,
       "time_sec": 7.1,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0322
     },
     {
       "frame": 427,
       "time_sec": 7.11,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0322
     },
     {
       "frame": 428,
       "time_sec": 7.13,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0322
     },
     {
       "frame": 429,
       "time_sec": 7.15,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0322
     },
     {
       "frame": 430,
       "time_sec": 7.16,
       "alert_level": "yellow",
-      "box_count": 1,
+      "box_count": 2,
       "max_conf": 0.1272
     },
     {
       "frame": 431,
       "time_sec": 7.18,
       "alert_level": "green",
-      "box_count": 1,
+      "box_count": 2,
       "max_conf": 0.1272
     },
     {
       "frame": 432,
       "time_sec": 7.2,
       "alert_level": "green",
-      "box_count": 1,
+      "box_count": 2,
       "max_conf": 0.1272
     },
     {
       "frame": 433,
       "time_sec": 7.21,
       "alert_level": "yellow",
-      "box_count": 1,
+      "box_count": 2,
       "max_conf": 0.1272
     },
     {
       "frame": 434,
       "time_sec": 7.23,
       "alert_level": "yellow",
-      "box_count": 1,
+      "box_count": 2,
       "max_conf": 0.1272
     },
     {
@@ -3081,106 +3081,106 @@
       "frame": 440,
       "time_sec": 7.33,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0406
     },
     {
       "frame": 441,
       "time_sec": 7.35,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0406
     },
     {
       "frame": 442,
       "time_sec": 7.36,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0406
     },
     {
       "frame": 443,
       "time_sec": 7.38,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0406
     },
     {
       "frame": 444,
       "time_sec": 7.4,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0406
     },
     {
       "frame": 445,
       "time_sec": 7.41,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0352
     },
     {
       "frame": 446,
       "time_sec": 7.43,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0352
     },
     {
       "frame": 447,
       "time_sec": 7.45,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0352
     },
     {
       "frame": 448,
       "time_sec": 7.46,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0352
     },
     {
       "frame": 449,
       "time_sec": 7.48,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0352
     },
     {
       "frame": 450,
       "time_sec": 7.5,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0352
     },
     {
       "frame": 451,
       "time_sec": 7.51,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0352
     },
     {
       "frame": 452,
       "time_sec": 7.53,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0352
     },
     {
       "frame": 453,
       "time_sec": 7.55,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0352
     },
     {
       "frame": 454,
       "time_sec": 7.56,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "box_count": 1,
+      "max_conf": 0.0352
     },
     {
       "frame": 455,
@@ -3512,7 +3512,7 @@
       "alert_level": "yellow",
       "tracks": [
         {
-          "track_id": 0,
+          "track_id": 1,
           "actual_cx": 839,
           "actual_cy": 2054,
           "predicted_cx": 843,
@@ -3527,12 +3527,27 @@
       "alert_level": "yellow",
       "tracks": [
         {
-          "track_id": 0,
+          "track_id": 1,
           "actual_cx": 846,
           "actual_cy": 2052,
           "predicted_cx": 828,
           "predicted_cy": 2066,
           "confidence": 0.136
+        }
+      ]
+    },
+    {
+      "frame": 445,
+      "time_sec": 7.41,
+      "alert_level": "green",
+      "tracks": [
+        {
+          "track_id": 7,
+          "actual_cx": 939,
+          "actual_cy": 665,
+          "predicted_cx": 936,
+          "predicted_cy": 684,
+          "confidence": 0.035
         }
       ]
     }

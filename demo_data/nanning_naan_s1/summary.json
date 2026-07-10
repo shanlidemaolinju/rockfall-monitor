@@ -1,5 +1,5 @@
 {
-  "name": "qinzhou_demo",
+  "name": "nanning_naan_s1",
   "video": {
     "file": "VID_20230304_153140.mp4",
     "total_frames": 2783,
@@ -12,7 +12,7 @@
     "max_frames": 500,
     "stride": 1,
     "img_size": 640,
-    "elapsed_sec": 293.4,
+    "elapsed_sec": 238.8,
     "device": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel"
   },
   "alerts": {
