@@ -13,7 +13,7 @@ def page_demo_showcase():
     <div class="brand-header">
         <div>
             <div class="logo">{APP_NAME}</div>
-            <div style="font-size:0.8rem;opacity:0.85;">预设演示 &middot; GPU 预计算</div>
+            <div style="font-size:0.8rem;opacity:0.85;">预设演示 &middot; FastSAM ROI v2 &middot; 2026-07-11 03:15 UTC</div>
         </div>
         <div class="meta">
             <span>{APP_VERSION}</span><span>{TEAM_NAME}</span>
