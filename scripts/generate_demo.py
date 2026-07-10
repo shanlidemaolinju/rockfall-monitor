@@ -74,18 +74,64 @@ def main():
     print(f"🖥️  推理设备: {detector._device_name}")
     print()
 
+    # ── ROI 自动检测 (FastSAM → 轮廓提取, 与桌面端一致) ──
+    print("🔍 自动检测边坡 ROI...")
+    cap_roi = cv2.VideoCapture(str(video_path))
+    fw = int(cap_roi.get(cv2.CAP_PROP_FRAME_WIDTH))
+    fh = int(cap_roi.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    polygon = None
+    slope_mask = None
+    try:
+        from rockfall.fastsam_road import auto_segment_from_cap
+        road_mask, roi_mask = auto_segment_from_cap(cap_roi, fw, fh)
+        if roi_mask is not None and roi_mask.any():
+            # 质量守卫
+            road_pct = (road_mask > 0).sum() / (fw * fh) * 100 if road_mask is not None else 0
+            slope_pct = (roi_mask > 0).sum() / (fw * fh) * 100
+            if 5 <= slope_pct <= 80 and road_pct < 95:
+                # 从 mask 提取轮廓 → 多边形 (与 desktop/ui/video_widget.py 一致)
+                contours, _ = cv2.findContours(
+                    roi_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                for cnt in sorted(contours, key=cv2.contourArea, reverse=True):
+                    if cv2.contourArea(cnt) < fw * fh * 0.03:
+                        break
+                    eps = 0.003 * cv2.arcLength(cnt, True)
+                    poly = cv2.approxPolyDP(cnt, eps, True).squeeze(1)
+                    if poly.ndim == 1:
+                        poly = poly.reshape(-1, 2)
+                    if not np.array_equal(poly[0], poly[-1]):
+                        poly = np.vstack([poly, poly[0:1]])
+                    polygon = poly.astype(np.int32)
+                    break
+                # 保存 slope_mask 供检测器做置信度调整
+                slope_mask = roi_mask
+                print(f"   [FastSAM] 边坡{slope_pct:.0f}% 道路{road_pct:.0f}% → {len(polygon) if polygon is not None else 0}顶点多边形")
+            else:
+                print(f"   [FastSAM] 质量异常(边坡{slope_pct:.0f}% 道路{road_pct:.0f}%), 使用默认ROI")
+        else:
+            print("   [FastSAM] 返回空mask, 使用默认ROI")
+    except Exception as e:
+        print(f"   [FastSAM] 异常: {e}, 使用默认ROI")
+    cap_roi.release()
+
+    # 兜底: 默认多边形
+    if polygon is None:
+        polygon = RockDetector._default_polygon(fw, fh)
+        print(f"   使用默认ROI: {len(polygon)}顶点")
+
+    # 注入 slope_mask 到检测器 (供 detect_frame 边坡置信度调整)
+    detector._slope_mask = slope_mask
+
     # ── 运行检测 ──
     print("🔍 开始检测...")
     t0 = time.time()
 
-    # 使用 detector 内置默认 ROI 多边形 (居中区域, 左右/上下各留 15% 边距)
-    # polygon=None 时 _process_stream 自动调用 _default_polygon()
     result = detector.detect_video(
         str(video_path),
         save_frames=True,
         push_alerts=False,
         track=True,
-        polygon=None,
+        polygon=polygon,
         max_frames=args.max_frames,
         stride=args.stride,
     )
