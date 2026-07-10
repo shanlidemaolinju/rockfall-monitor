@@ -26,8 +26,9 @@ from .logger import log_event
 _SAM_MODEL: FastSAM | None = None
 _MODEL_LOADED = False
 _MODEL_LOAD_ERROR: str | None = None
-# FastSAM CUDA 推理 (与 YOLO 分时复用: 调用方在 ROI 检测期间暂停 YOLO worker)
-_DEVICE = "cuda" if cv2.cuda.getCudaEnabledDeviceCount() > 0 else "cpu"
+# FastSAM 强制 CPU: Streamlit Cloud 无 CUDA 环境，且 cv2.cuda 在 headless 版本可能不可用
+# 桌面端启动时会通过环境变量覆盖
+_DEVICE = "cpu"
 
 
 def is_model_ready() -> bool:
