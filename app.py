@@ -36,7 +36,7 @@ import streamlit as st
 # 页面配置 — 必须是第一个 Streamlit 命令
 # ══════════════════════════════════════════════════════════════
 st.set_page_config(
-    page_title="RockGuard — 公路落石灾害监测预警系统",
+    page_title="RockGuard v2.3 — 公路落石灾害监测预警系统",
     page_icon=":rock:",
     layout="wide",
     initial_sidebar_state="expanded",
