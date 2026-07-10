@@ -229,16 +229,14 @@ def page_demo_showcase():
             </div>
             """, unsafe_allow_html=True)
 
-            st.button("上一帧", key="demo_prev", use_container_width=True,
-                      disabled=st.session_state.demo_frame_idx == 0,
-                      on_click=lambda: st.session_state.update(
-                          demo_frame_idx=max(0, st.session_state.demo_frame_idx - 1)))
-            st.button("下一帧", key="demo_next", use_container_width=True,
-                      disabled=st.session_state.demo_frame_idx >= len(key_frames) - 1,
-                      on_click=lambda: st.session_state.update(
-                          demo_frame_idx=min(len(key_frames) - 1, st.session_state.demo_frame_idx + 1)))
+            if st.button("上一帧", key="demo_prev", use_container_width=True,
+                         disabled=st.session_state.demo_frame_idx == 0):
+                st.session_state.demo_frame_idx = max(0, st.session_state.demo_frame_idx - 1)
+            if st.button("下一帧", key="demo_next", use_container_width=True,
+                         disabled=st.session_state.demo_frame_idx >= len(key_frames) - 1):
+                st.session_state.demo_frame_idx = min(len(key_frames) - 1, st.session_state.demo_frame_idx + 1)
 
         # 滑块
-        st.slider("", 0, len(key_frames) - 1, st.session_state.demo_frame_idx,
-                  key="demo_slider", label_visibility="collapsed",
-                  on_change=lambda: st.session_state.update(demo_frame_idx=st.session_state.demo_slider))
+        st.session_state.demo_frame_idx = st.slider(
+            "选择帧", 0, len(key_frames) - 1, st.session_state.demo_frame_idx,
+            key="demo_slider")
