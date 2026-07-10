@@ -85,13 +85,17 @@ def main():
         from rockfall.fastsam_road import auto_segment_from_cap
         road_mask, roi_mask = auto_segment_from_cap(cap_roi, fw, fh)
         if roi_mask is not None and roi_mask.any():
-            # 质量守卫
+            # 质量守卫 — 与 desktop/ui/video_widget.py 对齐
             road_pct = (road_mask > 0).sum() / (fw * fh) * 100 if road_mask is not None else 0
             slope_pct = (roi_mask > 0).sum() / (fw * fh) * 100
-            if 5 <= slope_pct <= 80 and road_pct < 95:
+            if road_pct > 95 or slope_pct < 5:
+                # 道路占比过大或边坡过少 → 质量异常，使用默认ROI
+                print(f"   [FastSAM] 质量异常(道路{road_pct:.0f}% 边坡{slope_pct:.0f}%), 使用默认ROI")
+            else:
                 # 从 mask 提取轮廓 → 多边形 (与 desktop/ui/video_widget.py 一致)
                 contours, _ = cv2.findContours(
                     roi_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                got_polygon = False
                 for cnt in sorted(contours, key=cv2.contourArea, reverse=True):
                     if cv2.contourArea(cnt) < fw * fh * 0.03:
                         break
@@ -102,12 +106,14 @@ def main():
                     if not np.array_equal(poly[0], poly[-1]):
                         poly = np.vstack([poly, poly[0:1]])
                     polygon = poly.astype(np.int32)
+                    got_polygon = True
                     break
-                # 保存 slope_mask 供检测器做置信度调整
-                slope_mask = roi_mask
-                print(f"   [FastSAM] 边坡{slope_pct:.0f}% 道路{road_pct:.0f}% → {len(polygon) if polygon is not None else 0}顶点多边形")
-            else:
-                print(f"   [FastSAM] 质量异常(边坡{slope_pct:.0f}% 道路{road_pct:.0f}%), 使用默认ROI")
+                if got_polygon:
+                    # 保存 slope_mask 供检测器做置信度调整
+                    slope_mask = roi_mask
+                    print(f"   [FastSAM] 边坡{slope_pct:.0f}% 道路{road_pct:.0f}% → {len(polygon)}顶点多边形")
+                else:
+                    print(f"   [FastSAM] 轮廓提取失败(边坡{slope_pct:.0f}% 道路{road_pct:.0f}%), 使用默认ROI")
         else:
             print("   [FastSAM] 返回空mask, 使用默认ROI")
     except Exception as e:

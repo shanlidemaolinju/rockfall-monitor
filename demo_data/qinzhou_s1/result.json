@@ -1,8 +1,8 @@
 {
   "source": "VID_20230304_153140.mp4",
-  "total_frames": 602,
+  "total_frames": 402,
   "fps": 60.02,
-  "elapsed_seconds": 0,
+  "elapsed_seconds": 129.9,
   "alert_frames": [
     {
       "frame": 2,
@@ -659,99 +659,99 @@
       "frame": 188,
       "time_sec": 3.13,
       "alert_level": "green",
-      "box_count": 1,
-      "max_conf": 0.3808
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 190,
       "time_sec": 3.17,
       "alert_level": "green",
-      "box_count": 1,
-      "max_conf": 0.3789
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 192,
       "time_sec": 3.2,
       "alert_level": "green",
-      "box_count": 1,
-      "max_conf": 0.3787
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 194,
       "time_sec": 3.23,
-      "alert_level": "yellow",
-      "box_count": 1,
-      "max_conf": 0.3548
+      "alert_level": "green",
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 196,
       "time_sec": 3.27,
-      "alert_level": "yellow",
-      "box_count": 1,
-      "max_conf": 0.385
+      "alert_level": "green",
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 198,
       "time_sec": 3.3,
-      "alert_level": "yellow",
-      "box_count": 1,
-      "max_conf": 0.385
+      "alert_level": "green",
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 200,
       "time_sec": 3.33,
-      "alert_level": "yellow",
-      "box_count": 1,
-      "max_conf": 0.385
+      "alert_level": "green",
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 202,
       "time_sec": 3.37,
-      "alert_level": "yellow",
-      "box_count": 1,
-      "max_conf": 0.385
+      "alert_level": "green",
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 204,
       "time_sec": 3.4,
-      "alert_level": "yellow",
-      "box_count": 1,
-      "max_conf": 0.385
+      "alert_level": "green",
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 206,
       "time_sec": 3.43,
-      "alert_level": "yellow",
-      "box_count": 1,
-      "max_conf": 0.385
+      "alert_level": "green",
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 208,
       "time_sec": 3.47,
-      "alert_level": "yellow",
-      "box_count": 1,
-      "max_conf": 0.385
+      "alert_level": "green",
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 210,
       "time_sec": 3.5,
-      "alert_level": "yellow",
-      "box_count": 1,
-      "max_conf": 0.385
+      "alert_level": "green",
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 212,
       "time_sec": 3.53,
-      "alert_level": "yellow",
-      "box_count": 1,
-      "max_conf": 0.385
+      "alert_level": "green",
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 214,
       "time_sec": 3.57,
-      "alert_level": "yellow",
-      "box_count": 1,
-      "max_conf": 0.385
+      "alert_level": "green",
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 216,
@@ -785,92 +785,92 @@
       "frame": 224,
       "time_sec": 3.73,
       "alert_level": "green",
-      "box_count": 1,
-      "max_conf": 0.373
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 226,
       "time_sec": 3.77,
       "alert_level": "green",
-      "box_count": 1,
-      "max_conf": 0.4059
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 228,
       "time_sec": 3.8,
       "alert_level": "green",
-      "box_count": 1,
-      "max_conf": 0.4197
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 230,
       "time_sec": 3.83,
-      "alert_level": "yellow",
-      "box_count": 1,
-      "max_conf": 0.3513
+      "alert_level": "green",
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 232,
       "time_sec": 3.87,
-      "alert_level": "yellow",
-      "box_count": 1,
-      "max_conf": 0.3513
+      "alert_level": "green",
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 234,
       "time_sec": 3.9,
-      "alert_level": "yellow",
-      "box_count": 1,
-      "max_conf": 0.3513
+      "alert_level": "green",
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 236,
       "time_sec": 3.93,
-      "alert_level": "yellow",
-      "box_count": 1,
-      "max_conf": 0.3513
+      "alert_level": "green",
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 238,
       "time_sec": 3.97,
-      "alert_level": "yellow",
-      "box_count": 1,
-      "max_conf": 0.3513
+      "alert_level": "green",
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 240,
       "time_sec": 4.0,
-      "alert_level": "yellow",
-      "box_count": 1,
-      "max_conf": 0.3513
+      "alert_level": "green",
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 242,
       "time_sec": 4.03,
-      "alert_level": "yellow",
-      "box_count": 1,
-      "max_conf": 0.3513
+      "alert_level": "green",
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 244,
       "time_sec": 4.07,
-      "alert_level": "yellow",
-      "box_count": 1,
-      "max_conf": 0.3513
+      "alert_level": "green",
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 246,
       "time_sec": 4.1,
-      "alert_level": "yellow",
-      "box_count": 1,
-      "max_conf": 0.3513
+      "alert_level": "green",
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 248,
       "time_sec": 4.13,
-      "alert_level": "yellow",
-      "box_count": 1,
-      "max_conf": 0.3513
+      "alert_level": "green",
+      "box_count": 0,
+      "max_conf": 0
     },
     {
       "frame": 250,
@@ -1401,860 +1401,9 @@
       "frame": 400,
       "time_sec": 6.66,
       "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 402,
-      "time_sec": 6.7,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 404,
-      "time_sec": 6.73,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 406,
-      "time_sec": 6.76,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 408,
-      "time_sec": 6.8,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 410,
-      "time_sec": 6.83,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 412,
-      "time_sec": 6.86,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 414,
-      "time_sec": 6.9,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 416,
-      "time_sec": 6.93,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 418,
-      "time_sec": 6.96,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 420,
-      "time_sec": 7.0,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 422,
-      "time_sec": 7.03,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 424,
-      "time_sec": 7.06,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 426,
-      "time_sec": 7.1,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 428,
-      "time_sec": 7.13,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 430,
-      "time_sec": 7.16,
-      "alert_level": "green",
       "box_count": 1,
-      "max_conf": 0.4878
-    },
-    {
-      "frame": 432,
-      "time_sec": 7.2,
-      "alert_level": "green",
-      "box_count": 1,
-      "max_conf": 0.4878
-    },
-    {
-      "frame": 434,
-      "time_sec": 7.23,
-      "alert_level": "green",
-      "box_count": 1,
-      "max_conf": 0.4878
-    },
-    {
-      "frame": 436,
-      "time_sec": 7.26,
-      "alert_level": "red",
-      "box_count": 1,
-      "max_conf": 0.4878
-    },
-    {
-      "frame": 438,
-      "time_sec": 7.3,
-      "alert_level": "red",
-      "box_count": 1,
-      "max_conf": 0.4878
-    },
-    {
-      "frame": 440,
-      "time_sec": 7.33,
-      "alert_level": "red",
-      "box_count": 1,
-      "max_conf": 0.4878
-    },
-    {
-      "frame": 442,
-      "time_sec": 7.36,
-      "alert_level": "red",
-      "box_count": 1,
-      "max_conf": 0.4878
-    },
-    {
-      "frame": 444,
-      "time_sec": 7.4,
-      "alert_level": "red",
-      "box_count": 1,
-      "max_conf": 0.4878
-    },
-    {
-      "frame": 446,
-      "time_sec": 7.43,
-      "alert_level": "red",
-      "box_count": 1,
-      "max_conf": 0.4878
-    },
-    {
-      "frame": 448,
-      "time_sec": 7.46,
-      "alert_level": "red",
-      "box_count": 1,
-      "max_conf": 0.4878
-    },
-    {
-      "frame": 450,
-      "time_sec": 7.5,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 452,
-      "time_sec": 7.53,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 454,
-      "time_sec": 7.56,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 456,
-      "time_sec": 7.6,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 458,
-      "time_sec": 7.63,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 460,
-      "time_sec": 7.66,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 462,
-      "time_sec": 7.7,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 464,
-      "time_sec": 7.73,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 466,
-      "time_sec": 7.76,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 468,
-      "time_sec": 7.8,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 470,
-      "time_sec": 7.83,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 472,
-      "time_sec": 7.86,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 474,
-      "time_sec": 7.9,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 476,
-      "time_sec": 7.93,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 478,
-      "time_sec": 7.96,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 480,
-      "time_sec": 8.0,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 482,
-      "time_sec": 8.03,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 484,
-      "time_sec": 8.06,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 486,
-      "time_sec": 8.1,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 488,
-      "time_sec": 8.13,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 490,
-      "time_sec": 8.16,
-      "alert_level": "green",
-      "box_count": 1,
-      "max_conf": 0.3505
-    },
-    {
-      "frame": 492,
-      "time_sec": 8.2,
-      "alert_level": "green",
-      "box_count": 1,
-      "max_conf": 0.3505
-    },
-    {
-      "frame": 494,
-      "time_sec": 8.23,
-      "alert_level": "green",
-      "box_count": 1,
-      "max_conf": 0.3505
-    },
-    {
-      "frame": 496,
-      "time_sec": 8.26,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.3505
-    },
-    {
-      "frame": 498,
-      "time_sec": 8.3,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.3505
-    },
-    {
-      "frame": 500,
-      "time_sec": 8.33,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.4269
-    },
-    {
-      "frame": 502,
-      "time_sec": 8.36,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.4269
-    },
-    {
-      "frame": 504,
-      "time_sec": 8.4,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.4269
-    },
-    {
-      "frame": 506,
-      "time_sec": 8.43,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.4269
-    },
-    {
-      "frame": 508,
-      "time_sec": 8.46,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.4269
-    },
-    {
-      "frame": 510,
-      "time_sec": 8.5,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.4269
-    },
-    {
-      "frame": 512,
-      "time_sec": 8.53,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.4269
-    },
-    {
-      "frame": 514,
-      "time_sec": 8.56,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.4269
-    },
-    {
-      "frame": 516,
-      "time_sec": 8.6,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.4269
-    },
-    {
-      "frame": 518,
-      "time_sec": 8.63,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.4269
-    },
-    {
-      "frame": 520,
-      "time_sec": 8.66,
-      "alert_level": "green",
-      "box_count": 1,
-      "max_conf": 0.377
-    },
-    {
-      "frame": 522,
-      "time_sec": 8.7,
-      "alert_level": "green",
-      "box_count": 1,
-      "max_conf": 0.377
-    },
-    {
-      "frame": 524,
-      "time_sec": 8.73,
-      "alert_level": "green",
-      "box_count": 1,
-      "max_conf": 0.377
-    },
-    {
-      "frame": 526,
-      "time_sec": 8.76,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.377
-    },
-    {
-      "frame": 528,
-      "time_sec": 8.8,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.377
-    },
-    {
-      "frame": 530,
-      "time_sec": 8.83,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.377
-    },
-    {
-      "frame": 532,
-      "time_sec": 8.86,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.377
-    },
-    {
-      "frame": 534,
-      "time_sec": 8.9,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.377
-    },
-    {
-      "frame": 536,
-      "time_sec": 8.93,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.377
-    },
-    {
-      "frame": 538,
-      "time_sec": 8.96,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.377
-    },
-    {
-      "frame": 540,
-      "time_sec": 9.0,
-      "alert_level": "green",
-      "box_count": 2,
-      "max_conf": 0.3656
-    },
-    {
-      "frame": 542,
-      "time_sec": 9.03,
-      "alert_level": "green",
-      "box_count": 2,
-      "max_conf": 0.3656
-    },
-    {
-      "frame": 544,
-      "time_sec": 9.06,
-      "alert_level": "green",
-      "box_count": 2,
-      "max_conf": 0.3656
-    },
-    {
-      "frame": 546,
-      "time_sec": 9.1,
-      "alert_level": "orange",
-      "box_count": 2,
-      "max_conf": 0.3656
-    },
-    {
-      "frame": 548,
-      "time_sec": 9.13,
-      "alert_level": "orange",
-      "box_count": 2,
-      "max_conf": 0.3656
-    },
-    {
-      "frame": 550,
-      "time_sec": 9.16,
-      "alert_level": "orange",
-      "box_count": 2,
-      "max_conf": 0.3532
-    },
-    {
-      "frame": 552,
-      "time_sec": 9.2,
-      "alert_level": "orange",
-      "box_count": 2,
-      "max_conf": 0.3532
-    },
-    {
-      "frame": 554,
-      "time_sec": 9.23,
-      "alert_level": "orange",
-      "box_count": 2,
-      "max_conf": 0.3532
-    },
-    {
-      "frame": 556,
-      "time_sec": 9.26,
-      "alert_level": "orange",
-      "box_count": 2,
-      "max_conf": 0.3532
-    },
-    {
-      "frame": 558,
-      "time_sec": 9.3,
-      "alert_level": "orange",
-      "box_count": 2,
-      "max_conf": 0.3532
-    },
-    {
-      "frame": 560,
-      "time_sec": 9.33,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.4107
-    },
-    {
-      "frame": 562,
-      "time_sec": 9.36,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.4107
-    },
-    {
-      "frame": 564,
-      "time_sec": 9.4,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.4107
-    },
-    {
-      "frame": 566,
-      "time_sec": 9.43,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.4107
-    },
-    {
-      "frame": 568,
-      "time_sec": 9.46,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.4107
-    },
-    {
-      "frame": 570,
-      "time_sec": 9.5,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.4107
-    },
-    {
-      "frame": 572,
-      "time_sec": 9.53,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.4107
-    },
-    {
-      "frame": 574,
-      "time_sec": 9.56,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.4107
-    },
-    {
-      "frame": 576,
-      "time_sec": 9.6,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.4107
-    },
-    {
-      "frame": 578,
-      "time_sec": 9.63,
-      "alert_level": "orange",
-      "box_count": 1,
-      "max_conf": 0.4107
-    },
-    {
-      "frame": 580,
-      "time_sec": 9.66,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 582,
-      "time_sec": 9.7,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 584,
-      "time_sec": 9.73,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 586,
-      "time_sec": 9.76,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 588,
-      "time_sec": 9.8,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 590,
-      "time_sec": 9.83,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 592,
-      "time_sec": 9.86,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 594,
-      "time_sec": 9.9,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 596,
-      "time_sec": 9.93,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 598,
-      "time_sec": 9.96,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
-    },
-    {
-      "frame": 600,
-      "time_sec": 10.0,
-      "alert_level": "green",
-      "box_count": 0,
-      "max_conf": 0
+      "max_conf": 0.1913
     }
   ],
-  "track_frames": [
-    {
-      "frame": 190,
-      "time_sec": 3.17,
-      "alert_level": "green",
-      "tracks": [
-        {
-          "track_id": 0,
-          "actual_cx": 1634,
-          "actual_cy": 128,
-          "predicted_cx": 1636,
-          "predicted_cy": 130,
-          "confidence": 0.379
-        }
-      ]
-    },
-    {
-      "frame": 192,
-      "time_sec": 3.2,
-      "alert_level": "green",
-      "tracks": [
-        {
-          "track_id": 0,
-          "actual_cx": 1635,
-          "actual_cy": 127,
-          "predicted_cx": 1634,
-          "predicted_cy": 129,
-          "confidence": 0.379
-        }
-      ]
-    },
-    {
-      "frame": 194,
-      "time_sec": 3.23,
-      "alert_level": "yellow",
-      "tracks": [
-        {
-          "track_id": 0,
-          "actual_cx": 1635,
-          "actual_cy": 128,
-          "predicted_cx": 1636,
-          "predicted_cy": 127,
-          "confidence": 0.355
-        }
-      ]
-    },
-    {
-      "frame": 196,
-      "time_sec": 3.27,
-      "alert_level": "yellow",
-      "tracks": [
-        {
-          "track_id": 0,
-          "actual_cx": 1636,
-          "actual_cy": 130,
-          "predicted_cx": 1635,
-          "predicted_cy": 130,
-          "confidence": 0.385
-        }
-      ]
-    },
-    {
-      "frame": 226,
-      "time_sec": 3.77,
-      "alert_level": "green",
-      "tracks": [
-        {
-          "track_id": 1,
-          "actual_cx": 1660,
-          "actual_cy": 148,
-          "predicted_cx": 1660,
-          "predicted_cy": 148,
-          "confidence": 0.406
-        }
-      ]
-    },
-    {
-      "frame": 228,
-      "time_sec": 3.8,
-      "alert_level": "green",
-      "tracks": [
-        {
-          "track_id": 1,
-          "actual_cx": 1660,
-          "actual_cy": 147,
-          "predicted_cx": 1659,
-          "predicted_cy": 151,
-          "confidence": 0.42
-        }
-      ]
-    },
-    {
-      "frame": 230,
-      "time_sec": 3.83,
-      "alert_level": "yellow",
-      "tracks": [
-        {
-          "track_id": 1,
-          "actual_cx": 1660,
-          "actual_cy": 146,
-          "predicted_cx": 1662,
-          "predicted_cy": 147,
-          "confidence": 0.351
-        }
-      ]
-    },
-    {
-      "frame": 500,
-      "time_sec": 8.33,
-      "alert_level": "orange",
-      "tracks": [
-        {
-          "track_id": 3,
-          "actual_cx": 1578,
-          "actual_cy": 124,
-          "predicted_cx": 1592,
-          "predicted_cy": 144,
-          "confidence": 0.427
-        }
-      ]
-    },
-    {
-      "frame": 550,
-      "time_sec": 9.16,
-      "alert_level": "orange",
-      "tracks": [
-        {
-          "track_id": 5,
-          "actual_cx": 1578,
-          "actual_cy": 116,
-          "predicted_cx": 1580,
-          "predicted_cy": 130,
-          "confidence": 0.35
-        }
-      ]
-    },
-    {
-      "frame": 560,
-      "time_sec": 9.33,
-      "alert_level": "orange",
-      "tracks": [
-        {
-          "track_id": 5,
-          "actual_cx": 1589,
-          "actual_cy": 120,
-          "predicted_cx": 1574,
-          "predicted_cy": 156,
-          "confidence": 0.411
-        }
-      ]
-    }
-  ]
+  "track_frames": []
 }
