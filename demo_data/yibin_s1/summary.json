@@ -12,7 +12,7 @@
     "max_frames": 300,
     "stride": 1,
     "img_size": 640,
-    "elapsed_sec": 15.4,
+    "elapsed_sec": 15.7,
     "device": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel"
   },
   "alerts": {

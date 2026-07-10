@@ -202,7 +202,13 @@ def main():
                 if ret:
                     img = raw_frame
             if img is not None:
+                h_orig, w_orig = img.shape[:2]
                 img = resize_frame(img, max_width=480)
+                # 在缩略图上重绘 ROI 多边形 (粗线，确保在 480px 宽度下可见)
+                if polygon is not None and len(polygon) > 0:
+                    ratio = 480.0 / w_orig
+                    scaled_poly = (polygon.astype(np.float32) * ratio).astype(np.int32)
+                    cv2.polylines(img, [scaled_poly], True, (255, 0, 0), 2)
                 cv2.imwrite(str(thumb_path), img, [cv2.IMWRITE_JPEG_QUALITY, 65])
 
             saved_frames.append({
