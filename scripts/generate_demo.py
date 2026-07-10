@@ -129,7 +129,7 @@ def main():
     result = detector.detect_video(
         str(video_path),
         save_frames=True,
-        push_alerts=False,
+        push_alerts=True,   # 必须 True 才会把标注帧落盘到 data/results/
         track=True,
         polygon=polygon,
         max_frames=args.max_frames,
