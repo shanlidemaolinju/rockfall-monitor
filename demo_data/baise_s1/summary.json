@@ -1,5 +1,5 @@
 {
-  "name": "qinzhou_test_a",
+  "name": "qinzhou_cam_2",
   "video": {
     "file": "VID_20230304_114247.mp4",
     "total_frames": 833,
@@ -12,7 +12,7 @@
     "max_frames": 200,
     "stride": 2,
     "img_size": 640,
-    "elapsed_sec": 163.4,
+    "elapsed_sec": 383.1,
     "device": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel"
   },
   "alerts": {
