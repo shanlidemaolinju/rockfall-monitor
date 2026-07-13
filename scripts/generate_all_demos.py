@@ -54,13 +54,13 @@ DEMO_SCENES = {
     "qinzhou_cam_2": {
         "title": "钦州监测视频 2",
         "subtitle": "钦州公路边坡实时监测 — 2.flv",
-        "data_dir": "demo_data/nanning_naan_s2",
+        "data_dir": "demo_data/qinzhou_cam_2",
         "tags": ["钦州", "监测摄像头", "实时"],
     },
     "qinzhou_cam_3": {
         "title": "钦州监测视频 3",
         "subtitle": "钦州公路边坡实时监测 — 3.flv",
-        "data_dir": "demo_data/guilin_g65_s1",
+        "data_dir": "demo_data/qinzhou_cam_3",
         "tags": ["钦州", "监测摄像头", "实时"],
     },
     "qinzhou_test_a": {
