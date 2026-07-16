@@ -106,36 +106,6 @@ def render_sidebar():
 
         st.divider()
 
-        # ── 主题切换 ──
-        if "dark_mode" not in st.session_state:
-            st.session_state.dark_mode = False
-        dark = st.checkbox("🌙 暗色模式", value=st.session_state.dark_mode,
-                          help="切换亮色/暗色主题")
-
-        if dark != st.session_state.dark_mode:
-            st.session_state.dark_mode = dark
-            st.rerun()
-
-        if st.session_state.dark_mode:
-            st.markdown("""
-            <style>
-            /* 暗色主题 — 对齐 FastAPI dashboard.html 配色 */
-            .stApp { background: #0d1117; }
-            .stSidebar { background: #161b22; }
-            .stSidebar [data-testid="stMarkdownContainer"] * { color: #c9d1d9 !important; }
-            .stSidebar .stRadio label, .stSidebar .stCheckbox label { color: #c9d1d9 !important; }
-            .stMain h1, .stMain h2, .stMain h3, .stMain h4 { color: #c9d1d9; }
-            .stMain p, .stMain span, .stMain div { color: #c9d1d9; }
-            .stMetric label { color: #8b949e !important; }
-            .stMetric [data-testid="stMetricValue"] { color: #c9d1d9 !important; }
-            [data-testid="stExpander"] { background: #161b22; border-color: #30363d; }
-            .stButton button { background: #21262d; color: #c9d1d9; border-color: #30363d; }
-            .stDataFrame { background: #161b22; }
-            </style>
-            """, unsafe_allow_html=True)
-
-        st.divider()
-
         # ── 底部信息 ──
         st.markdown(f"""
         <div style="font-size:0.7rem;color:{TEXT_SECONDARY};">
