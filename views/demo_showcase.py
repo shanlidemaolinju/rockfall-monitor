@@ -194,7 +194,7 @@ def page_demo_showcase():
             ("🟢", "T₀ 正常监测", "#2E7D32", "#E8F5E9",
              "系统持续监测边坡状态，MOG2运动检测+YOLO落石识别双重引擎运行中"),
             ("🔵", "T₁ IV级·一般预警", ALERT_COLORS["blue"], ALERT_BG["blue"],
-             "首次检测到零星小落石（前兆信号）→ 系统标记为"关注态"，提高采样频率"),
+             "首次检测到零星小落石（前兆信号）→ 系统标记为「关注态」，提高采样频率"),
             ("🟡", "T₂ III级·较重预警", ALERT_COLORS["yellow"], ALERT_BG["yellow"],
              "落石频率/置信度上升 → 触发密度爆发检测 → 推送预警通知至值班人员"),
             ("🟠", "T₃ II级·严重预警", ALERT_COLORS["orange"], ALERT_BG["orange"],
