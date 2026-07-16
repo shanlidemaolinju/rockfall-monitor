@@ -264,15 +264,6 @@ DEMO_SCENES = {
         "source_video": "VID_20230304_153140.mp4",
         "tags": ["钦州", "落石试验", "4K", "示范"],
     },
-    "qinzhou_cam_2": {
-        "title": "钦州监测视频 2",
-        "subtitle": "钦州公路边坡实时监测 — 2.flv",
-        "icon": "Camera",
-        "data_dir": "demo_data/qinzhou_cam_2",
-        "site_id": "qinzhou_s0",
-        "source_video": "2.flv",
-        "tags": ["钦州", "监测摄像头", "实时"],
-    },
     "qinzhou_cam_3": {
         "title": "钦州监测视频 3",
         "subtitle": "钦州公路边坡实时监测 — 3.flv",
