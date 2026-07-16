@@ -1,7 +1,7 @@
 """
 落石监测系统 — Streamlit Web 封装
 =================================
-RockGuard v2.2.0 · 公路落石灾害监测预警系统
+RockGuard v2.3.0 · 公路落石灾害监测预警系统
 
 启动: streamlit run app.py
 
