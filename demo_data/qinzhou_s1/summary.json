@@ -1,5 +1,5 @@
 {
-  "name": "qinzhou_cam_3",
+  "name": "qinzhou_test_b",
   "video": {
     "file": "VID_20230304_153140.mp4",
     "total_frames": 2783,
@@ -8,97 +8,97 @@
     "duration_sec": 46.4
   },
   "detection": {
-    "processed_frames": 200,
-    "max_frames": 200,
+    "processed_frames": 500,
+    "max_frames": 500,
     "stride": 2,
     "img_size": 640,
-    "elapsed_sec": 185.7,
+    "elapsed_sec": 428.5,
     "device": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel"
   },
   "alerts": {
-    "total_alert_frames": 0,
+    "total_alert_frames": 14,
     "red": 0,
     "orange": 0,
-    "yellow": 0,
+    "yellow": 14,
     "blue": 0
   },
   "key_frames": [
     {
       "index": 0,
-      "frame_idx": 2,
-      "time_sec": 0.03,
-      "alert_level": "green",
-      "track_count": 0,
-      "max_confidence": 0,
-      "thumbnail": "frames/000_green.jpg"
+      "frame_idx": 406,
+      "time_sec": 6.76,
+      "alert_level": "yellow",
+      "track_count": 2,
+      "max_confidence": 0.1913,
+      "thumbnail": "frames/000_yellow.jpg"
     },
     {
       "index": 1,
-      "frame_idx": 4,
-      "time_sec": 0.07,
-      "alert_level": "green",
-      "track_count": 0,
-      "max_confidence": 0,
-      "thumbnail": "frames/001_green.jpg"
+      "frame_idx": 408,
+      "time_sec": 6.8,
+      "alert_level": "yellow",
+      "track_count": 2,
+      "max_confidence": 0.1913,
+      "thumbnail": "frames/001_yellow.jpg"
     },
     {
       "index": 2,
-      "frame_idx": 6,
-      "time_sec": 0.1,
-      "alert_level": "green",
-      "track_count": 0,
-      "max_confidence": 0,
-      "thumbnail": "frames/002_green.jpg"
+      "frame_idx": 410,
+      "time_sec": 6.83,
+      "alert_level": "yellow",
+      "track_count": 2,
+      "max_confidence": 0.1913,
+      "thumbnail": "frames/002_yellow.jpg"
     },
     {
       "index": 3,
-      "frame_idx": 8,
-      "time_sec": 0.13,
-      "alert_level": "green",
-      "track_count": 0,
-      "max_confidence": 0,
-      "thumbnail": "frames/003_green.jpg"
+      "frame_idx": 412,
+      "time_sec": 6.86,
+      "alert_level": "yellow",
+      "track_count": 2,
+      "max_confidence": 0.1913,
+      "thumbnail": "frames/003_yellow.jpg"
     },
     {
       "index": 4,
-      "frame_idx": 10,
-      "time_sec": 0.17,
-      "alert_level": "green",
-      "track_count": 0,
-      "max_confidence": 0,
-      "thumbnail": "frames/004_green.jpg"
+      "frame_idx": 414,
+      "time_sec": 6.9,
+      "alert_level": "yellow",
+      "track_count": 2,
+      "max_confidence": 0.1913,
+      "thumbnail": "frames/004_yellow.jpg"
     },
     {
       "index": 5,
-      "frame_idx": 12,
-      "time_sec": 0.2,
-      "alert_level": "green",
-      "track_count": 0,
-      "max_confidence": 0,
-      "thumbnail": "frames/005_green.jpg"
+      "frame_idx": 416,
+      "time_sec": 6.93,
+      "alert_level": "yellow",
+      "track_count": 2,
+      "max_confidence": 0.1913,
+      "thumbnail": "frames/005_yellow.jpg"
     },
     {
       "index": 6,
-      "frame_idx": 14,
-      "time_sec": 0.23,
-      "alert_level": "green",
-      "track_count": 0,
-      "max_confidence": 0,
-      "thumbnail": "frames/006_green.jpg"
+      "frame_idx": 418,
+      "time_sec": 6.96,
+      "alert_level": "yellow",
+      "track_count": 2,
+      "max_confidence": 0.1913,
+      "thumbnail": "frames/006_yellow.jpg"
     },
     {
       "index": 7,
-      "frame_idx": 16,
-      "time_sec": 0.27,
-      "alert_level": "green",
-      "track_count": 0,
-      "max_confidence": 0,
-      "thumbnail": "frames/007_green.jpg"
+      "frame_idx": 436,
+      "time_sec": 7.26,
+      "alert_level": "yellow",
+      "track_count": 1,
+      "max_confidence": 0.1502,
+      "thumbnail": "frames/007_yellow.jpg"
     },
     {
       "index": 8,
-      "frame_idx": 18,
-      "time_sec": 0.3,
+      "frame_idx": 2,
+      "time_sec": 0.03,
       "alert_level": "green",
       "track_count": 0,
       "max_confidence": 0,
@@ -106,8 +106,8 @@
     },
     {
       "index": 9,
-      "frame_idx": 20,
-      "time_sec": 0.33,
+      "frame_idx": 4,
+      "time_sec": 0.07,
       "alert_level": "green",
       "track_count": 0,
       "max_confidence": 0,
@@ -115,8 +115,8 @@
     },
     {
       "index": 10,
-      "frame_idx": 22,
-      "time_sec": 0.37,
+      "frame_idx": 6,
+      "time_sec": 0.1,
       "alert_level": "green",
       "track_count": 0,
       "max_confidence": 0,
@@ -124,8 +124,8 @@
     },
     {
       "index": 11,
-      "frame_idx": 24,
-      "time_sec": 0.4,
+      "frame_idx": 8,
+      "time_sec": 0.13,
       "alert_level": "green",
       "track_count": 0,
       "max_confidence": 0,
@@ -133,8 +133,8 @@
     },
     {
       "index": 12,
-      "frame_idx": 26,
-      "time_sec": 0.43,
+      "frame_idx": 10,
+      "time_sec": 0.17,
       "alert_level": "green",
       "track_count": 0,
       "max_confidence": 0,
@@ -142,8 +142,8 @@
     },
     {
       "index": 13,
-      "frame_idx": 28,
-      "time_sec": 0.47,
+      "frame_idx": 12,
+      "time_sec": 0.2,
       "alert_level": "green",
       "track_count": 0,
       "max_confidence": 0,
@@ -151,8 +151,8 @@
     },
     {
       "index": 14,
-      "frame_idx": 30,
-      "time_sec": 0.5,
+      "frame_idx": 14,
+      "time_sec": 0.23,
       "alert_level": "green",
       "track_count": 0,
       "max_confidence": 0,
@@ -160,8 +160,8 @@
     },
     {
       "index": 15,
-      "frame_idx": 32,
-      "time_sec": 0.53,
+      "frame_idx": 16,
+      "time_sec": 0.27,
       "alert_level": "green",
       "track_count": 0,
       "max_confidence": 0,
@@ -169,8 +169,8 @@
     },
     {
       "index": 16,
-      "frame_idx": 34,
-      "time_sec": 0.57,
+      "frame_idx": 18,
+      "time_sec": 0.3,
       "alert_level": "green",
       "track_count": 0,
       "max_confidence": 0,
@@ -178,8 +178,8 @@
     },
     {
       "index": 17,
-      "frame_idx": 36,
-      "time_sec": 0.6,
+      "frame_idx": 20,
+      "time_sec": 0.33,
       "alert_level": "green",
       "track_count": 0,
       "max_confidence": 0,
@@ -187,8 +187,8 @@
     },
     {
       "index": 18,
-      "frame_idx": 38,
-      "time_sec": 0.63,
+      "frame_idx": 22,
+      "time_sec": 0.37,
       "alert_level": "green",
       "track_count": 0,
       "max_confidence": 0,
@@ -196,8 +196,8 @@
     },
     {
       "index": 19,
-      "frame_idx": 40,
-      "time_sec": 0.67,
+      "frame_idx": 24,
+      "time_sec": 0.4,
       "alert_level": "green",
       "track_count": 0,
       "max_confidence": 0,

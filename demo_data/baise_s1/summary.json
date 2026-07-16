@@ -8,18 +8,18 @@
     "duration_sec": 13.9
   },
   "detection": {
-    "processed_frames": 200,
-    "max_frames": 200,
+    "processed_frames": 416,
+    "max_frames": 500,
     "stride": 2,
     "img_size": 640,
-    "elapsed_sec": 383.1,
+    "elapsed_sec": 807.7,
     "device": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel"
   },
   "alerts": {
-    "total_alert_frames": 84,
+    "total_alert_frames": 133,
     "red": 43,
-    "orange": 32,
-    "yellow": 9,
+    "orange": 48,
+    "yellow": 42,
     "blue": 0
   },
   "key_frames": [
@@ -109,7 +109,7 @@
       "frame_idx": 236,
       "time_sec": 3.95,
       "alert_level": "orange",
-      "track_count": 1,
+      "track_count": 3,
       "max_confidence": 0.4689,
       "thumbnail": "frames/009_orange.jpg"
     },
@@ -118,7 +118,7 @@
       "frame_idx": 238,
       "time_sec": 3.98,
       "alert_level": "orange",
-      "track_count": 1,
+      "track_count": 3,
       "max_confidence": 0.4689,
       "thumbnail": "frames/010_orange.jpg"
     },
@@ -127,7 +127,7 @@
       "frame_idx": 240,
       "time_sec": 4.01,
       "alert_level": "orange",
-      "track_count": 1,
+      "track_count": 3,
       "max_confidence": 0.4689,
       "thumbnail": "frames/011_orange.jpg"
     },
@@ -136,7 +136,7 @@
       "frame_idx": 242,
       "time_sec": 4.05,
       "alert_level": "orange",
-      "track_count": 1,
+      "track_count": 3,
       "max_confidence": 0.4689,
       "thumbnail": "frames/012_orange.jpg"
     },
@@ -145,7 +145,7 @@
       "frame_idx": 244,
       "time_sec": 4.08,
       "alert_level": "orange",
-      "track_count": 1,
+      "track_count": 4,
       "max_confidence": 0.4689,
       "thumbnail": "frames/013_orange.jpg"
     },
@@ -154,7 +154,7 @@
       "frame_idx": 246,
       "time_sec": 4.11,
       "alert_level": "orange",
-      "track_count": 1,
+      "track_count": 4,
       "max_confidence": 0.4689,
       "thumbnail": "frames/014_orange.jpg"
     },
@@ -163,7 +163,7 @@
       "frame_idx": 248,
       "time_sec": 4.15,
       "alert_level": "orange",
-      "track_count": 1,
+      "track_count": 4,
       "max_confidence": 0.4597,
       "thumbnail": "frames/015_orange.jpg"
     },
@@ -181,62 +181,62 @@
       "frame_idx": 182,
       "time_sec": 3.04,
       "alert_level": "yellow",
-      "track_count": 2,
+      "track_count": 3,
       "max_confidence": 0.5476,
       "thumbnail": "frames/017_yellow.jpg"
     },
     {
       "index": 18,
-      "frame_idx": 70,
-      "time_sec": 1.17,
+      "frame_idx": 638,
+      "time_sec": 10.67,
       "alert_level": "yellow",
       "track_count": 1,
-      "max_confidence": 0.1808,
+      "max_confidence": 0.4329,
       "thumbnail": "frames/018_yellow.jpg"
     },
     {
       "index": 19,
-      "frame_idx": 72,
-      "time_sec": 1.2,
+      "frame_idx": 640,
+      "time_sec": 10.7,
       "alert_level": "yellow",
       "track_count": 1,
-      "max_confidence": 0.1808,
+      "max_confidence": 0.4329,
       "thumbnail": "frames/019_yellow.jpg"
     },
     {
       "index": 20,
-      "frame_idx": 74,
-      "time_sec": 1.24,
+      "frame_idx": 642,
+      "time_sec": 10.73,
       "alert_level": "yellow",
       "track_count": 1,
-      "max_confidence": 0.1808,
+      "max_confidence": 0.4329,
       "thumbnail": "frames/020_yellow.jpg"
     },
     {
       "index": 21,
-      "frame_idx": 76,
-      "time_sec": 1.27,
+      "frame_idx": 644,
+      "time_sec": 10.77,
       "alert_level": "yellow",
       "track_count": 1,
-      "max_confidence": 0.1808,
+      "max_confidence": 0.4329,
       "thumbnail": "frames/021_yellow.jpg"
     },
     {
       "index": 22,
-      "frame_idx": 78,
-      "time_sec": 1.3,
+      "frame_idx": 646,
+      "time_sec": 10.8,
       "alert_level": "yellow",
       "track_count": 1,
-      "max_confidence": 0.1808,
+      "max_confidence": 0.4329,
       "thumbnail": "frames/022_yellow.jpg"
     },
     {
       "index": 23,
-      "frame_idx": 80,
-      "time_sec": 1.34,
+      "frame_idx": 648,
+      "time_sec": 10.83,
       "alert_level": "yellow",
       "track_count": 1,
-      "max_confidence": 0.1808,
+      "max_confidence": 0.4329,
       "thumbnail": "frames/023_yellow.jpg"
     }
   ]

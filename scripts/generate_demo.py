@@ -223,20 +223,16 @@ def main():
         saved_frames = []
         for i, fr in enumerate(key_frames):
             frame_idx = fr["frame"]
-            # 优先找检测器保存的标注帧
-            orig_path = _THIS_DIR / "data" / "results" / f"stream_{frame_idx:06d}.jpg"
             thumb_name = f"{i:03d}_{fr.get('alert_level', 'green')}.jpg"
             thumb_path = frames_dir / thumb_name
 
+            # 始终从视频中提取原始帧 (不依赖 data/results/stream_*.jpg 缓存，
+            # 因为不同视频的帧号会冲突，导致错误视频的画面被复用)
             img = None
-            if orig_path.exists():
-                img = cv2.imread(str(orig_path))
-            # 回退: 从视频中提取原始帧
-            if img is None:
-                cap_raw.set(cv2.CAP_PROP_POS_FRAMES, frame_idx - 1)
-                ret, raw_frame = cap_raw.read()
-                if ret:
-                    img = raw_frame
+            cap_raw.set(cv2.CAP_PROP_POS_FRAMES, frame_idx - 1)
+            ret, raw_frame = cap_raw.read()
+            if ret:
+                img = raw_frame
             if img is not None:
                 h_orig, w_orig = img.shape[:2]
                 img = resize_frame(img, max_width=480)
@@ -362,6 +358,15 @@ def main():
         print(f"   📊 摘要: summary.json")
         print(f"   📋 结果: result.json")
         print(f"   🔴 {level_counts['red']} 🟠 {level_counts['orange']} 🟡 {level_counts['yellow']} 🔵 {level_counts['blue']}")
+        # 清理 results 缓存，防止不同视频的帧号冲突污染下次生成
+        import glob as _glob
+        _cleaned = 0
+        for _f in _glob.glob(str(_THIS_DIR / "data" / "results" / "stream_*.jpg")):
+            _f_path = Path(_f)
+            _f_path.unlink(missing_ok=True)
+            _cleaned += 1
+        if _cleaned > 0:
+            print(f"   🧹 清理 {_cleaned} 个临时帧缓存")
         print("=" * 50)
     else:
         print(f"❌ 检测失败: {result}")
