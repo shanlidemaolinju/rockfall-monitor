@@ -179,6 +179,51 @@ def page_demo_showcase():
             </div>
             """, unsafe_allow_html=True)
 
+    # ── 宜宾场景专属: 提前预警升级时间线 ──
+    if active_sid == "yibin_s1":
+        st.markdown(f"""
+        <div style="display:flex;align-items:center;gap:12px;margin:1.25rem 0 0.75rem 0;">
+            <div style="width:4px;height:24px;background:#D32F2F;border-radius:2px;"></div>
+            <div style="font-weight:600;font-size:1rem;color:{TEXT_PRIMARY};">⏱️ 提前预警 — 四级升级时间线</div>
+            <div class="alert-badge red" style="font-size:0.65rem;">核心亮点</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # 预警升级卡片
+        stages = [
+            ("🟢", "T₀ 正常监测", "#2E7D32", "#E8F5E9",
+             "系统持续监测边坡状态，MOG2运动检测+YOLO落石识别双重引擎运行中"),
+            ("🔵", "T₁ IV级·一般预警", ALERT_COLORS["blue"], ALERT_BG["blue"],
+             "首次检测到零星小落石（前兆信号）→ 系统标记为"关注态"，提高采样频率"),
+            ("🟡", "T₂ III级·较重预警", ALERT_COLORS["yellow"], ALERT_BG["yellow"],
+             "落石频率/置信度上升 → 触发密度爆发检测 → 推送预警通知至值班人员"),
+            ("🟠", "T₃ II级·严重预警", ALERT_COLORS["orange"], ALERT_BG["orange"],
+             "持续落石+大粒径检测 → 声光报警激活 → 建议封锁危险路段"),
+            ("🔴", "T₄ I级·特别严重", ALERT_COLORS["red"], ALERT_BG["red"],
+             "大规模崩塌即将发生 → 最高级别警报 → 立即启动应急预案"),
+        ]
+
+        for icon, title, color, bg, desc in stages:
+            st.markdown(f"""
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:0.6rem 0.8rem;
+                        background:{bg};border-radius:8px;margin-bottom:0.4rem;
+                        border-left:4px solid {color};">
+                <div style="font-size:1.3rem;line-height:1.2;">{icon}</div>
+                <div style="flex:1;">
+                    <div style="font-weight:700;font-size:0.85rem;color:{color};">{title}</div>
+                    <div style="font-size:0.75rem;color:{TEXT_SECONDARY};margin-top:0.15rem;">{desc}</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div style="padding:0.5rem 0.8rem;background:#FFF3E0;border-radius:6px;margin-top:0.5rem;
+                    font-size:0.75rem;color:#E65100;border:1px dashed #E65100;">
+            💡 <b>核心价值:</b> RockGuard 在崩塌发生前 <b>T₁→T₄</b> 提供多级递进预警窗口，
+            从首次前兆落石到最终红色警报，为交通管制和人员疏散争取关键的 <b>数分钟至数十分钟</b> 反应时间。
+        </div>
+        """, unsafe_allow_html=True)
+
     # ── 第三行: 关键帧查看器 ──
     if key_frames:
         st.markdown(f"""
