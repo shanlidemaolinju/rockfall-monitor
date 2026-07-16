@@ -74,53 +74,89 @@ def main():
     print(f"🖥️  推理设备: {detector._device_name}")
     print()
 
-    # ── ROI 自动检测 (FastSAM → 轮廓提取, 与桌面端一致) ──
-    print("🔍 自动检测边坡 ROI...")
+    # ── ROI 加载: 优先已保存配置 → FastSAM 自动检测 → 默认兜底 ──
     cap_roi = cv2.VideoCapture(str(video_path))
     fw = int(cap_roi.get(cv2.CAP_PROP_FRAME_WIDTH))
     fh = int(cap_roi.get(cv2.CAP_PROP_FRAME_HEIGHT))
     polygon = None
     slope_mask = None
-    try:
-        from rockfall.fastsam_road import auto_segment_from_cap
-        road_mask, roi_mask = auto_segment_from_cap(cap_roi, fw, fh)
-        if roi_mask is not None and roi_mask.any():
-            # 质量守卫 — 与 desktop/ui/video_widget.py 对齐
-            road_pct = (road_mask > 0).sum() / (fw * fh) * 100 if road_mask is not None else 0
-            slope_pct = (roi_mask > 0).sum() / (fw * fh) * 100
-            if road_pct > 95 or slope_pct < 5:
-                # 道路占比过大或边坡过少 → 质量异常，使用默认ROI
-                print(f"   [FastSAM] 质量异常(道路{road_pct:.0f}% 边坡{slope_pct:.0f}%), 使用默认ROI")
-            else:
-                # 从 mask 提取轮廓 → 多边形 (与 desktop/ui/video_widget.py 一致)
-                contours, _ = cv2.findContours(
-                    roi_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                got_polygon = False
-                for cnt in sorted(contours, key=cv2.contourArea, reverse=True):
-                    if cv2.contourArea(cnt) < fw * fh * 0.03:
+
+    # Step 1: 尝试加载已保存的 ROI 配置 (桌面端手动框选保存的)
+    from rockfall.config import ROI_CONFIG_PATH as _ROI_CFG_PATH
+    if _ROI_CFG_PATH.exists():
+        try:
+            roi_data = json.loads(_ROI_CFG_PATH.read_text(encoding="utf-8"))
+            video_path_str = str(video_path.resolve())
+            # 匹配: 精确路径 或 文件名
+            for key, entry in roi_data.items():
+                key_path = Path(key)
+                if str(key_path) == video_path_str or key_path.name == video_path.name:
+                    saved_w = entry.get("frame_w", 0)
+                    saved_h = entry.get("frame_h", 0)
+                    if saved_w == fw and saved_h == fh:
+                        polygon = np.array(entry["polygon"], np.int32)
+                        # 尝试加载 mask 文件
+                        mask_file = entry.get("mask_file")
+                        if mask_file and Path(mask_file).exists():
+                            slope_file = entry.get("slope_file")
+                            if slope_file and Path(slope_file).exists():
+                                slope_mask = cv2.imread(slope_file, cv2.IMREAD_GRAYSCALE)
+                            else:
+                                road_mask = cv2.imread(mask_file, cv2.IMREAD_GRAYSCALE)
+                                if road_mask is not None:
+                                    slope_mask = 255 - road_mask
+                        print(f"   [已保存] 加载手动ROI: {len(polygon)}顶点 (来源: {key_path.name})")
                         break
-                    eps = 0.003 * cv2.arcLength(cnt, True)
-                    poly = cv2.approxPolyDP(cnt, eps, True).squeeze(1)
-                    if poly.ndim == 1:
-                        poly = poly.reshape(-1, 2)
-                    if not np.array_equal(poly[0], poly[-1]):
-                        poly = np.vstack([poly, poly[0:1]])
-                    polygon = poly.astype(np.int32)
-                    got_polygon = True
-                    break
-                if got_polygon:
-                    # 保存 slope_mask 供检测器做置信度调整
-                    slope_mask = roi_mask
-                    print(f"   [FastSAM] 边坡{slope_pct:.0f}% 道路{road_pct:.0f}% → {len(polygon)}顶点多边形")
+        except Exception as e:
+            print(f"   [已保存] 加载失败: {e}")
+
+    # Step 2: 无已保存配置 → FastSAM 自动检测
+    if polygon is None:
+        print("🔍 自动检测边坡 ROI (FastSAM)...")
+        try:
+            from rockfall.fastsam_road import auto_segment_from_cap
+            road_mask, roi_mask = auto_segment_from_cap(cap_roi, fw, fh)
+            if roi_mask is not None and roi_mask.any():
+                road_pct = (road_mask > 0).sum() / (fw * fh) * 100 if road_mask is not None else 0
+                slope_pct = (roi_mask > 0).sum() / (fw * fh) * 100
+                if road_pct > 95 or slope_pct < 5:
+                    print(f"   [FastSAM] 质量异常(道路{road_pct:.0f}% 边坡{slope_pct:.0f}%), 使用默认ROI")
                 else:
-                    print(f"   [FastSAM] 轮廓提取失败(边坡{slope_pct:.0f}% 道路{road_pct:.0f}%), 使用默认ROI")
-        else:
-            print("   [FastSAM] 返回空mask, 使用默认ROI")
-    except Exception as e:
-        print(f"   [FastSAM] 异常: {e}, 使用默认ROI")
+                    contours, _ = cv2.findContours(
+                        roi_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                    polygons = []
+                    for cnt in sorted(contours, key=cv2.contourArea, reverse=True):
+                        if cv2.contourArea(cnt) < fw * fh * 0.03:
+                            break
+                        if len(polygons) >= 3:
+                            break
+                        eps = 0.003 * cv2.arcLength(cnt, True)
+                        poly = cv2.approxPolyDP(cnt, eps, True).squeeze(1)
+                        if poly.ndim == 1:
+                            poly = poly.reshape(-1, 2)
+                        if not np.array_equal(poly[0], poly[-1]):
+                            poly = np.vstack([poly, poly[0:1]])
+                        polygons.append(poly.astype(np.int32))
+                    if polygons:
+                        # 合并多个轮廓为单个多边形 (取凸包)
+                        if len(polygons) == 1:
+                            polygon = polygons[0]
+                        else:
+                            all_pts = np.vstack(polygons)
+                            hull = cv2.convexHull(all_pts.astype(np.float32))
+                            polygon = hull.squeeze(1).astype(np.int32)
+                        slope_mask = roi_mask
+                        print(f"   [FastSAM] 边坡{slope_pct:.0f}% 道路{road_pct:.0f}% → {len(polygon)}顶点多边形 ({len(polygons)}个轮廓)")
+                    else:
+                        print(f"   [FastSAM] 轮廓提取失败(边坡{slope_pct:.0f}% 道路{road_pct:.0f}%), 使用默认ROI")
+            else:
+                print("   [FastSAM] 返回空mask, 使用默认ROI")
+        except Exception as e:
+            print(f"   [FastSAM] 异常: {e}, 使用默认ROI")
+
     cap_roi.release()
 
-    # 兜底: 默认多边形
+    # Step 3: 最终兜底
     if polygon is None:
         polygon = RockDetector._default_polygon(fw, fh)
         print(f"   使用默认ROI: {len(polygon)}顶点")
